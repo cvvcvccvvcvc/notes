@@ -9,6 +9,7 @@ import {
   FileText,
   GripVertical,
   History,
+  ListTodo,
   MoreHorizontal,
   NotebookPen,
   Plus,
@@ -39,7 +40,9 @@ import {
   type Note,
   type Task,
   type TaskColor,
+  type TaskGroup,
 } from '@/lib/data';
+import { prepareAppData, UNSORTED_GROUP_ID } from '@/lib/migrations';
 import { loadData, saveData } from '@/lib/storage';
 import {
   SortableDropZone,
@@ -51,7 +54,7 @@ import { importPreviewSchedule } from '@/lib/preview-schedule';
 import { paragraphRange, type TextRange } from '@/lib/paragraph';
 import { NoteEditor } from '@/lib/note-editor';
 
-type View = 'today' | 'notes' | 'history';
+type View = 'today' | 'backlog' | 'notes' | 'history';
 type SaveState = 'loading' | 'saving' | 'saved' | 'error';
 type UndoState = {
   message: string;
@@ -185,11 +188,11 @@ export default function Home() {
 
   useEffect(() => {
     let live = true;
-    loadData()
+    (dataRef.current ? Promise.resolve(dataRef.current) : loadData())
       .then((stored) => {
         if (!live) return;
-        const initial = importPreviewSchedule(
-          stored ?? createDemoData(todayKey),
+        const initial = prepareAppData(
+          importPreviewSchedule(stored ?? createDemoData(todayKey), todayKey),
           todayKey,
         );
         dataRef.current = initial;
@@ -461,6 +464,226 @@ export default function Home() {
     updateTask(day, id, (task) => ({ ...task, color }));
   }
 
+  function updateBacklog(change: (groups: TaskGroup[]) => TaskGroup[]) {
+    commit((current) => ({
+      ...current,
+      backlog: change(current.backlog ?? []),
+    }));
+  }
+
+  function addBacklogGroup() {
+    const id = uid();
+    updateBacklog((groups) => [
+      ...groups,
+      { id, title: 'Новая группа', tasks: [] },
+    ]);
+    return id;
+  }
+
+  function renameBacklogGroup(id: string, title: string) {
+    updateBacklog((groups) =>
+      groups.map((group) => (group.id === id ? { ...group, title } : group)),
+    );
+  }
+
+  function removeBacklogGroup(id: string) {
+    if (id === UNSORTED_GROUP_ID) return;
+    updateBacklog((groups) => {
+      const removed = groups.find((group) => group.id === id);
+      if (!removed) return groups;
+      return groups
+        .filter((group) => group.id !== id)
+        .map((group) =>
+          group.id === UNSORTED_GROUP_ID
+            ? {
+                ...group,
+                tasks: [
+                  ...group.tasks,
+                  ...removed.tasks.map((task) => ({
+                    ...task,
+                    backlogGroupId: UNSORTED_GROUP_ID,
+                  })),
+                ],
+              }
+            : group,
+        );
+    });
+  }
+
+  function addBacklogTask(groupId: string) {
+    const id = uid();
+    updateBacklog((groups) =>
+      groups.map((group) =>
+        group.id === groupId
+          ? {
+              ...group,
+              tasks: [
+                ...group.tasks,
+                { id, text: '', intervals: [], backlogGroupId: groupId },
+              ],
+            }
+          : group,
+      ),
+    );
+    return id;
+  }
+
+  function updateBacklogTask(
+    groupId: string,
+    id: string,
+    change: (task: Task) => Task,
+  ) {
+    updateBacklog((groups) =>
+      groups.map((group) =>
+        group.id === groupId
+          ? {
+              ...group,
+              tasks: group.tasks.map((task) =>
+                task.id === id ? change(task) : task,
+              ),
+            }
+          : group,
+      ),
+    );
+  }
+
+  function moveBacklogTask(
+    sourceGroupId: string,
+    id: string,
+    targetGroupId: string,
+    targetId?: string,
+  ) {
+    updateBacklog((groups) => {
+      const source = groups.find((group) => group.id === sourceGroupId);
+      const task = source?.tasks.find((candidate) => candidate.id === id);
+      if (!source || !task) return groups;
+      const sourceTargetIndex = source.tasks.findIndex(
+        (candidate) => candidate.id === targetId,
+      );
+      const moved = { ...task, backlogGroupId: targetGroupId };
+      return groups.map((group) => {
+        if (sourceGroupId === targetGroupId && group.id === sourceGroupId) {
+          const tasks = group.tasks.filter((candidate) => candidate.id !== id);
+          if (sourceTargetIndex < 0) return group;
+          tasks.splice(Math.min(sourceTargetIndex, tasks.length), 0, moved);
+          return { ...group, tasks };
+        }
+        if (group.id === sourceGroupId)
+          return {
+            ...group,
+            tasks: group.tasks.filter((candidate) => candidate.id !== id),
+          };
+        if (group.id === targetGroupId) {
+          const tasks = [...group.tasks];
+          const targetIndex = tasks.findIndex(
+            (candidate) => candidate.id === targetId,
+          );
+          tasks.splice(targetIndex < 0 ? tasks.length : targetIndex, 0, moved);
+          return { ...group, tasks };
+        }
+        return group;
+      });
+    });
+  }
+
+  function moveBacklogTaskWithinGroup(
+    groupId: string,
+    id: string,
+    direction: -1 | 1,
+  ) {
+    updateBacklog((groups) =>
+      groups.map((group) => {
+        if (group.id !== groupId) return group;
+        const from = group.tasks.findIndex((task) => task.id === id);
+        const to = from + direction;
+        if (from < 0 || to < 0 || to >= group.tasks.length) return group;
+        const tasks = [...group.tasks];
+        [tasks[from], tasks[to]] = [tasks[to], tasks[from]];
+        return { ...group, tasks };
+      }),
+    );
+  }
+
+  function discardBacklogTask(groupId: string, id: string) {
+    const group = dataRef.current?.backlog?.find(
+      (candidate) => candidate.id === groupId,
+    );
+    const index = group?.tasks.findIndex((task) => task.id === id) ?? -1;
+    const task = group?.tasks[index];
+    if (!task || index < 0) return;
+    commitWithUndo(
+      'Дело убрано',
+      (current) => ({
+        ...current,
+        backlog: (current.backlog ?? []).map((candidate) =>
+          candidate.id === groupId
+            ? {
+                ...candidate,
+                tasks: candidate.tasks.filter((item) => item.id !== id),
+              }
+            : candidate,
+        ),
+      }),
+      (current) => ({
+        ...current,
+        backlog: (current.backlog ?? []).map((candidate) => {
+          if (candidate.id !== groupId) return candidate;
+          if (candidate.tasks.some((item) => item.id === id)) return candidate;
+          const tasks = [...candidate.tasks];
+          tasks.splice(Math.min(index, tasks.length), 0, task);
+          return { ...candidate, tasks };
+        }),
+      }),
+    );
+  }
+
+  function takeBacklogTask(groupId: string, id: string) {
+    const group = dataRef.current?.backlog?.find(
+      (candidate) => candidate.id === groupId,
+    );
+    const index = group?.tasks.findIndex((task) => task.id === id) ?? -1;
+    const task = group?.tasks[index];
+    if (!task || index < 0) return;
+    commitWithUndo(
+      'Перенесено в Сегодня',
+      (current) => ({
+        ...current,
+        backlog: (current.backlog ?? []).map((candidate) =>
+          candidate.id === groupId
+            ? {
+                ...candidate,
+                tasks: candidate.tasks.filter((item) => item.id !== id),
+              }
+            : candidate,
+        ),
+        schedule: {
+          ...current.schedule,
+          [todayKey]: [...(current.schedule[todayKey] ?? []), task],
+        },
+      }),
+      (current) => ({
+        ...current,
+        backlog: (current.backlog ?? []).map((candidate) => {
+          if (candidate.id !== groupId) return candidate;
+          const liveTask = current.schedule[todayKey]?.find(
+            (item) => item.id === id,
+          );
+          if (!liveTask || candidate.tasks.some((item) => item.id === id))
+            return candidate;
+          const tasks = [...candidate.tasks];
+          tasks.splice(Math.min(index, tasks.length), 0, liveTask);
+          return { ...candidate, tasks };
+        }),
+        schedule: {
+          ...current.schedule,
+          [todayKey]: (current.schedule[todayKey] ?? []).filter(
+            (item) => item.id !== id,
+          ),
+        },
+      }),
+    );
+  }
+
   function takeFutureTask(day: string, id: string) {
     if (day <= todayKey) return;
     const tasks = dataRef.current?.schedule[day] ?? [];
@@ -609,6 +832,13 @@ export default function Home() {
         Расписание
       </NavButton>
       <NavButton
+        active={view === 'backlog'}
+        icon={<ListTodo />}
+        onClick={() => setView('backlog')}
+      >
+        Дела / важное
+      </NavButton>
+      <NavButton
         active={view === 'notes'}
         icon={<FileText />}
         onClick={() => setView('notes')}
@@ -687,6 +917,20 @@ export default function Home() {
             setTaskColor={setTaskColor}
             addTaskAfter={addTaskAfter}
             takeFutureTask={takeFutureTask}
+          />
+        )}
+        {view === 'backlog' && (
+          <BacklogView
+            groups={data.backlog ?? []}
+            addGroup={addBacklogGroup}
+            renameGroup={renameBacklogGroup}
+            removeGroup={removeBacklogGroup}
+            addTask={addBacklogTask}
+            updateTask={updateBacklogTask}
+            moveTask={moveBacklogTask}
+            moveTaskWithinGroup={moveBacklogTaskWithinGroup}
+            discardTask={discardBacklogTask}
+            takeTask={takeBacklogTask}
           />
         )}
         {view === 'notes' && (
@@ -1074,6 +1318,424 @@ function TaskColorMenu({
         ))}
       </DropdownMenuSubContent>
     </DropdownMenuSub>
+  );
+}
+
+type BacklogProps = {
+  groups: TaskGroup[];
+  addGroup: () => string;
+  renameGroup: (id: string, title: string) => void;
+  removeGroup: (id: string) => void;
+  addTask: (groupId: string) => string;
+  updateTask: (
+    groupId: string,
+    id: string,
+    change: (task: Task) => Task,
+  ) => void;
+  moveTask: (
+    sourceGroupId: string,
+    id: string,
+    targetGroupId: string,
+    targetId?: string,
+  ) => void;
+  moveTaskWithinGroup: (groupId: string, id: string, direction: -1 | 1) => void;
+  discardTask: (groupId: string, id: string) => void;
+  takeTask: (groupId: string, id: string) => void;
+};
+
+function focusBacklogTask(id?: string) {
+  requestAnimationFrame(() => {
+    const element = id
+      ? document.getElementById(`backlog-task-${id}`)
+      : document.querySelector<HTMLElement>('.backlog-add-task');
+    element?.focus({ preventScroll: true });
+    element?.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+function backlogShortcut(
+  event: React.KeyboardEvent<HTMLElement>,
+  actions: {
+    edit: () => void;
+    navigate: (direction: -1 | 1) => void;
+    move: (direction: -1 | 1) => void;
+    take: () => void;
+    discard: () => void;
+  },
+) {
+  if (
+    event.nativeEvent.isComposing ||
+    event.shiftKey ||
+    event.altKey ||
+    (!event.metaKey &&
+      !['ArrowUp', 'ArrowDown', 'Enter'].includes(event.key)) ||
+    (event.metaKey &&
+      !['ArrowUp', 'ArrowDown', 'Enter', 'Backspace', 'Delete'].includes(
+        event.key,
+      ))
+  )
+    return false;
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.repeat) return true;
+  if (!event.metaKey && event.key === 'Enter') actions.edit();
+  else if (!event.metaKey) actions.navigate(event.key === 'ArrowUp' ? -1 : 1);
+  else if (event.key === 'ArrowUp' || event.key === 'ArrowDown')
+    actions.move(event.key === 'ArrowUp' ? -1 : 1);
+  else if (event.key === 'Enter') actions.take();
+  else actions.discard();
+  return true;
+}
+
+function BacklogView(props: BacklogProps) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const entries = props.groups.flatMap((group) =>
+    group.tasks.map((task) => ({ groupId: group.id, id: task.id })),
+  );
+
+  function select(id: string) {
+    setSelectedId(id);
+    setEditingId(null);
+  }
+
+  function selectRelative(id: string, direction: -1 | 1) {
+    const index = entries.findIndex((entry) => entry.id === id);
+    const target = entries[index + direction];
+    if (!target) return;
+    select(target.id);
+    focusBacklogTask(target.id);
+  }
+
+  function selectAfterRemoval(id: string) {
+    const index = entries.findIndex((entry) => entry.id === id);
+    const target = entries[index + 1] ?? entries[index - 1];
+    setSelectedId(target?.id ?? null);
+    setEditingId(null);
+    focusBacklogTask(target?.id);
+  }
+
+  function addAndEdit(groupId: string) {
+    const id = props.addTask(groupId);
+    setSelectedId(id);
+    setEditingId(id);
+  }
+
+  function groupForTask(id: string) {
+    return props.groups.find((group) =>
+      group.tasks.some((task) => task.id === id),
+    )?.id;
+  }
+
+  function dropTask(sourceId: string, targetId: string) {
+    const sourceGroup = groupForTask(sourceId);
+    const targetGroup = targetId.startsWith('backlog-group:')
+      ? targetId.slice('backlog-group:'.length)
+      : groupForTask(targetId);
+    if (!sourceGroup || !targetGroup) return;
+    props.moveTask(
+      sourceGroup,
+      sourceId,
+      targetGroup,
+      targetId.startsWith('backlog-group:') ? undefined : targetId,
+    );
+    select(sourceId);
+  }
+
+  function addGroup() {
+    const id = props.addGroup();
+    requestAnimationFrame(() => {
+      const input = document.getElementById(`backlog-group-title-${id}`);
+      if (input instanceof HTMLInputElement) {
+        input.focus();
+        input.select();
+      }
+    });
+  }
+
+  return (
+    <div className="backlog-page">
+      <div className="page-heading backlog-heading">
+        <div>
+          <p className="eyebrow">Позже или ещё раз</p>
+          <h1>Дела / важное</h1>
+        </div>
+        <Button className="add-primary" onClick={addGroup}>
+          <Plus /> Добавить группу
+        </Button>
+      </div>
+      <SortableRoot onDrop={dropTask}>
+        <div className="backlog-groups">
+          {props.groups.map((group) => (
+            <section className="backlog-group" key={group.id}>
+              <header className="backlog-group-heading">
+                <input
+                  id={`backlog-group-title-${group.id}`}
+                  className="backlog-group-title"
+                  value={group.title}
+                  readOnly={group.id === UNSORTED_GROUP_ID}
+                  aria-label="Название группы"
+                  onChange={(event) =>
+                    props.renameGroup(group.id, event.target.value)
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') event.currentTarget.blur();
+                  }}
+                />
+                <span className="backlog-count">{group.tasks.length}</span>
+                {group.id !== UNSORTED_GROUP_ID && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      className="more-button"
+                      render={
+                        <button type="button" aria-label="Действия с группой" />
+                      }
+                    >
+                      <MoreHorizontal />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => props.removeGroup(group.id)}
+                      >
+                        Удалить группу → Не разобрано
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </header>
+              <SortableDropZone
+                id={`backlog-group:${group.id}`}
+                className="backlog-list"
+              >
+                <SortableItems items={group.tasks.map((task) => task.id)}>
+                  {group.tasks.map((task, index) => (
+                    <BacklogTaskRow
+                      key={task.id}
+                      task={task}
+                      group={group}
+                      groups={props.groups}
+                      index={index}
+                      selected={selectedId === task.id}
+                      editing={editingId === task.id}
+                      onSelect={() => select(task.id)}
+                      onEdit={() => {
+                        setSelectedId(task.id);
+                        setEditingId(task.id);
+                      }}
+                      onStopEditing={() => {
+                        setEditingId(null);
+                        focusBacklogTask(task.id);
+                      }}
+                      onNavigate={(direction) =>
+                        selectRelative(task.id, direction)
+                      }
+                      onMove={(direction) => {
+                        props.moveTaskWithinGroup(group.id, task.id, direction);
+                        focusBacklogTask(task.id);
+                      }}
+                      onMoveGroup={(targetGroupId) => {
+                        props.moveTask(group.id, task.id, targetGroupId);
+                        select(task.id);
+                        focusBacklogTask(task.id);
+                      }}
+                      onUpdate={(change) =>
+                        props.updateTask(group.id, task.id, change)
+                      }
+                      onTake={() => {
+                        selectAfterRemoval(task.id);
+                        props.takeTask(group.id, task.id);
+                      }}
+                      onDiscard={() => {
+                        selectAfterRemoval(task.id);
+                        props.discardTask(group.id, task.id);
+                      }}
+                    />
+                  ))}
+                </SortableItems>
+                <button
+                  className="backlog-add-task"
+                  onClick={() => addAndEdit(group.id)}
+                >
+                  <Plus /> Добавить дело
+                </button>
+              </SortableDropZone>
+            </section>
+          ))}
+        </div>
+      </SortableRoot>
+    </div>
+  );
+}
+
+function BacklogTaskRow({
+  task,
+  group,
+  groups,
+  index,
+  selected,
+  editing,
+  onSelect,
+  onEdit,
+  onStopEditing,
+  onNavigate,
+  onMove,
+  onMoveGroup,
+  onUpdate,
+  onTake,
+  onDiscard,
+}: {
+  task: Task;
+  group: TaskGroup;
+  groups: TaskGroup[];
+  index: number;
+  selected: boolean;
+  editing: boolean;
+  onSelect: () => void;
+  onEdit: () => void;
+  onStopEditing: () => void;
+  onNavigate: (direction: -1 | 1) => void;
+  onMove: (direction: -1 | 1) => void;
+  onMoveGroup: (groupId: string) => void;
+  onUpdate: (change: (task: Task) => Task) => void;
+  onTake: () => void;
+  onDiscard: () => void;
+}) {
+  const editor = useRef<HTMLTextAreaElement>(null);
+  const {
+    setNodeRef,
+    setActivatorNodeRef,
+    attributes,
+    listeners,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id });
+
+  useEffect(() => {
+    if (editing) {
+      editor.current?.focus();
+      resizeTextarea(editor.current);
+    }
+  }, [editing]);
+
+  function handleShortcut(event: React.KeyboardEvent<HTMLElement>) {
+    return backlogShortcut(event, {
+      edit: onEdit,
+      navigate: onNavigate,
+      move: onMove,
+      take: onTake,
+      discard: onDiscard,
+    });
+  }
+
+  return (
+    <article
+      ref={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform), transition }}
+      className={`backlog-task ${task.color ? `task-color-${task.color}` : ''} ${selected ? 'selected' : ''} ${editing ? 'editing' : ''} ${isDragging ? 'dragging' : ''}`}
+    >
+      <button
+        ref={setActivatorNodeRef}
+        className="drag-handle"
+        {...attributes}
+        {...listeners}
+        onFocus={onSelect}
+        onKeyDown={(event) => {
+          if (!handleShortcut(event)) listeners?.onKeyDown?.(event);
+        }}
+        aria-label="Перетащить дело"
+      >
+        <GripVertical />
+      </button>
+      {editing ? (
+        <Textarea
+          ref={editor}
+          id={`backlog-task-${task.id}`}
+          className="backlog-task-editor"
+          value={task.text}
+          rows={1}
+          onInput={(event) => resizeTextarea(event.currentTarget)}
+          onBlur={() => setTimeout(onStopEditing, 0)}
+          onChange={(event) =>
+            onUpdate((current) => ({
+              ...current,
+              text: event.target.value,
+            }))
+          }
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              onStopEditing();
+            }
+          }}
+        />
+      ) : (
+        <button
+          id={`backlog-task-${task.id}`}
+          className="backlog-task-text"
+          onClick={onSelect}
+          onDoubleClick={onEdit}
+          onFocus={onSelect}
+          onKeyDown={handleShortcut}
+        >
+          {task.text || 'Без названия'}
+        </button>
+      )}
+      <Button
+        className="backlog-take"
+        variant="outline"
+        title="Перенести в Сегодня · ⌘↵"
+        onClick={onTake}
+        onFocus={onSelect}
+        onKeyDown={handleShortcut}
+      >
+        <ArrowUpToLine /> В Сегодня
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className="more-button"
+          onFocus={onSelect}
+          onKeyDown={handleShortcut}
+          render={<button type="button" aria-label="Действия с делом" />}
+        >
+          <MoreHorizontal />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="task-menu" align="end">
+          <DropdownMenuItem disabled={index === 0} onClick={() => onMove(-1)}>
+            Поднять выше
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={index === group.tasks.length - 1}
+            onClick={() => onMove(1)}
+          >
+            Опустить ниже
+          </DropdownMenuItem>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>Перенести в группу</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {groups.map((candidate) => (
+                <DropdownMenuItem
+                  key={candidate.id}
+                  disabled={candidate.id === group.id}
+                  onClick={() => onMoveGroup(candidate.id)}
+                >
+                  {candidate.title || 'Без названия'}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+          <TaskColorMenu
+            color={task.color}
+            onChange={(color) => onUpdate((current) => ({ ...current, color }))}
+          />
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onClick={onDiscard}>
+            Убрать<DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </article>
   );
 }
 

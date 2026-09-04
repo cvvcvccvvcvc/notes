@@ -7,6 +7,7 @@ export type Task = {
   text: string;
   intervals: Interval[];
   color?: TaskColor;
+  backlogGroupId?: string;
   source?: { noteId: string; snapshot: string };
 };
 
@@ -27,10 +28,17 @@ export type Note = {
   pinned?: boolean;
 };
 
+export type TaskGroup = {
+  id: string;
+  title: string;
+  tasks: Task[];
+};
+
 export type AppData = {
-  version: 1;
+  version: number;
   appliedImports?: string[];
   schedule: Record<string, Task[]>;
+  backlog?: TaskGroup[];
   notes: Note[];
   history: HistoryItem[];
 };
