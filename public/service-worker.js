@@ -1,4 +1,4 @@
-const CACHE = 'notes-prototype-v5';
+const CACHE = 'notes-prototype-v6';
 const SHELL = ['/', '/manifest.webmanifest', '/favicon.svg'];
 
 self.addEventListener('install', (event) => {

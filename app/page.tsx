@@ -221,19 +221,21 @@ export default function Home() {
       process.env.NODE_ENV !== 'production'
     )
       return;
+    let refreshing = false;
+    const applyUpdate = () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', applyUpdate);
     navigator.serviceWorker
       .register('/service-worker.js')
-      .then(() => navigator.serviceWorker.ready)
-      .then(() => {
-        if (
-          !navigator.serviceWorker.controller &&
-          !sessionStorage.getItem('notes-sw-reload')
-        ) {
-          sessionStorage.setItem('notes-sw-reload', '1');
-          window.location.reload();
-        }
-      })
       .catch(() => undefined);
+    return () =>
+      navigator.serviceWorker.removeEventListener(
+        'controllerchange',
+        applyUpdate,
+      );
   }, []);
 
   function commit(change: (current: AppData) => AppData) {
@@ -462,6 +464,47 @@ export default function Home() {
 
   function setTaskColor(day: string, id: string, color?: TaskColor) {
     updateTask(day, id, (task) => ({ ...task, color }));
+  }
+
+  function sendTaskToBacklog(day: string, id: string) {
+    const tasks = dataRef.current?.schedule[day] ?? [];
+    const index = tasks.findIndex((task) => task.id === id);
+    const original = tasks[index];
+    if (!original) return;
+    const stamp = Date.now();
+    const task = {
+      ...original,
+      backlogGroupId: original.backlogGroupId ?? UNSORTED_GROUP_ID,
+      intervals: original.intervals.map((interval, position) =>
+        position === original.intervals.length - 1 && interval.end == null
+          ? { ...interval, end: stamp }
+          : interval,
+      ),
+    };
+    commitWithUndo(
+      'Перенесено в Дела',
+      (current) => ({
+        ...current,
+        schedule: {
+          ...current.schedule,
+          [day]: (current.schedule[day] ?? []).filter(
+            (candidate) => candidate.id !== id,
+          ),
+        },
+        backlog: (current.backlog ?? []).map((group) =>
+          group.id === task.backlogGroupId
+            ? { ...group, tasks: [...group.tasks, task] }
+            : group,
+        ),
+      }),
+      (current) => ({
+        ...restoreTask(current, day, original, index),
+        backlog: (current.backlog ?? []).map((group) => ({
+          ...group,
+          tasks: group.tasks.filter((candidate) => candidate.id !== id),
+        })),
+      }),
+    );
   }
 
   function updateBacklog(change: (groups: TaskGroup[]) => TaskGroup[]) {
@@ -836,7 +879,7 @@ export default function Home() {
         icon={<ListTodo />}
         onClick={() => setView('backlog')}
       >
-        Дела / важное
+        Дела
       </NavButton>
       <NavButton
         active={view === 'notes'}
@@ -915,6 +958,7 @@ export default function Home() {
             dropTask={dropTask}
             moveTaskToDay={moveTaskToDay}
             setTaskColor={setTaskColor}
+            sendTaskToBacklog={sendTaskToBacklog}
             addTaskAfter={addTaskAfter}
             takeFutureTask={takeFutureTask}
           />
@@ -1008,6 +1052,7 @@ type ScheduleProps = {
     targetId?: string,
   ) => void;
   setTaskColor: (day: string, id: string, color?: TaskColor) => void;
+  sendTaskToBacklog: (day: string, id: string) => void;
   addTaskAfter: (day: string, id: string) => void;
   takeFutureTask: (day: string, id: string) => void;
 };
@@ -1024,6 +1069,7 @@ type TaskInteractions = {
   onMoveDay: (direction: -1 | 1) => void;
   onToggleTimer?: () => void;
   onSetColor: (color?: TaskColor) => void;
+  onSendToBacklog: () => void;
   onActivate: () => void;
   onDiscard: () => void;
 };
@@ -1161,6 +1207,10 @@ function ScheduleView(props: ScheduleProps) {
     onMoveDay: (direction: -1 | 1) => moveSelectedToDay(day, id, direction),
     onToggleTimer: day === todayKey ? () => props.runTimer(day, id) : undefined,
     onSetColor: (color?: TaskColor) => props.setTaskColor(day, id, color),
+    onSendToBacklog: () => {
+      selectAfterRemoval(day, id);
+      props.sendTaskToBacklog(day, id);
+    },
     onDiscard: () => {
       selectAfterRemoval(day, id);
       props.discardTask(day, id);
@@ -1457,8 +1507,7 @@ function BacklogView(props: BacklogProps) {
     <div className="backlog-page">
       <div className="page-heading backlog-heading">
         <div>
-          <p className="eyebrow">Позже или ещё раз</p>
-          <h1>Дела / важное</h1>
+          <h1>Дела</h1>
         </div>
         <Button className="add-primary" onClick={addGroup}>
           <Plus /> Добавить группу
@@ -1755,6 +1804,7 @@ function FutureTaskRow({
   onMove,
   onMoveDay,
   onSetColor,
+  onSendToBacklog,
   onActivate,
   onDiscard,
   updateTask,
@@ -1888,6 +1938,9 @@ function FutureTaskRow({
             На день позже<DropdownMenuShortcut>⌘→</DropdownMenuShortcut>
           </DropdownMenuItem>
           <TaskColorMenu color={task.color} onChange={onSetColor} />
+          <DropdownMenuItem onClick={onSendToBacklog}>
+            Перенести в Дела
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onClick={onDiscard}>
             Убрать без истории<DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
@@ -1917,6 +1970,7 @@ function TaskRow({
   onMoveDay,
   onToggleTimer,
   onSetColor,
+  onSendToBacklog,
   onActivate,
   onDiscard,
 }: ScheduleProps & {
@@ -2077,6 +2131,9 @@ function TaskRow({
               На завтра<DropdownMenuShortcut>⌘→</DropdownMenuShortcut>
             </DropdownMenuItem>
             <TaskColorMenu color={task.color} onChange={onSetColor} />
+            <DropdownMenuItem onClick={onSendToBacklog}>
+              Перенести в Дела
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={onDiscard}>
               Убрать без истории
