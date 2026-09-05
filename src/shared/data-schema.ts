@@ -11,12 +11,24 @@ export const intervalSchema = z.looseObject({
   end: timestampSchema.optional(),
 });
 
+export const plannedTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+export const dayWindowSchema = z
+  .object({
+    start: plannedTimeSchema.optional(),
+    end: plannedTimeSchema.optional(),
+  })
+  .refine(
+    ({ start, end }) => !start || !end || end > start,
+    'Конец должен быть позже начала',
+  );
+
 export const taskSchema = z.looseObject({
   id: idSchema,
   text: z.string().max(100_000),
   intervals: z.array(intervalSchema).max(10_000),
   color: taskColorSchema.optional(),
   backlogGroupId: idSchema.optional(),
+  plannedStart: plannedTimeSchema.optional(),
   source: z
     .looseObject({
       noteId: idSchema,
@@ -85,6 +97,7 @@ export const appDataSchema = z.looseObject({
   schedule: z.record(z.string(), z.array(taskSchema).max(100_000)),
   backlog: z.array(taskGroupSchema).max(10_000).optional(),
   monthPlanning: monthPlanningSchema.optional(),
+  dayWindows: z.record(z.string(), dayWindowSchema).optional(),
   notes: z.array(noteSchema).max(100_000),
   history: z.array(historyItemSchema).max(1_000_000),
 });

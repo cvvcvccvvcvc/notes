@@ -28,11 +28,7 @@ npm start
 Перед передачей изменений:
 
 ```sh
-npm run format
-npm run lint
-npm run typecheck
-npm test
-npm run build
+npm run verify
 ```
 
 Изменённые пользовательские сценарии дополнительно проходят вручную. Не храните
@@ -47,6 +43,7 @@ npm run build
   синхронизации.
 - [Эксплуатация](docs/operations.md) — безопасное развёртывание на Selectel,
   резервное копирование и откат.
+- [Версии и ветки](docs/versioning.md) — `dev`, production-релизы и SemVer.
 - [AGENTS.md](AGENTS.md) — короткий маршрут для работающих с кодом агентов.
 
 Каталог `../docs` содержит исследовательские и исторические материалы. Он не

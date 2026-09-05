@@ -28,24 +28,56 @@ Session secret должен быть случайным и содержать н
 
 ## Проверка и обновление
 
-До загрузки изменений локально обязательны:
+Локальная полная проверка:
 
 ```sh
-npm run format
-npm run lint
-npm run typecheck
-npm test
-npm run build
+npm run verify
 ```
 
-Исходники копируются в отдельный каталог Notes без `.git`, `node_modules`,
-`dist` и env-файлов. На сервере:
+`.github/workflows/deploy.yml` запускает ту же проверку для push и pull request в
+`dev` и `main`. Развёртывание выполняется только для успешно проверенного commit
+в `main`. Workflow:
+
+1. создаёт согласованный зашифрованный backup;
+2. проверяет, что целевой commit принадлежит `origin/main`;
+3. собирает образ с неизменяемым Git SHA tag и labels версии/revision;
+4. заменяет только контейнер Notes и ждёт его health-check;
+5. проверяет публичный `/healthz`;
+6. при ошибке возвращает предыдущий checkout и образ.
+
+Production checkout находится в `/root/life-notes`, а секретный `.env` остаётся
+неотслеживаемым файлом с правами `0600`. Workflow не перезапускает Caddy и не
+обращается к контейнерам или данным Vocabulary.
+
+### GitHub Actions
+
+Workflow использует GitHub environment `production` и два environment secret:
+
+| Secret | Содержимое |
+| --- | --- |
+| `DEPLOY_SSH_KEY` | полный отдельный приватный SSH-ключ Notes |
+| `DEPLOY_KNOWN_HOSTS` | проверенный `ssh-keyscan` для production host |
+
+Если secrets отсутствуют, CI остаётся рабочим, но deploy явно пропускается.
+Ключ Notes не переиспользуется для Vocabulary и хранится только в GitHub и на
+доверенном recovery-устройстве. Публичная топология находится в
+`deploy/production.env`.
+
+### Ручной повтор deploy
+
+Ручное обновление допустимо только для повтора уже проверенного `main`:
 
 ```sh
-cd /root/life-notes/deploy
-docker compose config --quiet
-docker compose build app
-docker compose up -d app
+cd /root/life-notes
+git fetch origin main
+git checkout --detach origin/main
+export NOTES_IMAGE_TAG="$(git rev-parse HEAD)"
+export NOTES_VERSION="$(sed -n 's/^[[:space:]]*"version":[[:space:]]*"\([^"]*\)".*/\1/p' package.json | head -1)"
+export NOTES_GIT_SHA="$NOTES_IMAGE_TAG"
+systemctl start life-notes-backup.service
+docker compose -f deploy/compose.yml config --quiet
+docker compose -f deploy/compose.yml build app
+docker compose -f deploy/compose.yml up -d --no-deps app
 docker inspect --format '{{.State.Health.Status}}' life-notes-app-1
 ```
 
@@ -110,8 +142,14 @@ volume. Никогда не восстанавливать поверх рабо
 
 ## Откат
 
-Образ помечается неизменяемым `NOTES_IMAGE_TAG`. Для отката вернуть прошлый tag
-в `.env` и выполнить `docker compose up -d app`; Caddy и Vocabulary не трогать.
-Если менялась схема, сначала остановить Notes и восстановить проверенную копию.
-Первоначальный Caddy-маршрут можно вернуть из сохранённого backup только после
-`caddy validate`, затем применить через `caddy reload`.
+Образ помечается полным Git SHA, а его labels содержат SemVer и тот же revision.
+При неуспешном автоматическом health-check workflow возвращает предыдущий Git
+checkout и образ. Для ручного отката выбрать предыдущий production-тег, сделать
+detached checkout и запустить его существующий SHA-образ через
+`NOTES_IMAGE_TAG=<sha> docker compose -f deploy/compose.yml up -d --no-deps app`.
+
+Автоматический rollback не откатывает данные. Если release содержал
+несовместимую миграцию схемы, сначала остановить запись в Notes и восстановить
+проверенный предрелизный backup. Caddy и Vocabulary не трогать. Первоначальный
+Caddy-маршрут можно вернуть из сохранённой копии только после `caddy validate`,
+затем применить через `caddy reload`.

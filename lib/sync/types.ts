@@ -59,6 +59,7 @@ export type TaskLocation =
 
 export type SyncEntityKind =
   | 'task'
+  | 'dayWindow'
   | 'taskGroup'
   | 'note'
   | 'historyItem'

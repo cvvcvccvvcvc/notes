@@ -24,6 +24,7 @@ type TaskRecord = Entity & {
   color: Task['color'];
   backlogGroupId: Task['backlogGroupId'];
   source: Task['source'];
+  plannedStart: Task['plannedStart'];
   location: TaskLocation;
 };
 
@@ -49,6 +50,7 @@ const TASK_FIELDS = [
   'backlogGroupId',
   'source',
   'location',
+  'plannedStart',
 ] as const;
 const GROUP_FIELDS = ['title', 'color'] as const;
 const NOTE_FIELDS = ['title', 'content', 'color', 'pinned'] as const;
@@ -72,6 +74,22 @@ export function mergeAppData(input: {
   const local = indexData(input.local);
   const remote = indexData(input.remote);
   const conflicts: MergeConflict[] = [];
+
+  const windowRecords = (data: AppData) =>
+    new Map(
+      Object.entries(data.dayWindows ?? {}).map(([id, window]) => [
+        id,
+        { id, window },
+      ]),
+    );
+  const dayWindows = mergeEntityMaps(
+    'dayWindow',
+    ['window'],
+    windowRecords(input.base),
+    windowRecords(input.local),
+    windowRecords(input.remote),
+    conflicts,
+  );
 
   const groups = mergeEntityMaps(
     'taskGroup',
@@ -230,6 +248,9 @@ export function mergeAppData(input: {
       input.remote.appliedImports,
     ),
     schedule,
+    dayWindows: Object.fromEntries(
+      [...dayWindows].map(([id, record]) => [id, record.window]),
+    ),
     backlog,
     monthPlanning: {
       rules: monthTemplateRuleOrder.map((id) =>
@@ -383,6 +404,7 @@ function taskRecord(task: Task, location: TaskLocation): TaskRecord {
     color: task.color,
     backlogGroupId: task.backlogGroupId,
     source: cloneValue(task.source),
+    plannedStart: task.plannedStart,
     location,
   };
 }
@@ -391,6 +413,9 @@ function taskFromRecord(record: TaskRecord): Task {
   return {
     id: record.id,
     text: record.text,
+    ...(record.plannedStart === undefined
+      ? {}
+      : { plannedStart: record.plannedStart }),
     intervals: cloneValue(record.intervals),
     ...(record.color === undefined ? {} : { color: record.color }),
     ...(record.backlogGroupId === undefined

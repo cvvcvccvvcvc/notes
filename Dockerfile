@@ -9,6 +9,11 @@ COPY . .
 RUN npm run build && npm prune --omit=dev
 
 FROM node:24-bookworm-slim AS runtime
+ARG NOTES_VERSION=0.0.0
+ARG NOTES_GIT_SHA=unknown
+LABEL org.opencontainers.image.title="Life Notes" \
+  org.opencontainers.image.version="$NOTES_VERSION" \
+  org.opencontainers.image.revision="$NOTES_GIT_SHA"
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
