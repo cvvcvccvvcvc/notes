@@ -5,6 +5,9 @@ services:
     image: life-notes:${NOTES_IMAGE_TAG:-latest}
     build:
       context: ..
+      args:
+        NOTES_VERSION: ${NOTES_VERSION:-0.0.0}
+        NOTES_GIT_SHA: ${NOTES_GIT_SHA:-unknown}
     restart: unless-stopped
     env_file: .env
     environment:

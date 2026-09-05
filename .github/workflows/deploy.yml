@@ -1,0 +1,159 @@
+name: Verify and deploy
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: life-notes-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Verify application
+        run: npm run verify
+
+  deploy:
+    needs: verify
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Load production target
+        run: |
+          set -a
+          . deploy/production.env
+          set +a
+          if [[ ! "$DEPLOY_HOST" =~ ^[0-9]+(\.[0-9]+){3}$ ]]; then
+            echo "::error title=Invalid production target::DEPLOY_HOST must be an IPv4 address."
+            exit 1
+          fi
+          if [[ ! "$APP_DOMAIN" =~ ^[a-z0-9.-]+$ ]]; then
+            echo "::error title=Invalid production target::APP_DOMAIN must be a hostname."
+            exit 1
+          fi
+          printf 'DEPLOY_HOST=%s\nAPP_DOMAIN=%s\n' "$DEPLOY_HOST" "$APP_DOMAIN" >> "$GITHUB_ENV"
+
+      - name: Report missing deployment secrets
+        if: env.DEPLOY_SSH_KEY == '' || env.DEPLOY_KNOWN_HOSTS == ''
+        run: echo "Verification passed; deployment is skipped until production secrets are configured."
+
+      - name: Configure SSH
+        if: env.DEPLOY_SSH_KEY != '' && env.DEPLOY_KNOWN_HOSTS != ''
+        run: |
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" | tr -d '\r' > "$RUNNER_TEMP/life_notes_deploy_key"
+          chmod 600 "$RUNNER_TEMP/life_notes_deploy_key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | tr -d '\r' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          if ! ssh-keygen -y -f "$RUNNER_TEMP/life_notes_deploy_key" > /dev/null 2>&1; then
+            echo "::error title=Invalid DEPLOY_SSH_KEY::Replace the secret with the complete private key."
+            exit 1
+          fi
+          if ! ssh-keygen -F "$DEPLOY_HOST" -f "$HOME/.ssh/known_hosts" > /dev/null; then
+            echo "::error title=Invalid DEPLOY_KNOWN_HOSTS::Replace the secret with ssh-keyscan output for $DEPLOY_HOST."
+            exit 1
+          fi
+
+      - name: Deploy exact production revision
+        if: env.DEPLOY_SSH_KEY != '' && env.DEPLOY_KNOWN_HOSTS != ''
+        run: |
+          ssh -i "$RUNNER_TEMP/life_notes_deploy_key" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o IdentitiesOnly=yes \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=20 \
+            -o StrictHostKeyChecking=yes \
+            root@"$DEPLOY_HOST" \
+            "bash -s -- '$GITHUB_SHA' '$APP_DOMAIN'" <<'REMOTE'
+          set -euo pipefail
+
+          readonly target_commit="$1"
+          readonly app_domain="$2"
+          readonly checkout_path="/root/life-notes"
+
+          cd "$checkout_path"
+          git fetch --quiet --prune origin main
+          if ! git merge-base --is-ancestor "$target_commit" origin/main; then
+            echo "$target_commit is not part of origin/main" >&2
+            exit 1
+          fi
+
+          readonly previous_commit="$(git rev-parse HEAD)"
+          readonly previous_image="$(docker inspect --format '{{.Config.Image}}' life-notes-app-1)"
+          readonly previous_tag="${previous_image#life-notes:}"
+
+          systemctl start life-notes-backup.service
+          git checkout --detach --quiet "$target_commit"
+
+          rollback() {
+            git checkout --detach --quiet "$previous_commit"
+            if [[ "$previous_image" == life-notes:* ]]; then
+              NOTES_IMAGE_TAG="$previous_tag" docker compose -f deploy/compose.yml up -d --no-deps app
+            fi
+          }
+
+          readonly version="$(sed -n 's/^[[:space:]]*"version":[[:space:]]*"\([^"]*\)".*/\1/p' package.json | head -1)"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "package.json does not contain a valid release version" >&2
+            rollback
+            exit 1
+          fi
+
+          if ! (
+            export NOTES_IMAGE_TAG="$target_commit"
+            export NOTES_VERSION="$version"
+            export NOTES_GIT_SHA="$target_commit"
+            docker compose -f deploy/compose.yml config --quiet
+            docker compose -f deploy/compose.yml build app
+            docker compose -f deploy/compose.yml up -d --no-deps app
+
+            healthy=false
+            for _ in $(seq 1 30); do
+              status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' life-notes-app-1)"
+              if [[ "$status" == healthy ]]; then
+                healthy=true
+                break
+              fi
+              if [[ "$status" == unhealthy || "$status" == exited || "$status" == dead ]]; then
+                break
+              fi
+              sleep 2
+            done
+            [[ "$healthy" == true ]]
+            curl --fail --silent --show-error --retry 6 --retry-delay 5 "https://${app_domain}/healthz" > /dev/null
+          ); then
+            docker logs --tail 80 life-notes-app-1 >&2 || true
+            rollback
+            exit 1
+          fi
+
+          docker inspect --format 'deployed={{.Config.Image}} health={{.State.Health.Status}} version={{index .Config.Labels "org.opencontainers.image.version"}} revision={{index .Config.Labels "org.opencontainers.image.revision"}}' life-notes-app-1
+          REMOTE

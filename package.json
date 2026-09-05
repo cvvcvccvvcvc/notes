@@ -16,7 +16,9 @@
     "test": "tsx --test lib/*.test.ts lib/sync/*.test.ts src/server/*.test.ts",
     "password:hash": "tsx src/server/hash-password.ts",
     "lint": "oxlint app components features hooks lib src public/service-worker.js",
-    "format": "oxfmt app components features hooks lib src public/service-worker.js vite.config.ts"
+    "format": "oxfmt app components features hooks lib src public/service-worker.js vite.config.ts",
+    "format:check": "oxfmt --check app components features hooks lib src public/service-worker.js vite.config.ts",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.2",
