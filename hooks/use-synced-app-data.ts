@@ -10,7 +10,12 @@ import {
   putRemoteSnapshot,
   SyncHttpError,
 } from '@/lib/sync/api';
-import { mergeAppData } from '@/lib/sync/merge';
+import {
+  reconcileRemoteSnapshot,
+  reconcileRevisionConflict,
+  sameAppData,
+  type RemoteReconciliation,
+} from '@/lib/sync/reconcile';
 import type {
   MergeConflict,
   RemoteSnapshot,
@@ -32,10 +37,6 @@ function normalize(data: AppData, today: string) {
     migrateAppData(importPreviewSchedule(data, today)),
     today,
   );
-}
-
-function sameData(left: AppData, right: AppData) {
-  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function connectionFailure(error: unknown): SyncState {
@@ -104,6 +105,26 @@ export function useSyncedAppData(today: string) {
     [persist],
   );
 
+  const applyReconciliation = useCallback(
+    async (decision: RemoteReconciliation) => {
+      if (decision.kind === 'conflict') {
+        const current = envelopeRef.current;
+        if (current)
+          await setConflict(current, decision.remote, decision.conflicts);
+        return;
+      }
+      if (decision.kind === 'persist') {
+        await persist(decision.envelope);
+        if (decision.needsSync) syncRequestedRef.current = true;
+        else if (mountedRef.current) setSyncState('synced');
+        return;
+      }
+      if (decision.kind === 'synced' && mountedRef.current)
+        setSyncState('synced');
+    },
+    [persist, setConflict],
+  );
+
   const upload = useCallback(
     async (startingEnvelope: SyncEnvelope, baseRevision: number) => {
       let request = startingEnvelope.sync.pending;
@@ -124,38 +145,18 @@ export function useSyncedAppData(today: string) {
       if (!current) return;
       if (!response.ok) {
         if (response.error.code === 'REVISION_CONFLICT') {
-          const base = current.sync.base;
-          if (base && response.remote.data) {
-            const merged = mergeAppData({
-              base,
-              local: current.data,
-              remote: response.remote.data,
-            });
-            if (merged.ok) {
-              const nextData = normalize(merged.data, todayRef.current);
-              await persist({
-                data: nextData,
-                sync: {
-                  schemaVersion: 1,
-                  baseRevision: response.remote.revision,
-                  base: response.remote.data,
-                  dirty: !sameData(nextData, response.remote.data),
-                },
-              });
-              syncRequestedRef.current = true;
-              return;
-            }
-            await setConflict(current, response.remote, merged.conflicts);
-            return;
-          }
-          await setConflict(current, response.remote, []);
+          await applyReconciliation(
+            reconcileRevisionConflict(current, response.remote, (data) =>
+              normalize(data, todayRef.current),
+            ),
+          );
           return;
         }
         await setConflict(current, response.remote, []);
         return;
       }
 
-      const dirty = !sameData(current.data, request.data);
+      const dirty = !sameAppData(current.data, request.data);
       await persist({
         data: current.data,
         sync: {
@@ -168,7 +169,7 @@ export function useSyncedAppData(today: string) {
       if (dirty) syncRequestedRef.current = true;
       else if (mountedRef.current) setSyncState('synced');
     },
-    [persist, setConflict],
+    [applyReconciliation, persist, setConflict],
   );
 
   const syncOnce = useCallback(async () => {
@@ -192,92 +193,13 @@ export function useSyncedAppData(today: string) {
     const current = envelopeRef.current;
     if (!current) return;
 
-    if (current.sync.baseRevision === null) {
-      if (remote.data === null) {
-        await upload(current, remote.revision);
-        return;
-      }
-      if (sameData(current.data, remote.data)) {
-        await persist({
-          data: current.data,
-          sync: {
-            schemaVersion: 1,
-            baseRevision: remote.revision,
-            base: remote.data,
-            dirty: false,
-          },
-        });
-        if (mountedRef.current) setSyncState('synced');
-        return;
-      }
-      if (!current.sync.dirty) {
-        const nextData = normalize(remote.data, todayRef.current);
-        const dirty = !sameData(nextData, remote.data);
-        await persist({
-          data: nextData,
-          sync: {
-            schemaVersion: 1,
-            baseRevision: remote.revision,
-            base: remote.data,
-            dirty,
-          },
-        });
-        if (dirty) syncRequestedRef.current = true;
-        else if (mountedRef.current) setSyncState('synced');
-        return;
-      }
-      await setConflict(current, remote, []);
-      return;
-    }
-
-    if (current.sync.baseRevision === remote.revision) {
-      if (current.sync.dirty) await upload(current, remote.revision);
-      else if (mountedRef.current) setSyncState('synced');
-      return;
-    }
-
-    if (!current.sync.dirty && remote.data) {
-      const nextData = normalize(remote.data, todayRef.current);
-      const dirty = !sameData(nextData, remote.data);
-      await persist({
-        data: nextData,
-        sync: {
-          schemaVersion: 1,
-          baseRevision: remote.revision,
-          base: remote.data,
-          dirty,
-        },
-      });
-      if (dirty) syncRequestedRef.current = true;
-      else if (mountedRef.current) setSyncState('synced');
-      return;
-    }
-
-    if (!current.sync.base || !remote.data) {
-      await setConflict(current, remote, []);
-      return;
-    }
-    const merged = mergeAppData({
-      base: current.sync.base,
-      local: current.data,
-      remote: remote.data,
-    });
-    if (!merged.ok) {
-      await setConflict(current, remote, merged.conflicts);
-      return;
-    }
-    const nextData = normalize(merged.data, todayRef.current);
-    await persist({
-      data: nextData,
-      sync: {
-        schemaVersion: 1,
-        baseRevision: remote.revision,
-        base: remote.data,
-        dirty: !sameData(nextData, remote.data),
-      },
-    });
-    syncRequestedRef.current = true;
-  }, [persist, setConflict, upload, waitForLocalSave]);
+    const decision = reconcileRemoteSnapshot(current, remote, (data) =>
+      normalize(data, todayRef.current),
+    );
+    if (decision.kind === 'upload')
+      await upload(current, decision.baseRevision);
+    else await applyReconciliation(decision);
+  }, [applyReconciliation, upload, waitForLocalSave]);
 
   /* oxlint-disable react/react-compiler -- serialized callback intentionally depends on syncOnce */
   const synchronize = useCallback(async () => {
@@ -328,7 +250,8 @@ export function useSyncedAppData(today: string) {
               data: initialData,
               sync: {
                 ...stored.sync,
-                dirty: stored.sync.dirty || !sameData(initialData, stored.data),
+                dirty:
+                  stored.sync.dirty || !sameAppData(initialData, stored.data),
               },
             }
           : {
@@ -412,7 +335,7 @@ export function useSyncedAppData(today: string) {
           dirty:
             choice === 'local' ||
             !remoteData ||
-            !sameData(nextData, remoteData),
+            !sameAppData(nextData, remoteData),
         },
       };
       void persist(next)
