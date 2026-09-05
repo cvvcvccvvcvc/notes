@@ -14,11 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { HistoryView } from '@/features/history/history-view';
 import { NotesView } from '@/features/notes/notes-view';
-import {
-  BacklogView,
-  focusTask,
-  ScheduleView,
-} from '@/features/tasks/task-views';
+import { BacklogView } from '@/features/tasks/backlog-view';
+import { focusTask, ScheduleView } from '@/features/tasks/schedule-view';
 import { TemplatesView } from '@/features/templates/templates-view';
 import {
   type AppData,
