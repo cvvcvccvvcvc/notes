@@ -27,9 +27,9 @@ Vocabulary. Не коммитьте секреты, ключи, cookie и реа
 
 | Задача | Сначала читать | Владеющий код |
 | --- | --- | --- |
-| Поведение расписания, дел, заметок, истории | [docs/product.md](docs/product.md) | `lib/task-operations.ts`, `app/page.tsx`, `features/notes`, `features/history`, `lib/data.ts`, `lib/migrations.ts` |
+| Поведение расписания, дел, заметок, истории | [docs/product.md](docs/product.md) | `lib/task-operations.ts`, `lib/note-operations.ts`, `features/tasks`, `features/notes`, `features/history`, `lib/data.ts` |
 | Локальные данные, rollover, совместимость | [docs/architecture.md](docs/architecture.md) | `lib/storage.ts`, `lib/migrations.ts`, `lib/rollover.ts`, `lib/preview-schedule.ts` |
-| Drag-and-drop и горячие клавиши | [docs/product.md](docs/product.md) | `app/page.tsx`, `lib/sorting.tsx`, `lib/note-editor.tsx` |
+| Drag-and-drop и горячие клавиши | [docs/product.md](docs/product.md) | `features/tasks`, `features/notes`, `features/templates`, `lib/sorting.tsx`, `lib/note-editor.tsx` |
 | Offline shell | [docs/architecture.md](docs/architecture.md) | `public/service-worker.js` |
 | Sync и auth | [docs/architecture.md](docs/architecture.md) | `hooks/use-synced-app-data.ts`, `lib/sync`, `src/server`, `src/shared` |
 | Deploy, backup, rollback | [docs/operations.md](docs/operations.md) | только проверенные deploy-файлы репозитория |
