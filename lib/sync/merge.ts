@@ -502,6 +502,8 @@ function mergeOrder(
   if (isDeepEqual(local, remote)) return [...local];
   if (isDeepEqual(local, base)) return [...remote];
   if (isDeepEqual(remote, base)) return [...local];
+  const insertions = mergeConcurrentInsertions(base, local, remote);
+  if (insertions) return insertions;
   conflicts.push({
     kind: 'order',
     container,
@@ -510,6 +512,100 @@ function mergeOrder(
     remote: [...remote],
   });
   return [...base];
+}
+
+/**
+ * Merge additions made independently without guessing about concurrent moves.
+ * Existing ids must retain the base order on both sides. New ids are merged
+ * inside the gap where they were inserted, preserving each side's own order.
+ */
+function mergeConcurrentInsertions(
+  base: string[],
+  local: string[],
+  remote: string[],
+): string[] | null {
+  const baseIds = new Set(base);
+  if (
+    !isDeepEqual(
+      local.filter((id) => baseIds.has(id)),
+      base,
+    ) ||
+    !isDeepEqual(
+      remote.filter((id) => baseIds.has(id)),
+      base,
+    )
+  )
+    return null;
+
+  const localGaps = additionsByGap(local, baseIds, base.length + 1);
+  const remoteGaps = additionsByGap(remote, baseIds, base.length + 1);
+  const localGapById = gapById(localGaps);
+  const remoteGapById = gapById(remoteGaps);
+  for (const [id, localGap] of localGapById) {
+    const remoteGap = remoteGapById.get(id);
+    if (remoteGap !== undefined && remoteGap !== localGap) return null;
+  }
+
+  const result: string[] = [];
+  for (let gap = 0; gap < localGaps.length; gap += 1) {
+    const additions = mergeInsertionSequence(localGaps[gap], remoteGaps[gap]);
+    if (!additions) return null;
+    result.push(...additions);
+    if (gap < base.length) result.push(base[gap]);
+  }
+  return result;
+}
+
+function additionsByGap(
+  order: string[],
+  baseIds: Set<string>,
+  gapCount: number,
+) {
+  const gaps = Array.from({ length: gapCount }, () => [] as string[]);
+  let gap = 0;
+  for (const id of order) {
+    if (baseIds.has(id)) gap += 1;
+    else gaps[gap].push(id);
+  }
+  return gaps;
+}
+
+function gapById(gaps: string[][]) {
+  const result = new Map<string, number>();
+  gaps.forEach((ids, gap) => ids.forEach((id) => result.set(id, gap)));
+  return result;
+}
+
+function mergeInsertionSequence(local: string[], remote: string[]) {
+  const ids = [...new Set([...local, ...remote])];
+  const edges = new Map(ids.map((id) => [id, new Set<string>()]));
+  const indegree = new Map(ids.map((id) => [id, 0]));
+
+  for (const sequence of [local, remote]) {
+    for (let index = 1; index < sequence.length; index += 1) {
+      const before = sequence[index - 1];
+      const after = sequence[index];
+      if (before === after || edges.get(before)!.has(after)) continue;
+      edges.get(before)!.add(after);
+      indegree.set(after, indegree.get(after)! + 1);
+    }
+  }
+
+  const ready = ids.filter((id) => indegree.get(id) === 0).sort();
+  const result: string[] = [];
+  while (ready.length > 0) {
+    const id = ready.shift()!;
+    result.push(id);
+    for (const after of edges.get(id)!) {
+      const next = indegree.get(after)! - 1;
+      indegree.set(after, next);
+      if (next === 0) {
+        ready.push(after);
+        ready.sort();
+      }
+    }
+  }
+  return result.length === ids.length ? result : null;
 }
 
 function filterEntityOrder<T extends Entity>(

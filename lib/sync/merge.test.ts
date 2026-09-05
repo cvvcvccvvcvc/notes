@@ -223,6 +223,53 @@ void test('merges order only when one side is unchanged or both sides agree', ()
   );
 });
 
+void test('merges independent additions without losing their positions', () => {
+  const base = data({
+    schedule: { '2026-09-05': [task('a'), task('b')] },
+  });
+  const local = data({
+    schedule: {
+      '2026-09-05': [task('local-first'), task('a'), task('b')],
+    },
+  });
+  const remote = data({
+    schedule: {
+      '2026-09-05': [task('a'), task('b'), task('remote-last')],
+    },
+  });
+
+  assert.deepEqual(
+    merged(mergeAppData({ base, local, remote })).schedule['2026-09-05'].map(
+      ({ id }) => id,
+    ),
+    ['local-first', 'a', 'b', 'remote-last'],
+  );
+});
+
+void test('preserves each device order for additions in the same gap', () => {
+  const base = data({ schedule: { '2026-09-05': [] } });
+  const local = data({
+    schedule: {
+      '2026-09-05': [task('local-1'), task('local-2')],
+    },
+  });
+  const remote = data({
+    schedule: {
+      '2026-09-05': [task('remote-1'), task('remote-2')],
+    },
+  });
+
+  const ids = merged(mergeAppData({ base, local, remote })).schedule[
+    '2026-09-05'
+  ].map(({ id }) => id);
+  assert.ok(ids.indexOf('local-1') < ids.indexOf('local-2'));
+  assert.ok(ids.indexOf('remote-1') < ids.indexOf('remote-2'));
+  assert.deepEqual(
+    new Set(ids),
+    new Set(['local-1', 'local-2', 'remote-1', 'remote-2']),
+  );
+});
+
 void test('unions applied imports and takes the greatest schema version', () => {
   const result = merged(
     mergeAppData({
