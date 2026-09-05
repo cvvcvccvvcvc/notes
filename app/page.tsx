@@ -54,7 +54,7 @@ import {
   ruTime,
   shiftedDay,
 } from '@/lib/date-time';
-import { UNSORTED_GROUP_ID } from '@/lib/migrations';
+import { UNSORTED_GROUP_ID } from '@/lib/backlog';
 import {
   createMonthFromTemplate,
   defaultMonthTemplateSchedule,

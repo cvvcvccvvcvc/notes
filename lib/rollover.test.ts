@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { AppData } from './data';
-import { UNSORTED_GROUP_ID } from './migrations';
+import { UNSORTED_GROUP_ID } from './backlog';
 import { rolloverPastTasks } from './rollover';
 
 void test('rollover preserves a task and closes its running interval at midnight', () => {

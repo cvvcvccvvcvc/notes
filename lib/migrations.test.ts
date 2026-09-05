@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { AppData } from './data';
-import { migrateAppData, UNSORTED_GROUP_ID } from './migrations';
+import { UNSORTED_GROUP_ID } from './backlog';
+import { migrateAppData } from './migrations';
 
 void test('migration repairs the backlog invariants even for current-version data', () => {
   const data: AppData = {

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import type { AppData, Task } from './data';
-import { UNSORTED_GROUP_ID } from './migrations';
+import { UNSORTED_GROUP_ID } from './backlog';
 import {
   moveBacklogTask,
   moveBacklogTaskVertically,

@@ -1,6 +1,5 @@
 import type { AppData, Note, Task, TaskGroup } from './data';
-
-export const UNSORTED_GROUP_ID = 'backlog-unsorted';
+import { UNSORTED_GROUP_ID } from './backlog';
 
 const seedGroups: TaskGroup[] = [
   { id: UNSORTED_GROUP_ID, title: 'Не разобрано', tasks: [] },
