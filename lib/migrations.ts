@@ -55,33 +55,6 @@ function backlogTask(id: string, text: string, backlogGroupId: string): Task {
   return { id, text, intervals: [], backlogGroupId };
 }
 
-function endOfDay(day: string) {
-  const date = new Date(`${day}T12:00:00`);
-  date.setDate(date.getDate() + 1);
-  date.setHours(0, 0, 0, 0);
-  return date.getTime();
-}
-
-function pauseAtDayEnd(task: Task, day: string): Task {
-  const cutoff = endOfDay(day);
-  return {
-    ...task,
-    intervals: task.intervals.map((interval, index) =>
-      index === task.intervals.length - 1 && interval.end == null
-        ? { ...interval, end: Math.max(interval.start, cutoff) }
-        : interval,
-    ),
-  };
-}
-
-function appendUnique(group: TaskGroup, tasks: Task[]) {
-  const existing = new Set(group.tasks.map((task) => task.id));
-  return {
-    ...group,
-    tasks: [...group.tasks, ...tasks.filter((task) => !existing.has(task.id))],
-  };
-}
-
 function migratedNotes(notes: Note[]) {
   const important = notes.find((note) => note.id === 'important');
   const withoutImportant = notes.filter((note) => note.id !== 'important');
@@ -114,47 +87,56 @@ function migratedNotes(notes: Note[]) {
   return [...additions, ...withoutImportant];
 }
 
-/** Upgrade local data and move every unfinished past-day task into the backlog. */
-export function prepareAppData(data: AppData, today: string): AppData {
+/** Upgrade persisted data without applying date-dependent product behavior. */
+export function migrateAppData(data: AppData): AppData {
   const needsBacklog = !data.backlog;
-  let groups: TaskGroup[] = (data.backlog ?? seedGroups).map((group) => ({
-    ...group,
-    tasks: group.tasks.map((task) => ({
-      ...task,
-      backlogGroupId: group.id,
-    })),
-  }));
-  if (!groups.some((group) => group.id === UNSORTED_GROUP_ID))
+  const needsMonthPlanning = !data.monthPlanning;
+  const sourceGroups = data.backlog ?? seedGroups;
+  const missingUnsorted = !sourceGroups.some(
+    (group) => group.id === UNSORTED_GROUP_ID,
+  );
+  const staleTaskLocations = sourceGroups.some((group) =>
+    group.tasks.some((task) => task.backlogGroupId !== group.id),
+  );
+  let groups: TaskGroup[] = sourceGroups;
+  if (needsBacklog || missingUnsorted || staleTaskLocations)
+    groups = sourceGroups.map((group) => ({
+      ...group,
+      tasks: group.tasks.map((task) => ({
+        ...task,
+        backlogGroupId: group.id,
+      })),
+    }));
+  if (missingUnsorted)
     groups = [
       { id: UNSORTED_GROUP_ID, title: 'Не разобрано', tasks: [] },
       ...groups,
     ];
 
-  const schedule = { ...data.schedule };
-  let rolledOver = false;
-  for (const day of Object.keys(schedule).sort()) {
-    if (day >= today || !schedule[day]?.length) continue;
-    rolledOver = true;
-    for (const sourceTask of schedule[day]) {
-      const task = pauseAtDayEnd(sourceTask, day);
-      const groupId = groups.some((group) => group.id === task.backlogGroupId)
-        ? task.backlogGroupId!
-        : UNSORTED_GROUP_ID;
-      groups = groups.map((group) =>
-        group.id === groupId
-          ? appendUnique(group, [{ ...task, backlogGroupId: groupId }])
-          : group,
-      );
-    }
-    schedule[day] = [];
-  }
-
-  if (!needsBacklog && !rolledOver && data.version >= 2) return data;
+  if (
+    !needsBacklog &&
+    !needsMonthPlanning &&
+    !missingUnsorted &&
+    !staleTaskLocations &&
+    data.version >= 3
+  )
+    return data;
   return {
     ...data,
-    version: 2,
-    schedule,
+    version: Math.max(data.version, 3),
     backlog: groups,
+    monthPlanning:
+      data.monthPlanning ??
+      ({
+        rules: [],
+        createdMonths: [
+          ...new Set(
+            Object.keys(data.schedule)
+              .map((day) => day.slice(0, 7))
+              .filter((month) => /^\d{4}-(0[1-9]|1[0-2])$/.test(month)),
+          ),
+        ].sort(),
+      } satisfies AppData['monthPlanning']),
     notes: needsBacklog ? migratedNotes(data.notes) : data.notes,
   };
 }

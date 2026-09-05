@@ -1,0 +1,40 @@
+name: life-notes
+
+services:
+  app:
+    image: life-notes:${NOTES_IMAGE_TAG:-latest}
+    build:
+      context: ..
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NOTES_DATABASE_PATH: /app/var/notes.sqlite3
+      NOTES_HOST: 0.0.0.0
+      NOTES_PORT: 8788
+      NOTES_STATIC_DIR: /app/dist/client
+    volumes:
+      - notes_data:/app/var
+    networks:
+      default:
+        aliases:
+          - notes-app
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8788/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  notes_data:
+
+networks:
+  default:
+    external: true
+    name: deploy_default

@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  CalendarDays,
   Check,
   ArrowUpToLine,
   CirclePause,
@@ -14,9 +15,8 @@ import {
   NotebookPen,
   Plus,
   RotateCcw,
-  X,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -33,99 +33,86 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Textarea } from '@/components/ui/textarea';
+import { HistoryView } from '@/features/history/history-view';
+import { NotesView } from '@/features/notes/notes-view';
+import { TemplatesView } from '@/features/templates/templates-view';
 import {
-  createDemoData,
   type AppData,
+  type MonthTemplateRule,
+  type MonthTemplateSchedule,
   type Note,
   type Task,
   type TaskColor,
   type TaskGroup,
 } from '@/lib/data';
-import { prepareAppData, UNSORTED_GROUP_ID } from '@/lib/migrations';
-import { loadData, saveData } from '@/lib/storage';
 import {
-  SortableDropZone,
-  SortableItems,
-  SortableList,
-  SortableRoot,
-} from '@/lib/sorting';
-import { importPreviewSchedule } from '@/lib/preview-schedule';
-import { paragraphRange, type TextRange } from '@/lib/paragraph';
-import { NoteEditor } from '@/lib/note-editor';
+  dateKey,
+  minutesLabel,
+  ruDate,
+  ruMonth,
+  ruShortDate,
+  ruTime,
+  shiftedDay,
+} from '@/lib/date-time';
+import { UNSORTED_GROUP_ID } from '@/lib/migrations';
+import {
+  createMonthFromTemplate,
+  defaultMonthTemplateSchedule,
+  monthTemplateTaskCount,
+  nextMonthKey,
+} from '@/lib/month-template';
+import { SortableDropZone, SortableItems, SortableRoot } from '@/lib/sorting';
+import { paragraphRange } from '@/lib/paragraph';
+import { TaskTextEditor, TaskTextPreview } from '@/lib/task-text';
+import {
+  moveBacklogTask as moveBacklogTaskInData,
+  moveBacklogTaskVertically as moveBacklogTaskVerticallyInData,
+  moveScheduledTask,
+  moveScheduledTaskToDay,
+  pauseTaskAt,
+  removeBacklogGroup as removeBacklogGroupFromData,
+  restoreScheduledTask,
+  sendScheduledTaskToBacklog,
+  takeBacklogTask as takeBacklogTaskFromData,
+  takeFutureTask as takeFutureTaskFromData,
+  taskDuration,
+  taskState,
+  updateBacklogTask as updateBacklogTaskInData,
+  updateScheduledTask,
+  updateScheduledTasks,
+} from '@/lib/task-operations';
+import {
+  useSyncedAppData,
+  type LocalSaveState,
+  type SyncState,
+} from '@/hooks/use-synced-app-data';
 
-type View = 'today' | 'backlog' | 'notes' | 'history';
-type SaveState = 'loading' | 'saving' | 'saved' | 'error';
+type View = 'today' | 'backlog' | 'notes' | 'templates' | 'history';
 type UndoState = {
   message: string;
   restore: (current: AppData) => AppData;
 } | null;
 
-const ruDate = new Intl.DateTimeFormat('ru-RU', {
-  weekday: 'long',
-  day: 'numeric',
-  month: 'long',
-});
-const ruShortDate = new Intl.DateTimeFormat('ru-RU', {
-  weekday: 'short',
-  day: 'numeric',
-  month: 'long',
-});
-const ruMonth = new Intl.DateTimeFormat('ru-RU', { month: 'long' });
-const ruTime = new Intl.DateTimeFormat('ru-RU', {
-  hour: '2-digit',
-  minute: '2-digit',
-});
-
 function uid() {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 }
 
-function dateKey(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function shiftedDay(day: string, distance: -1 | 1) {
-  const date = new Date(`${day}T12:00:00`);
-  date.setDate(date.getDate() + distance);
-  return dateKey(date);
-}
-
-function taskState(task: Task) {
-  if (!task.intervals.length) return 'idle' as const;
-  return task.intervals.at(-1)?.end == null
-    ? ('running' as const)
-    : ('paused' as const);
-}
-
-function taskDuration(task: Task, now: number) {
-  return task.intervals.reduce(
-    (sum, interval) => sum + ((interval.end ?? now) - interval.start),
-    0,
-  );
-}
-
-function minutesLabel(milliseconds: number) {
-  return `${Math.max(0, Math.floor(milliseconds / 60_000))} мин`;
-}
-
-function resizeTextarea(element: HTMLTextAreaElement | null) {
-  if (!element) return;
-  element.style.height = '0px';
-  element.style.height = `${Math.max(44, element.scrollHeight)}px`;
-}
-
-function focusTask(day: string, id?: string, selection?: TextRange) {
+function focusTask(day: string, id?: string) {
   requestAnimationFrame(() => {
-    const element = document.getElementById(id ? `task-${id}` : `add-${day}`);
+    const card = document.getElementById(id ? `task-${id}` : `add-${day}`);
+    const element =
+      card?.querySelector<HTMLElement>('[data-task-focus]') ?? card;
     element?.focus({ preventScroll: true });
-    if (selection && element instanceof HTMLTextAreaElement)
-      element.setSelectionRange(selection.start, selection.end);
     element?.scrollIntoView({ block: 'nearest' });
   });
+}
+
+function isTextEditor(target: EventTarget | null) {
+  return (
+    target instanceof HTMLElement &&
+    (target.matches('input, textarea, [contenteditable="true"]') ||
+      target.closest('[contenteditable="true"]') != null)
+  );
 }
 
 function selectedTaskShortcut(
@@ -136,11 +123,28 @@ function selectedTaskShortcut(
     activate: () => void;
     discard: () => void;
     move: (direction: -1 | 1) => void;
-    moveDay: (direction: -1 | 1) => void;
     toggleTimer?: () => void;
   },
 ) {
   if (event.nativeEvent.isComposing || event.shiftKey) return false;
+  if (isTextEditor(event.target)) {
+    if (
+      event.metaKey &&
+      (event.key === 'Backspace' || event.key === 'Delete')
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!event.repeat) actions.discard();
+      return true;
+    }
+    if (
+      !(
+        event.key === 'Enter' &&
+        ((event.metaKey && !event.altKey) || (!event.metaKey && event.altKey))
+      )
+    )
+      return false;
+  }
   if (!event.metaKey && event.altKey && event.key === 'Enter') {
     event.preventDefault();
     event.stopPropagation();
@@ -149,12 +153,10 @@ function selectedTaskShortcut(
   }
   if (event.altKey) return false;
   const vertical = event.key === 'ArrowUp' || event.key === 'ArrowDown';
-  const horizontal = event.key === 'ArrowLeft' || event.key === 'ArrowRight';
   if (!event.metaKey && !vertical && event.key !== 'Enter') return false;
   if (
     event.metaKey &&
     !vertical &&
-    !horizontal &&
     !['Enter', 'Backspace', 'Delete'].includes(event.key)
   )
     return false;
@@ -166,49 +168,51 @@ function selectedTaskShortcut(
   else if (!event.metaKey && event.key === 'Enter') actions.edit();
   else if (event.key === 'Enter') actions.activate();
   else if (vertical) actions.move(direction);
-  else if (horizontal) actions.moveDay(event.key === 'ArrowLeft' ? -1 : 1);
   else actions.discard();
   return true;
 }
 
+function persistenceLabel(saveState: LocalSaveState, syncState: SyncState) {
+  if (saveState === 'loading') return 'Открываю…';
+  if (saveState === 'saving') return 'Сохраняю…';
+  if (saveState === 'error') return 'Ошибка сохранения';
+  if (syncState === 'syncing') return 'Синхронизирую…';
+  if (syncState === 'synced') return 'Синхронизировано';
+  if (syncState === 'offline') return 'Без сети · сохранено';
+  if (syncState === 'auth') return 'Нужен вход';
+  if (syncState === 'conflict') return 'Нужно выбрать версию';
+  return 'Сохранено локально';
+}
+
+function recordCountLabel(count: number) {
+  const lastTwo = count % 100;
+  const last = count % 10;
+  if (last === 1 && lastTwo !== 11) return 'запись';
+  if (last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14)) return 'записи';
+  return 'записей';
+}
+
 export default function Home() {
   const [view, setView] = useState<View>('today');
-  const [data, setData] = useState<AppData | null>(null);
-  const [saveState, setSaveState] = useState<SaveState>('loading');
   const [now, setNow] = useState(() => Date.now());
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [undo, setUndo] = useState<UndoState>(null);
-  const dataRef = useRef<AppData | null>(null);
+  const [syncPanelOpen, setSyncPanelOpen] = useState(false);
   const todayKey = dateKey(new Date(now));
+  const {
+    data,
+    dataRef,
+    saveState,
+    syncState,
+    commit,
+    synchronize,
+    resolveConflict,
+  } = useSyncedAppData(todayKey);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [view]);
-
-  useEffect(() => {
-    let live = true;
-    (dataRef.current ? Promise.resolve(dataRef.current) : loadData())
-      .then((stored) => {
-        if (!live) return;
-        const initial = prepareAppData(
-          importPreviewSchedule(stored ?? createDemoData(todayKey), todayKey),
-          todayKey,
-        );
-        dataRef.current = initial;
-        setData(initial);
-        setSaveState(initial === stored ? 'saved' : 'saving');
-        if (initial !== stored) {
-          saveData(initial)
-            .then(() => live && setSaveState('saved'))
-            .catch(() => live && setSaveState('error'));
-        }
-      })
-      .catch(() => live && setSaveState('error'));
-    return () => {
-      live = false;
-    };
-  }, [todayKey]);
 
   useEffect(() => {
     const clock = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -238,20 +242,6 @@ export default function Home() {
       );
   }, []);
 
-  function commit(change: (current: AppData) => AppData) {
-    const current = dataRef.current;
-    if (!current) return;
-    const next = change(current);
-    dataRef.current = next;
-    setData(next);
-    setSaveState('saving');
-    saveData(next)
-      .then(() => {
-        if (dataRef.current === next) setSaveState('saved');
-      })
-      .catch(() => setSaveState('error'));
-  }
-
   function commitWithUndo(
     message: string,
     change: (current: AppData) => AppData,
@@ -269,31 +259,32 @@ export default function Home() {
   }
 
   useEffect(() => {
+    function handleUndo(event: KeyboardEvent) {
+      if (
+        !undo ||
+        !event.metaKey ||
+        event.shiftKey ||
+        event.key.toLowerCase() !== 'z' ||
+        isTextEditor(event.target)
+      )
+        return;
+      event.preventDefault();
+      const currentUndo = undo;
+      setUndo(null);
+      commit(currentUndo.restore);
+    }
+    window.addEventListener('keydown', handleUndo);
+    return () => window.removeEventListener('keydown', handleUndo);
+  }, [commit, undo]);
+
+  useEffect(() => {
     if (!undo) return;
     const timeout = window.setTimeout(() => setUndo(null), 15_000);
     return () => window.clearTimeout(timeout);
   }, [undo]);
 
-  function restoreTask(
-    current: AppData,
-    day: string,
-    task: Task,
-    index: number,
-  ) {
-    const tasks = [...(current.schedule[day] ?? [])];
-    if (!tasks.some((item) => item.id === task.id))
-      tasks.splice(Math.min(index, tasks.length), 0, task);
-    return { ...current, schedule: { ...current.schedule, [day]: tasks } };
-  }
-
   function updateTasks(day: string, change: (tasks: Task[]) => Task[]) {
-    commit((current) => ({
-      ...current,
-      schedule: {
-        ...current.schedule,
-        [day]: change(current.schedule[day] ?? []),
-      },
-    }));
+    commit((current) => updateScheduledTasks(current, day, change));
   }
 
   function addTask(day: string) {
@@ -304,9 +295,7 @@ export default function Home() {
   }
 
   function updateTask(day: string, id: string, change: (task: Task) => Task) {
-    updateTasks(day, (tasks) =>
-      tasks.map((task) => (task.id === id ? change(task) : task)),
-    );
+    commit((current) => updateScheduledTask(current, day, id, change));
   }
 
   function runTimer(day: string, id: string) {
@@ -338,11 +327,7 @@ export default function Home() {
     );
     const historyId = uid();
     const stamp = Date.now();
-    const intervals = task.intervals.map((interval, index) =>
-      index === task.intervals.length - 1 && interval.end == null
-        ? { ...interval, end: stamp }
-        : interval,
-    );
+    const intervals = pauseTaskAt(task, stamp).intervals;
     commitWithUndo(
       'Дело завершено',
       (current) => ({
@@ -365,7 +350,7 @@ export default function Home() {
         ],
       }),
       (current) => ({
-        ...restoreTask(current, day, task, index),
+        ...restoreScheduledTask(current, day, task, index),
         history: current.history.filter((item) => item.id !== historyId),
       }),
     );
@@ -385,25 +370,21 @@ export default function Home() {
           [day]: (current.schedule[day] ?? []).filter((task) => task.id !== id),
         },
       }),
-      (current) => restoreTask(current, day, task, index),
+      (current) => restoreScheduledTask(current, day, task, index),
     );
   }
 
   function moveTask(day: string, id: string, direction: -1 | 1) {
-    const element = document.getElementById(`task-${id}`);
-    const selection =
-      element instanceof HTMLTextAreaElement
-        ? { start: element.selectionStart, end: element.selectionEnd }
-        : undefined;
-    updateTasks(day, (tasks) => {
-      const from = tasks.findIndex((task) => task.id === id);
-      const to = from + direction;
-      if (from < 0 || to < 0 || to >= tasks.length) return tasks;
-      const next = [...tasks];
-      [next[from], next[to]] = [next[to], next[from]];
-      return next;
-    });
-    focusTask(day, id, selection);
+    commit((current) =>
+      moveScheduledTask(current, {
+        day,
+        id,
+        direction,
+        adjacentDay: shiftedDay(day, direction),
+        today: todayKey,
+        now: Date.now(),
+      }),
+    );
   }
 
   function moveTaskToDay(
@@ -412,54 +393,16 @@ export default function Home() {
     targetDay: string,
     targetId?: string,
   ) {
-    if (targetDay < todayKey) return;
-    commit((current) => {
-      const source = current.schedule[sourceDay] ?? [];
-      const index = source.findIndex((task) => task.id === id);
-      if (index < 0) return current;
-      const sourceTask = source[index];
-      const stamp = Date.now();
-      const task =
-        sourceDay === todayKey && targetDay > todayKey
-          ? {
-              ...sourceTask,
-              intervals: sourceTask.intervals.map((interval, position) =>
-                position === sourceTask.intervals.length - 1 &&
-                interval.end == null
-                  ? { ...interval, end: stamp }
-                  : interval,
-              ),
-            }
-          : sourceTask;
-      const withoutTask = source.filter((candidate) => candidate.id !== id);
-
-      if (sourceDay === targetDay) {
-        const targetIndex = source.findIndex(
-          (candidate) => candidate.id === targetId,
-        );
-        if (targetIndex < 0) return current;
-        const tasks = [...withoutTask];
-        tasks.splice(Math.min(targetIndex, tasks.length), 0, task);
-        return {
-          ...current,
-          schedule: { ...current.schedule, [sourceDay]: tasks },
-        };
-      }
-
-      const target = [...(current.schedule[targetDay] ?? [])];
-      const targetIndex = target.findIndex(
-        (candidate) => candidate.id === targetId,
-      );
-      target.splice(targetIndex < 0 ? target.length : targetIndex, 0, task);
-      return {
-        ...current,
-        schedule: {
-          ...current.schedule,
-          [sourceDay]: withoutTask,
-          [targetDay]: target,
-        },
-      };
-    });
+    commit((current) =>
+      moveScheduledTaskToDay(current, {
+        sourceDay,
+        id,
+        targetDay,
+        targetId,
+        today: todayKey,
+        now: Date.now(),
+      }),
+    );
   }
 
   function setTaskColor(day: string, id: string, color?: TaskColor) {
@@ -471,34 +414,11 @@ export default function Home() {
     const index = tasks.findIndex((task) => task.id === id);
     const original = tasks[index];
     if (!original) return;
-    const stamp = Date.now();
-    const task = {
-      ...original,
-      backlogGroupId: original.backlogGroupId ?? UNSORTED_GROUP_ID,
-      intervals: original.intervals.map((interval, position) =>
-        position === original.intervals.length - 1 && interval.end == null
-          ? { ...interval, end: stamp }
-          : interval,
-      ),
-    };
     commitWithUndo(
       'Перенесено в Дела',
+      (current) => sendScheduledTaskToBacklog(current, day, id, Date.now()),
       (current) => ({
-        ...current,
-        schedule: {
-          ...current.schedule,
-          [day]: (current.schedule[day] ?? []).filter(
-            (candidate) => candidate.id !== id,
-          ),
-        },
-        backlog: (current.backlog ?? []).map((group) =>
-          group.id === task.backlogGroupId
-            ? { ...group, tasks: [...group.tasks, task] }
-            : group,
-        ),
-      }),
-      (current) => ({
-        ...restoreTask(current, day, original, index),
+        ...restoreScheduledTask(current, day, original, index),
         backlog: (current.backlog ?? []).map((group) => ({
           ...group,
           tasks: group.tasks.filter((candidate) => candidate.id !== id),
@@ -529,46 +449,15 @@ export default function Home() {
     );
   }
 
-  function removeBacklogGroup(id: string) {
-    if (id === UNSORTED_GROUP_ID) return;
-    updateBacklog((groups) => {
-      const removed = groups.find((group) => group.id === id);
-      if (!removed) return groups;
-      return groups
-        .filter((group) => group.id !== id)
-        .map((group) =>
-          group.id === UNSORTED_GROUP_ID
-            ? {
-                ...group,
-                tasks: [
-                  ...group.tasks,
-                  ...removed.tasks.map((task) => ({
-                    ...task,
-                    backlogGroupId: UNSORTED_GROUP_ID,
-                  })),
-                ],
-              }
-            : group,
-        );
-    });
+  function setBacklogGroupColor(id: string, color?: TaskColor) {
+    updateBacklog((groups) =>
+      groups.map((group) => (group.id === id ? { ...group, color } : group)),
+    );
   }
 
-  function addBacklogTask(groupId: string) {
-    const id = uid();
-    updateBacklog((groups) =>
-      groups.map((group) =>
-        group.id === groupId
-          ? {
-              ...group,
-              tasks: [
-                ...group.tasks,
-                { id, text: '', intervals: [], backlogGroupId: groupId },
-              ],
-            }
-          : group,
-      ),
-    );
-    return id;
+  function removeBacklogGroup(id: string) {
+    if (id === UNSORTED_GROUP_ID) return;
+    commit((current) => removeBacklogGroupFromData(current, id));
   }
 
   function updateBacklogTask(
@@ -576,18 +465,7 @@ export default function Home() {
     id: string,
     change: (task: Task) => Task,
   ) {
-    updateBacklog((groups) =>
-      groups.map((group) =>
-        group.id === groupId
-          ? {
-              ...group,
-              tasks: group.tasks.map((task) =>
-                task.id === id ? change(task) : task,
-              ),
-            }
-          : group,
-      ),
-    );
+    commit((current) => updateBacklogTaskInData(current, groupId, id, change));
   }
 
   function moveBacklogTask(
@@ -596,54 +474,23 @@ export default function Home() {
     targetGroupId: string,
     targetId?: string,
   ) {
-    updateBacklog((groups) => {
-      const source = groups.find((group) => group.id === sourceGroupId);
-      const task = source?.tasks.find((candidate) => candidate.id === id);
-      if (!source || !task) return groups;
-      const sourceTargetIndex = source.tasks.findIndex(
-        (candidate) => candidate.id === targetId,
-      );
-      const moved = { ...task, backlogGroupId: targetGroupId };
-      return groups.map((group) => {
-        if (sourceGroupId === targetGroupId && group.id === sourceGroupId) {
-          const tasks = group.tasks.filter((candidate) => candidate.id !== id);
-          if (sourceTargetIndex < 0) return group;
-          tasks.splice(Math.min(sourceTargetIndex, tasks.length), 0, moved);
-          return { ...group, tasks };
-        }
-        if (group.id === sourceGroupId)
-          return {
-            ...group,
-            tasks: group.tasks.filter((candidate) => candidate.id !== id),
-          };
-        if (group.id === targetGroupId) {
-          const tasks = [...group.tasks];
-          const targetIndex = tasks.findIndex(
-            (candidate) => candidate.id === targetId,
-          );
-          tasks.splice(targetIndex < 0 ? tasks.length : targetIndex, 0, moved);
-          return { ...group, tasks };
-        }
-        return group;
-      });
-    });
+    commit((current) =>
+      moveBacklogTaskInData(current, {
+        sourceGroupId,
+        id,
+        targetGroupId,
+        targetId,
+      }),
+    );
   }
 
-  function moveBacklogTaskWithinGroup(
+  function moveBacklogTaskVertically(
     groupId: string,
     id: string,
     direction: -1 | 1,
   ) {
-    updateBacklog((groups) =>
-      groups.map((group) => {
-        if (group.id !== groupId) return group;
-        const from = group.tasks.findIndex((task) => task.id === id);
-        const to = from + direction;
-        if (from < 0 || to < 0 || to >= group.tasks.length) return group;
-        const tasks = [...group.tasks];
-        [tasks[from], tasks[to]] = [tasks[to], tasks[from]];
-        return { ...group, tasks };
-      }),
+    commit((current) =>
+      moveBacklogTaskVerticallyInData(current, groupId, id, direction),
     );
   }
 
@@ -689,21 +536,7 @@ export default function Home() {
     if (!task || index < 0) return;
     commitWithUndo(
       'Перенесено в Сегодня',
-      (current) => ({
-        ...current,
-        backlog: (current.backlog ?? []).map((candidate) =>
-          candidate.id === groupId
-            ? {
-                ...candidate,
-                tasks: candidate.tasks.filter((item) => item.id !== id),
-              }
-            : candidate,
-        ),
-        schedule: {
-          ...current.schedule,
-          [todayKey]: [...(current.schedule[todayKey] ?? []), task],
-        },
-      }),
+      (current) => takeBacklogTaskFromData(current, groupId, id, todayKey),
       (current) => ({
         ...current,
         backlog: (current.backlog ?? []).map((candidate) => {
@@ -735,20 +568,13 @@ export default function Home() {
     if (!task) return;
     commitWithUndo(
       'Перенесено в Сегодня',
-      (current) => ({
-        ...current,
-        schedule: {
-          ...current.schedule,
-          [day]: (current.schedule[day] ?? []).filter((item) => item.id !== id),
-          [todayKey]: [...(current.schedule[todayKey] ?? []), task],
-        },
-      }),
+      (current) => takeFutureTaskFromData(current, day, id, todayKey),
       (current) => {
         const liveTask = current.schedule[todayKey]?.find(
           (item) => item.id === id,
         );
         if (!liveTask) return current;
-        return restoreTask(
+        return restoreScheduledTask(
           {
             ...current,
             schedule: {
@@ -778,20 +604,6 @@ export default function Home() {
       next.splice(to, 0, moved);
       return next;
     });
-  }
-
-  function addTaskAfter(day: string, id: string) {
-    const newId = uid();
-    updateTasks(day, (tasks) => {
-      const index = tasks.findIndex((task) => task.id === id);
-      const next = [...tasks];
-      next.splice(index + 1, 0, { id: newId, text: '', intervals: [] });
-      return next;
-    });
-    window.setTimeout(
-      () => document.getElementById(`task-${newId}`)?.focus(),
-      0,
-    );
   }
 
   function updateNote(id: string, change: (note: Note) => Note) {
@@ -857,6 +669,61 @@ export default function Home() {
     );
   }
 
+  function updateMonthTemplateRules(
+    change: (rules: MonthTemplateRule[]) => MonthTemplateRule[],
+  ) {
+    commit((current) => {
+      const monthPlanning = current.monthPlanning ?? {
+        rules: [],
+        createdMonths: [],
+      };
+      const rules = change(monthPlanning.rules);
+      if (rules === monthPlanning.rules) return current;
+      return { ...current, monthPlanning: { ...monthPlanning, rules } };
+    });
+  }
+
+  function addMonthTemplateRule(kind: MonthTemplateSchedule['kind']) {
+    const id = uid();
+    const rule: MonthTemplateRule = {
+      id,
+      text: '',
+      schedule: defaultMonthTemplateSchedule(kind, new Date(now)),
+    };
+    updateMonthTemplateRules((rules) => [...rules, rule]);
+    requestAnimationFrame(() =>
+      document.getElementById(`template-rule-${id}`)?.focus(),
+    );
+  }
+
+  function updateMonthTemplateRule(
+    id: string,
+    change: (rule: MonthTemplateRule) => MonthTemplateRule,
+  ) {
+    updateMonthTemplateRules((rules) =>
+      rules.map((rule) => (rule.id === id ? change(rule) : rule)),
+    );
+  }
+
+  function removeMonthTemplateRule(id: string) {
+    updateMonthTemplateRules((rules) => rules.filter((rule) => rule.id !== id));
+  }
+
+  function moveMonthTemplateRule(id: string, direction: -1 | 1) {
+    updateMonthTemplateRules((rules) => {
+      const index = rules.findIndex((rule) => rule.id === id);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= rules.length) return rules;
+      const next = [...rules];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+
+  function createMonth(month: string) {
+    commit((current) => createMonthFromTemplate(current, month));
+  }
+
   if (!data)
     return <main className="loading-screen">Открываю локальные записи…</main>;
 
@@ -890,6 +757,14 @@ export default function Home() {
       </NavButton>
     </>
   );
+  const storageLabel = persistenceLabel(saveState, syncState);
+  const storageProblem =
+    saveState === 'error' || syncState === 'auth' || syncState === 'conflict';
+  const openStorageStatus = () => {
+    if (syncState === 'auth') window.location.assign('/login');
+    else if (syncState === 'conflict') setSyncPanelOpen(true);
+    else void synchronize();
+  };
 
   return (
     <div className="app-shell">
@@ -900,23 +775,25 @@ export default function Home() {
         <nav aria-label="Основная навигация">{navigation}</nav>
         <div className="sidebar-spacer" />
         <button
+          className={`utility-button ${view === 'templates' ? 'active' : ''}`}
+          onClick={() => setView('templates')}
+        >
+          <CalendarDays />
+          <span>Шаблоны</span>
+        </button>
+        <button
           className={`utility-button ${view === 'history' ? 'active' : ''}`}
           onClick={() => setView('history')}
         >
           <History />
           <span>История</span>
         </button>
-        <div className="storage-status">
+        <button className="storage-status" onClick={openStorageStatus}>
           <span
-            className={`status-dot ${saveState === 'error' ? 'error' : ''}`}
+            className={`status-dot ${storageProblem ? 'error' : ''} ${syncState === 'offline' ? 'offline' : ''}`}
           />
-          <span>
-            {saveState === 'loading' && 'Открываю…'}
-            {saveState === 'saving' && 'Сохраняю…'}
-            {saveState === 'saved' && 'Сохранено'}
-            {saveState === 'error' && 'Ошибка сохранения'}
-          </span>
-        </div>
+          <span>{storageLabel}</span>
+        </button>
       </aside>
 
       <header className="mobile-header">
@@ -924,15 +801,19 @@ export default function Home() {
           notes
         </button>
         <div className="mobile-tools">
-          <span
-            className={`mobile-save ${saveState === 'error' ? 'error' : ''}`}
+          <button
+            className={`mobile-save ${storageProblem ? 'error' : ''}`}
+            onClick={openStorageStatus}
           >
-            {saveState === 'saving'
-              ? 'Сохраняю…'
-              : saveState === 'error'
-                ? 'Ошибка'
-                : 'Сохранено'}
-          </span>
+            {storageLabel}
+          </button>
+          <button
+            className={view === 'templates' ? 'active' : ''}
+            onClick={() => setView('templates')}
+            aria-label="Шаблоны месяцев"
+          >
+            <CalendarDays />
+          </button>
           <button
             className={view === 'history' ? 'active' : ''}
             onClick={() => setView('history')}
@@ -959,8 +840,9 @@ export default function Home() {
             moveTaskToDay={moveTaskToDay}
             setTaskColor={setTaskColor}
             sendTaskToBacklog={sendTaskToBacklog}
-            addTaskAfter={addTaskAfter}
             takeFutureTask={takeFutureTask}
+            createMonth={createMonth}
+            openTemplates={() => setView('templates')}
           />
         )}
         {view === 'backlog' && (
@@ -968,11 +850,11 @@ export default function Home() {
             groups={data.backlog ?? []}
             addGroup={addBacklogGroup}
             renameGroup={renameBacklogGroup}
+            setGroupColor={setBacklogGroupColor}
             removeGroup={removeBacklogGroup}
-            addTask={addBacklogTask}
             updateTask={updateBacklogTask}
             moveTask={moveBacklogTask}
-            moveTaskWithinGroup={moveBacklogTaskWithinGroup}
+            moveTaskVertically={moveBacklogTaskVertically}
             discardTask={discardBacklogTask}
             takeTask={takeBacklogTask}
           />
@@ -993,6 +875,16 @@ export default function Home() {
             restoreUndo={restoreUndo}
           />
         )}
+        {view === 'templates' && (
+          <TemplatesView
+            rules={data.monthPlanning?.rules ?? []}
+            today={new Date(now)}
+            addRule={addMonthTemplateRule}
+            updateRule={updateMonthTemplateRule}
+            removeRule={removeMonthTemplateRule}
+            moveRule={moveMonthTemplateRule}
+          />
+        )}
         {view === 'history' && <HistoryView data={data} now={now} />}
       </main>
 
@@ -1008,6 +900,36 @@ export default function Home() {
           </Button>
         </output>
       )}
+
+      <Dialog open={syncPanelOpen} onOpenChange={setSyncPanelOpen}>
+        <DialogContent className="sync-dialog">
+          <DialogTitle>Данные изменились на двух устройствах</DialogTitle>
+          <p>
+            Автоматически соединить версии без риска не получилось. Выбери,
+            какую оставить; до выбора эта версия продолжает храниться на этом
+            устройстве.
+          </p>
+          <div className="sync-dialog-actions">
+            <Button
+              variant="outline"
+              onClick={() => {
+                resolveConflict('remote');
+                setSyncPanelOpen(false);
+              }}
+            >
+              Взять с сервера
+            </Button>
+            <Button
+              onClick={() => {
+                resolveConflict('local');
+                setSyncPanelOpen(false);
+              }}
+            >
+              Оставить это устройство
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1053,8 +975,9 @@ type ScheduleProps = {
   ) => void;
   setTaskColor: (day: string, id: string, color?: TaskColor) => void;
   sendTaskToBacklog: (day: string, id: string) => void;
-  addTaskAfter: (day: string, id: string) => void;
   takeFutureTask: (day: string, id: string) => void;
+  createMonth: (month: string) => void;
+  openTemplates: () => void;
 };
 
 type TaskInteractions = {
@@ -1062,11 +985,11 @@ type TaskInteractions = {
   editing: boolean;
   onSelect: () => void;
   onEdit: () => void;
-  onBlur: () => void;
-  onStopEditing: () => void;
+  onStopEditing: (refocus?: boolean) => void;
   onNavigate: (direction: -1 | 1) => void;
   onMove: (direction: -1 | 1) => void;
-  onMoveDay: (direction: -1 | 1) => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
   onToggleTimer?: () => void;
   onSetColor: (color?: TaskColor) => void;
   onSendToBacklog: () => void;
@@ -1101,6 +1024,23 @@ function ScheduleView(props: ScheduleProps) {
     }
     return months;
   })();
+  const nextMonth = nextMonthKey(data, todayKey);
+  const nextMonthDate = new Date(`${nextMonth}-01T12:00:00`);
+  const templateRules = data.monthPlanning?.rules ?? [];
+  const hasFilledTemplate = templateRules.some((rule) => rule.text.trim());
+  const generatedTaskCount = monthTemplateTaskCount(data, nextMonth);
+
+  function materializeNextMonth() {
+    props.createMonth(nextMonth);
+    requestAnimationFrame(() => {
+      const element = document.querySelector<HTMLDetailsElement>(
+        `[data-month="${nextMonth}"]`,
+      );
+      if (!element) return;
+      element.open = true;
+      element.scrollIntoView({ block: 'start' });
+    });
+  }
 
   function selectTask(day: string, id: string) {
     setSelectedId(id);
@@ -1110,7 +1050,7 @@ function ScheduleView(props: ScheduleProps) {
 
   function markSelected(id: string) {
     setSelectedId(id);
-    setEditingId(null);
+    setEditingId((current) => (current === id ? current : null));
   }
 
   function editTask(day: string, id: string) {
@@ -1118,31 +1058,27 @@ function ScheduleView(props: ScheduleProps) {
     setEditingId(id);
   }
 
-  function tasksInNavigationOrder(day: string) {
-    const month = day.slice(0, 7);
-    const days = Object.keys(data.schedule).sort();
-    const entries = days
-      .filter((candidate) => candidate.startsWith(month))
+  function tasksInNavigationOrder() {
+    return Object.keys(data.schedule)
+      .sort()
+      .filter((candidate) => candidate >= todayKey)
       .flatMap((candidate) =>
         (data.schedule[candidate] ?? []).map((task) => ({
           day: candidate,
           id: task.id,
         })),
       );
-    if (month === todayKey.slice(0, 7))
-      return entries.filter((entry) => entry.day >= todayKey);
-    return entries;
   }
 
   function selectRelative(day: string, id: string, direction: -1 | 1) {
-    const entries = tasksInNavigationOrder(day);
+    const entries = tasksInNavigationOrder();
     const index = entries.findIndex((entry) => entry.id === id);
     const target = entries[index + direction];
     if (target) selectTask(target.day, target.id);
   }
 
   function selectAfterRemoval(day: string, id: string) {
-    const entries = tasksInNavigationOrder(day);
+    const entries = tasksInNavigationOrder();
     const index = entries.findIndex((entry) => entry.id === id);
     const target = entries[index + 1] ?? entries[index - 1];
     setEditingId(null);
@@ -1156,10 +1092,15 @@ function ScheduleView(props: ScheduleProps) {
     setEditingId(id);
   }
 
-  function moveSelectedToDay(day: string, id: string, direction: -1 | 1) {
-    const targetDay = shiftedDay(day, direction);
+  function moveSelectedVertically(day: string, id: string, direction: -1 | 1) {
+    const tasks = data.schedule[day] ?? [];
+    const index = tasks.findIndex((task) => task.id === id);
+    if (index < 0) return;
+    const staysInDay =
+      index + direction >= 0 && index + direction < tasks.length;
+    const targetDay = staysInDay ? day : shiftedDay(day, direction);
     if (targetDay < todayKey) return;
-    props.moveTaskToDay(day, id, targetDay);
+    props.moveTask(day, id, direction);
     setSelectedId(id);
     setEditingId(null);
     focusTask(targetDay, id);
@@ -1192,34 +1133,53 @@ function ScheduleView(props: ScheduleProps) {
     setEditingId(null);
   }
 
-  const interactionsFor = (day: string, id: string) => ({
-    selected: selectedId === id,
-    editing: editingId === id,
-    onSelect: () => markSelected(id),
-    onEdit: () => editTask(day, id),
-    onBlur: () => setEditingId(null),
-    onStopEditing: () => {
-      setEditingId(null);
-      focusTask(day, id);
-    },
-    onNavigate: (direction: -1 | 1) => selectRelative(day, id, direction),
-    onMove: (direction: -1 | 1) => props.moveTask(day, id, direction),
-    onMoveDay: (direction: -1 | 1) => moveSelectedToDay(day, id, direction),
-    onToggleTimer: day === todayKey ? () => props.runTimer(day, id) : undefined,
-    onSetColor: (color?: TaskColor) => props.setTaskColor(day, id, color),
-    onSendToBacklog: () => {
-      selectAfterRemoval(day, id);
-      props.sendTaskToBacklog(day, id);
-    },
-    onDiscard: () => {
-      selectAfterRemoval(day, id);
-      props.discardTask(day, id);
-    },
-  });
+  const interactionsFor = (day: string, id: string) => {
+    const tasks = data.schedule[day] ?? [];
+    const index = tasks.findIndex((task) => task.id === id);
+    return {
+      selected: selectedId === id,
+      editing: editingId === id,
+      onSelect: () => markSelected(id),
+      onEdit: () => editTask(day, id),
+      onStopEditing: (refocus = false) => {
+        setEditingId(null);
+        if (refocus) focusTask(day, id);
+      },
+      onNavigate: (direction: -1 | 1) => selectRelative(day, id, direction),
+      onMove: (direction: -1 | 1) => moveSelectedVertically(day, id, direction),
+      canMoveUp: !(day === todayKey && index === 0),
+      canMoveDown: true,
+      onToggleTimer:
+        day === todayKey ? () => props.runTimer(day, id) : undefined,
+      onSetColor: (color?: TaskColor) => props.setTaskColor(day, id, color),
+      onSendToBacklog: () => {
+        selectAfterRemoval(day, id);
+        props.sendTaskToBacklog(day, id);
+      },
+      onDiscard: () => {
+        selectAfterRemoval(day, id);
+        props.discardTask(day, id);
+      },
+    };
+  };
 
   return (
     <SortableRoot onDrop={dropAcrossSchedule}>
-      <div className="schedule-page">
+      <div
+        className="schedule-page"
+        onPointerDownCapture={(event) => {
+          if (!(event.target as HTMLElement).closest('[data-task-card]')) {
+            setSelectedId(null);
+            setEditingId(null);
+            const active = document.activeElement;
+            if (
+              active instanceof HTMLElement &&
+              active.closest('[data-task-card]')
+            )
+              active.blur();
+          }
+        }}
+      >
         <section className="today-section">
           <div className="page-heading">
             <div>
@@ -1240,13 +1200,11 @@ function ScheduleView(props: ScheduleProps) {
           >
             <SortableItems items={todayTasks.map((task) => task.id)}>
               {todayTasks.length ? (
-                todayTasks.map((task, index) => (
+                todayTasks.map((task) => (
                   <TaskRow
                     key={task.id}
                     task={task}
                     day={todayKey}
-                    index={index}
-                    count={todayTasks.length}
                     {...interactionsFor(todayKey, task.id)}
                     onActivate={() => {
                       selectAfterRemoval(todayKey, task.id);
@@ -1272,6 +1230,7 @@ function ScheduleView(props: ScheduleProps) {
             <details
               className="schedule-month"
               key={month}
+              data-month={month}
               open={month === todayKey.slice(0, 7)}
             >
               <summary className="month-heading">
@@ -1294,14 +1253,12 @@ function ScheduleView(props: ScheduleProps) {
                       className="future-tasks"
                     >
                       <SortableItems items={tasks.map((task) => task.id)}>
-                        {tasks.map((task, index) => (
+                        {tasks.map((task) => (
                           <FutureTaskRow
                             key={task.id}
                             {...props}
                             task={task}
                             day={day}
-                            index={index}
-                            count={tasks.length}
                             {...interactionsFor(day, task.id)}
                             onActivate={() => {
                               selectAfterRemoval(day, task.id);
@@ -1323,7 +1280,27 @@ function ScheduleView(props: ScheduleProps) {
               })}
             </details>
           ))}
-          <div className="month-end">Конец расписания</div>
+          <div className="month-end">
+            <div>
+              <strong>
+                {ruMonth.format(nextMonthDate)} {nextMonthDate.getFullYear()}
+              </strong>
+              <span>
+                {hasFilledTemplate
+                  ? `${generatedTaskCount} ${recordCountLabel(generatedTaskCount)} из шаблона`
+                  : 'Сначала добавь постоянные записи'}
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              onClick={
+                hasFilledTemplate ? materializeNextMonth : props.openTemplates
+              }
+            >
+              <CalendarDays />
+              {hasFilledTemplate ? 'Создать месяц' : 'Настроить шаблон'}
+            </Button>
+          </div>
         </section>
       </div>
     </SortableRoot>
@@ -1345,15 +1322,17 @@ const taskColors: Array<{
 function TaskColorMenu({
   color,
   onChange,
+  label = 'Цвет',
 }: {
   color?: TaskColor;
   onChange: (color?: TaskColor) => void;
+  label?: string;
 }) {
   return (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger>
         <span className={`task-color-dot ${color ?? 'none'}`} />
-        Цвет
+        {label}
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="task-color-menu">
         {taskColors.map((option) => (
@@ -1375,8 +1354,8 @@ type BacklogProps = {
   groups: TaskGroup[];
   addGroup: () => string;
   renameGroup: (id: string, title: string) => void;
+  setGroupColor: (id: string, color?: TaskColor) => void;
   removeGroup: (id: string) => void;
-  addTask: (groupId: string) => string;
   updateTask: (
     groupId: string,
     id: string,
@@ -1388,16 +1367,16 @@ type BacklogProps = {
     targetGroupId: string,
     targetId?: string,
   ) => void;
-  moveTaskWithinGroup: (groupId: string, id: string, direction: -1 | 1) => void;
+  moveTaskVertically: (groupId: string, id: string, direction: -1 | 1) => void;
   discardTask: (groupId: string, id: string) => void;
   takeTask: (groupId: string, id: string) => void;
 };
 
 function focusBacklogTask(id?: string) {
   requestAnimationFrame(() => {
-    const element = id
-      ? document.getElementById(`backlog-task-${id}`)
-      : document.querySelector<HTMLElement>('.backlog-add-task');
+    const card = id ? document.getElementById(`backlog-task-${id}`) : undefined;
+    const element =
+      card?.querySelector<HTMLElement>('[data-task-focus]') ?? card;
     element?.focus({ preventScroll: true });
     element?.scrollIntoView({ block: 'nearest' });
   });
@@ -1413,6 +1392,18 @@ function backlogShortcut(
     discard: () => void;
   },
 ) {
+  if (isTextEditor(event.target)) {
+    if (
+      event.metaKey &&
+      (event.key === 'Backspace' || event.key === 'Delete')
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!event.repeat) actions.discard();
+      return true;
+    }
+    if (!(event.metaKey && event.key === 'Enter')) return false;
+  }
   if (
     event.nativeEvent.isComposing ||
     event.shiftKey ||
@@ -1446,7 +1437,7 @@ function BacklogView(props: BacklogProps) {
 
   function select(id: string) {
     setSelectedId(id);
-    setEditingId(null);
+    setEditingId((current) => (current === id ? current : null));
   }
 
   function selectRelative(id: string, direction: -1 | 1) {
@@ -1463,12 +1454,6 @@ function BacklogView(props: BacklogProps) {
     setSelectedId(target?.id ?? null);
     setEditingId(null);
     focusBacklogTask(target?.id);
-  }
-
-  function addAndEdit(groupId: string) {
-    const id = props.addTask(groupId);
-    setSelectedId(id);
-    setEditingId(id);
   }
 
   function groupForTask(id: string) {
@@ -1504,19 +1489,33 @@ function BacklogView(props: BacklogProps) {
   }
 
   return (
-    <div className="backlog-page">
+    <div
+      className="backlog-page"
+      onPointerDownCapture={(event) => {
+        if (!(event.target as HTMLElement).closest('[data-task-card]')) {
+          setSelectedId(null);
+          setEditingId(null);
+          const active = document.activeElement;
+          if (
+            active instanceof HTMLElement &&
+            active.closest('[data-task-card]')
+          )
+            active.blur();
+        }
+      }}
+    >
       <div className="page-heading backlog-heading">
         <div>
           <h1>Дела</h1>
         </div>
-        <Button className="add-primary" onClick={addGroup}>
-          <Plus /> Добавить группу
-        </Button>
       </div>
       <SortableRoot onDrop={dropTask}>
         <div className="backlog-groups">
-          {props.groups.map((group) => (
-            <section className="backlog-group" key={group.id}>
+          {props.groups.map((group, groupIndex) => (
+            <section
+              className={`backlog-group ${group.color ? `group-color-${group.color}` : ''}`}
+              key={group.id}
+            >
               <header className="backlog-group-heading">
                 <input
                   id={`backlog-group-title-${group.id}`}
@@ -1531,27 +1530,34 @@ function BacklogView(props: BacklogProps) {
                     if (event.key === 'Enter') event.currentTarget.blur();
                   }}
                 />
-                <span className="backlog-count">{group.tasks.length}</span>
-                {group.id !== UNSORTED_GROUP_ID && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      className="more-button"
-                      render={
-                        <button type="button" aria-label="Действия с группой" />
-                      }
-                    >
-                      <MoreHorizontal />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onClick={() => props.removeGroup(group.id)}
-                      >
-                        Удалить группу → Не разобрано
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    className="more-button"
+                    render={
+                      <button type="button" aria-label="Действия с группой" />
+                    }
+                  >
+                    <MoreHorizontal />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <TaskColorMenu
+                      label="Цвет группы"
+                      color={group.color}
+                      onChange={(color) => props.setGroupColor(group.id, color)}
+                    />
+                    {group.id !== UNSORTED_GROUP_ID && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => props.removeGroup(group.id)}
+                        >
+                          Удалить группу → Не разобрано
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </header>
               <SortableDropZone
                 id={`backlog-group:${group.id}`}
@@ -1562,9 +1568,6 @@ function BacklogView(props: BacklogProps) {
                     <BacklogTaskRow
                       key={task.id}
                       task={task}
-                      group={group}
-                      groups={props.groups}
-                      index={index}
                       selected={selectedId === task.id}
                       editing={editingId === task.id}
                       onSelect={() => select(task.id)}
@@ -1572,22 +1575,22 @@ function BacklogView(props: BacklogProps) {
                         setSelectedId(task.id);
                         setEditingId(task.id);
                       }}
-                      onStopEditing={() => {
+                      onStopEditing={(refocus = false) => {
                         setEditingId(null);
-                        focusBacklogTask(task.id);
+                        if (refocus) focusBacklogTask(task.id);
                       }}
                       onNavigate={(direction) =>
                         selectRelative(task.id, direction)
                       }
                       onMove={(direction) => {
-                        props.moveTaskWithinGroup(group.id, task.id, direction);
+                        props.moveTaskVertically(group.id, task.id, direction);
                         focusBacklogTask(task.id);
                       }}
-                      onMoveGroup={(targetGroupId) => {
-                        props.moveTask(group.id, task.id, targetGroupId);
-                        select(task.id);
-                        focusBacklogTask(task.id);
-                      }}
+                      canMoveUp={index > 0 || groupIndex > 0}
+                      canMoveDown={
+                        index < group.tasks.length - 1 ||
+                        groupIndex < props.groups.length - 1
+                      }
                       onUpdate={(change) =>
                         props.updateTask(group.id, task.id, change)
                       }
@@ -1602,15 +1605,16 @@ function BacklogView(props: BacklogProps) {
                     />
                   ))}
                 </SortableItems>
-                <button
-                  className="backlog-add-task"
-                  onClick={() => addAndEdit(group.id)}
-                >
-                  <Plus /> Добавить дело
-                </button>
               </SortableDropZone>
             </section>
           ))}
+          <Button
+            className="backlog-add-group-bottom"
+            variant="outline"
+            onClick={addGroup}
+          >
+            <Plus /> Добавить группу
+          </Button>
         </div>
       </SortableRoot>
     </div>
@@ -1619,9 +1623,6 @@ function BacklogView(props: BacklogProps) {
 
 function BacklogTaskRow({
   task,
-  group,
-  groups,
-  index,
   selected,
   editing,
   onSelect,
@@ -1629,28 +1630,26 @@ function BacklogTaskRow({
   onStopEditing,
   onNavigate,
   onMove,
-  onMoveGroup,
+  canMoveUp,
+  canMoveDown,
   onUpdate,
   onTake,
   onDiscard,
 }: {
   task: Task;
-  group: TaskGroup;
-  groups: TaskGroup[];
-  index: number;
   selected: boolean;
   editing: boolean;
   onSelect: () => void;
   onEdit: () => void;
-  onStopEditing: () => void;
+  onStopEditing: (refocus?: boolean) => void;
   onNavigate: (direction: -1 | 1) => void;
   onMove: (direction: -1 | 1) => void;
-  onMoveGroup: (groupId: string) => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
   onUpdate: (change: (task: Task) => Task) => void;
   onTake: () => void;
   onDiscard: () => void;
 }) {
-  const editor = useRef<HTMLTextAreaElement>(null);
   const {
     setNodeRef,
     setActivatorNodeRef,
@@ -1660,13 +1659,6 @@ function BacklogTaskRow({
     transition,
     isDragging,
   } = useSortable({ id: task.id });
-
-  useEffect(() => {
-    if (editing) {
-      editor.current?.focus();
-      resizeTextarea(editor.current);
-    }
-  }, [editing]);
 
   function handleShortcut(event: React.KeyboardEvent<HTMLElement>) {
     return backlogShortcut(event, {
@@ -1681,15 +1673,26 @@ function BacklogTaskRow({
   return (
     <article
       ref={setNodeRef}
+      id={`backlog-task-${task.id}`}
+      data-task-card
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={`backlog-task ${task.color ? `task-color-${task.color}` : ''} ${selected ? 'selected' : ''} ${editing ? 'editing' : ''} ${isDragging ? 'dragging' : ''}`}
+      onFocusCapture={onSelect}
+      onPointerDownCapture={(event) => {
+        onSelect();
+        if (!(event.target as HTMLElement).closest('button, input, textarea')) {
+          const card = event.currentTarget;
+          requestAnimationFrame(() =>
+            card.querySelector<HTMLElement>('[data-task-focus]')?.focus(),
+          );
+        }
+      }}
     >
       <button
         ref={setActivatorNodeRef}
         className="drag-handle"
         {...attributes}
         {...listeners}
-        onFocus={onSelect}
         onKeyDown={(event) => {
           if (!handleShortcut(event)) listeners?.onKeyDown?.(event);
         }}
@@ -1698,37 +1701,31 @@ function BacklogTaskRow({
         <GripVertical />
       </button>
       {editing ? (
-        <Textarea
-          ref={editor}
-          id={`backlog-task-${task.id}`}
-          className="backlog-task-editor"
-          value={task.text}
-          rows={1}
-          onInput={(event) => resizeTextarea(event.currentTarget)}
-          onBlur={() => setTimeout(onStopEditing, 0)}
-          onChange={(event) =>
+        <TaskTextEditor
+          text={task.text}
+          ariaLabel="Название дела"
+          onDone={onStopEditing}
+          onDiscard={onDiscard}
+          onShortcut={handleShortcut}
+          onChange={(text) =>
             onUpdate((current) => ({
               ...current,
-              text: event.target.value,
+              text,
             }))
           }
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              onStopEditing();
-            }
-          }}
         />
       ) : (
         <button
-          id={`backlog-task-${task.id}`}
+          data-task-focus
           className="backlog-task-text"
           onClick={onSelect}
           onDoubleClick={onEdit}
-          onFocus={onSelect}
           onKeyDown={handleShortcut}
         >
-          {task.text || 'Без названия'}
+          <TaskTextPreview
+            text={task.text}
+            revealDescription={selected || task.intervals.length > 0}
+          />
         </button>
       )}
       <Button
@@ -1736,7 +1733,6 @@ function BacklogTaskRow({
         variant="outline"
         title="Перенести в Сегодня · ⌘↵"
         onClick={onTake}
-        onFocus={onSelect}
         onKeyDown={handleShortcut}
       >
         <ArrowUpToLine /> В Сегодня
@@ -1744,36 +1740,20 @@ function BacklogTaskRow({
       <DropdownMenu>
         <DropdownMenuTrigger
           className="more-button"
-          onFocus={onSelect}
           onKeyDown={handleShortcut}
           render={<button type="button" aria-label="Действия с делом" />}
         >
           <MoreHorizontal />
         </DropdownMenuTrigger>
         <DropdownMenuContent className="task-menu" align="end">
-          <DropdownMenuItem disabled={index === 0} onClick={() => onMove(-1)}>
-            Поднять выше
+          <DropdownMenuItem disabled={!canMoveUp} onClick={() => onMove(-1)}>
+            Переместить вверх
+            <DropdownMenuShortcut>⌘↑</DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={index === group.tasks.length - 1}
-            onClick={() => onMove(1)}
-          >
-            Опустить ниже
+          <DropdownMenuItem disabled={!canMoveDown} onClick={() => onMove(1)}>
+            Переместить вниз
+            <DropdownMenuShortcut>⌘↓</DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>Перенести в группу</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              {groups.map((candidate) => (
-                <DropdownMenuItem
-                  key={candidate.id}
-                  disabled={candidate.id === group.id}
-                  onClick={() => onMoveGroup(candidate.id)}
-                >
-                  {candidate.title || 'Без названия'}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
           <TaskColorMenu
             color={task.color}
             onChange={(color) => onUpdate((current) => ({ ...current, color }))}
@@ -1791,18 +1771,15 @@ function BacklogTaskRow({
 function FutureTaskRow({
   task,
   day,
-  todayKey,
-  index,
-  count,
   selected,
   editing,
   onSelect,
   onEdit,
-  onBlur,
   onStopEditing,
   onNavigate,
   onMove,
-  onMoveDay,
+  canMoveUp,
+  canMoveDown,
   onSetColor,
   onSendToBacklog,
   onActivate,
@@ -1811,10 +1788,7 @@ function FutureTaskRow({
 }: ScheduleProps & {
   task: Task;
   day: string;
-  index: number;
-  count: number;
 } & TaskInteractions) {
-  const editor = useRef<HTMLTextAreaElement>(null);
   const {
     setNodeRef,
     setActivatorNodeRef,
@@ -1824,12 +1798,6 @@ function FutureTaskRow({
     transition,
     isDragging,
   } = useSortable({ id: task.id });
-  useEffect(() => {
-    if (editing) {
-      editor.current?.focus();
-      resizeTextarea(editor.current);
-    }
-  }, [editing]);
   function handleShortcut(event: React.KeyboardEvent<HTMLElement>) {
     return selectedTaskShortcut(event, {
       edit: onEdit,
@@ -1837,14 +1805,25 @@ function FutureTaskRow({
       activate: onActivate,
       discard: onDiscard,
       move: onMove,
-      moveDay: onMoveDay,
     });
   }
   return (
     <article
       ref={setNodeRef}
+      id={`task-${task.id}`}
+      data-task-card
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={`future-task ${task.color ? `task-color-${task.color}` : ''} ${selected ? 'selected' : ''} ${editing ? 'editing' : ''} ${isDragging ? 'dragging' : ''}`}
+      onFocusCapture={onSelect}
+      onPointerDownCapture={(event) => {
+        onSelect();
+        if (!(event.target as HTMLElement).closest('button, input, textarea')) {
+          const card = event.currentTarget;
+          requestAnimationFrame(() =>
+            card.querySelector<HTMLElement>('[data-task-focus]')?.focus(),
+          );
+        }
+      }}
     >
       <button
         ref={setActivatorNodeRef}
@@ -1854,45 +1833,36 @@ function FutureTaskRow({
         onKeyDown={(event) => {
           if (!handleShortcut(event)) listeners?.onKeyDown?.(event);
         }}
-        onFocus={onSelect}
         aria-label="Перетащить дело"
       >
         <GripVertical />
       </button>
       {editing ? (
-        <Textarea
-          ref={editor}
-          id={`task-${task.id}`}
-          className="future-task-editor"
-          value={task.text}
-          rows={1}
-          aria-label={`Дело на ${ruShortDate.format(new Date(`${day}T12:00:00`))}`}
-          onInput={(event) => resizeTextarea(event.currentTarget)}
-          onBlur={onBlur}
-          onChange={(event) =>
+        <TaskTextEditor
+          text={task.text}
+          ariaLabel={`Дело на ${ruShortDate.format(new Date(`${day}T12:00:00`))}`}
+          onDone={onStopEditing}
+          onDiscard={onDiscard}
+          onShortcut={handleShortcut}
+          onChange={(text) =>
             updateTask(day, task.id, (current) => ({
               ...current,
-              text: event.target.value,
+              text,
             }))
           }
-          onKeyDown={(event) => {
-            if (event.nativeEvent.isComposing) return;
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              onStopEditing();
-            }
-          }}
         />
       ) : (
         <button
-          id={`task-${task.id}`}
+          data-task-focus
           className="future-task-text"
-          onKeyDown={handleShortcut}
           onClick={onSelect}
           onDoubleClick={onEdit}
-          onFocus={onSelect}
+          onKeyDown={handleShortcut}
         >
-          {task.text || 'Без названия'}
+          <TaskTextPreview
+            text={task.text}
+            revealDescription={selected || task.intervals.length > 0}
+          />
         </button>
       )}
       <Button
@@ -1900,9 +1870,8 @@ function FutureTaskRow({
         variant="outline"
         title="Перенести в Сегодня · ⌘↵"
         aria-label="В работу сегодня"
-        onKeyDown={handleShortcut}
-        onFocus={onSelect}
         onClick={onActivate}
+        onKeyDown={handleShortcut}
       >
         <ArrowUpToLine />
         <span>В работу</span>
@@ -1912,30 +1881,18 @@ function FutureTaskRow({
           className="more-button"
           aria-label="Действия с делом"
           onKeyDown={handleShortcut}
-          onFocus={onSelect}
           render={<button type="button" aria-label="Действия с делом" />}
         >
           <MoreHorizontal />
         </DropdownMenuTrigger>
         <DropdownMenuContent className="task-menu" align="end" sideOffset={8}>
-          <DropdownMenuItem disabled={index === 0} onClick={() => onMove(-1)}>
-            Поднять выше
+          <DropdownMenuItem disabled={!canMoveUp} onClick={() => onMove(-1)}>
+            Переместить вверх
+            <DropdownMenuShortcut>⌘↑</DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={index === count - 1}
-            onClick={() => onMove(1)}
-          >
-            Опустить ниже
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            disabled={shiftedDay(day, -1) < todayKey}
-            onClick={() => onMoveDay(-1)}
-          >
-            На день раньше<DropdownMenuShortcut>⌘←</DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onMoveDay(1)}>
-            На день позже<DropdownMenuShortcut>⌘→</DropdownMenuShortcut>
+          <DropdownMenuItem disabled={!canMoveDown} onClick={() => onMove(1)}>
+            Переместить вниз
+            <DropdownMenuShortcut>⌘↓</DropdownMenuShortcut>
           </DropdownMenuItem>
           <TaskColorMenu color={task.color} onChange={onSetColor} />
           <DropdownMenuItem onClick={onSendToBacklog}>
@@ -1954,8 +1911,6 @@ function FutureTaskRow({
 function TaskRow({
   task,
   day,
-  index,
-  count,
   now,
   updateTask,
   runTimer,
@@ -1963,11 +1918,11 @@ function TaskRow({
   editing,
   onSelect,
   onEdit,
-  onBlur,
   onStopEditing,
   onNavigate,
   onMove,
-  onMoveDay,
+  canMoveUp,
+  canMoveDown,
   onToggleTimer,
   onSetColor,
   onSendToBacklog,
@@ -1976,10 +1931,7 @@ function TaskRow({
 }: ScheduleProps & {
   task: Task;
   day: string;
-  index: number;
-  count: number;
 } & TaskInteractions) {
-  const editor = useRef<HTMLTextAreaElement>(null);
   const state = taskState(task);
   const timerLabel =
     state === 'idle' ? 'Начать' : state === 'running' ? 'Пауза' : 'Продолжить';
@@ -1994,13 +1946,6 @@ function TaskRow({
     isDragging,
   } = useSortable({ id: task.id });
 
-  useEffect(() => {
-    if (editing) {
-      editor.current?.focus();
-      resizeTextarea(editor.current);
-    }
-  }, [editing]);
-
   function handleShortcut(event: React.KeyboardEvent<HTMLElement>) {
     return selectedTaskShortcut(event, {
       edit: onEdit,
@@ -2008,7 +1953,6 @@ function TaskRow({
       activate: onActivate,
       discard: onDiscard,
       move: onMove,
-      moveDay: onMoveDay,
       toggleTimer: onToggleTimer,
     });
   }
@@ -2016,8 +1960,20 @@ function TaskRow({
   return (
     <article
       ref={setNodeRef}
+      id={`task-${task.id}`}
+      data-task-card
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={`task-row ${task.color ? `task-color-${task.color}` : ''} ${selected ? 'selected' : ''} ${editing ? 'editing' : ''} ${state === 'running' ? 'running' : ''} ${isDragging ? 'dragging' : ''}`}
+      onFocusCapture={onSelect}
+      onPointerDownCapture={(event) => {
+        onSelect();
+        if (!(event.target as HTMLElement).closest('button, input, textarea')) {
+          const card = event.currentTarget;
+          requestAnimationFrame(() =>
+            card.querySelector<HTMLElement>('[data-task-focus]')?.focus(),
+          );
+        }
+      }}
     >
       <button
         ref={setActivatorNodeRef}
@@ -2027,47 +1983,37 @@ function TaskRow({
         onKeyDown={(event) => {
           if (!handleShortcut(event)) listeners?.onKeyDown?.(event);
         }}
-        onFocus={onSelect}
         aria-label="Перетащить дело"
       >
         <GripVertical />
       </button>
       <div className="task-body">
         {editing ? (
-          <Textarea
-            ref={editor}
-            id={`task-${task.id}`}
-            className="task-text"
-            value={task.text}
-            rows={1}
-            placeholder="Что сделать?"
-            onFocus={(event) => resizeTextarea(event.currentTarget)}
-            onInput={(event) => resizeTextarea(event.currentTarget)}
-            onBlur={onBlur}
-            onChange={(event) =>
+          <TaskTextEditor
+            text={task.text}
+            ariaLabel="Название дела"
+            onDone={onStopEditing}
+            onDiscard={onDiscard}
+            onShortcut={handleShortcut}
+            onChange={(text) =>
               updateTask(day, task.id, (current) => ({
                 ...current,
-                text: event.target.value,
+                text,
               }))
             }
-            onKeyDown={(event) => {
-              if (event.nativeEvent.isComposing) return;
-              if (event.key === 'Escape') {
-                event.preventDefault();
-                onStopEditing();
-              }
-            }}
           />
         ) : (
           <button
-            id={`task-${task.id}`}
+            data-task-focus
             className="task-text task-text-display"
             onClick={onSelect}
             onDoubleClick={onEdit}
-            onFocus={onSelect}
             onKeyDown={handleShortcut}
           >
-            {task.text || 'Без названия'}
+            <TaskTextPreview
+              text={task.text}
+              revealDescription={selected || state !== 'idle'}
+            />
           </button>
         )}
         {state !== 'idle' && (
@@ -2084,7 +2030,6 @@ function TaskRow({
           variant={state === 'running' ? 'secondary' : 'outline'}
           title={`${timerLabel} · ⌥↵`}
           onKeyDown={handleShortcut}
-          onFocus={onSelect}
           onClick={() => {
             onSelect();
             runTimer(day, task.id);
@@ -2094,9 +2039,8 @@ function TaskRow({
         </Button>
         <Button
           className="finish-button"
-          onKeyDown={handleShortcut}
           size="icon"
-          onFocus={onSelect}
+          onKeyDown={handleShortcut}
           onClick={onActivate}
           aria-label="Завершить дело"
           title="Завершить · ⌘↵"
@@ -2108,27 +2052,18 @@ function TaskRow({
             className="more-button"
             aria-label="Другие действия"
             onKeyDown={handleShortcut}
-            onFocus={onSelect}
             render={<button type="button" aria-label="Другие действия" />}
           >
             <MoreHorizontal />
           </DropdownMenuTrigger>
           <DropdownMenuContent className="task-menu" align="end" sideOffset={8}>
-            <DropdownMenuItem disabled={index === 0} onClick={() => onMove(-1)}>
-              Поднять выше
+            <DropdownMenuItem disabled={!canMoveUp} onClick={() => onMove(-1)}>
+              Переместить вверх
+              <DropdownMenuShortcut>⌘↑</DropdownMenuShortcut>
             </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={index === count - 1}
-              onClick={() => onMove(1)}
-            >
-              Опустить ниже
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled onClick={() => onMoveDay(-1)}>
-              На день раньше<DropdownMenuShortcut>⌘←</DropdownMenuShortcut>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onMoveDay(1)}>
-              На завтра<DropdownMenuShortcut>⌘→</DropdownMenuShortcut>
+            <DropdownMenuItem disabled={!canMoveDown} onClick={() => onMove(1)}>
+              Переместить вниз
+              <DropdownMenuShortcut>⌘↓</DropdownMenuShortcut>
             </DropdownMenuItem>
             <TaskColorMenu color={task.color} onChange={onSetColor} />
             <DropdownMenuItem onClick={onSendToBacklog}>
@@ -2143,244 +2078,5 @@ function TaskRow({
         </DropdownMenu>
       </div>
     </article>
-  );
-}
-
-function NotesView({
-  notes,
-  openNote,
-  selectedText,
-  selection,
-  setOpenNoteId,
-  setSelection,
-  updateNote,
-  takeSelection,
-  createNote,
-  moveNote,
-  undo,
-  restoreUndo,
-}: {
-  notes: Note[];
-  openNote: Note | null;
-  selectedText: string;
-  selection: TextRange;
-  setOpenNoteId: (id: string | null) => void;
-  setSelection: (selection: { start: number; end: number }) => void;
-  updateNote: (id: string, change: (note: Note) => Note) => void;
-  takeSelection: (note: Note, cursor?: TextRange) => void;
-  createNote: () => void;
-  moveNote: (sourceId: string, targetId: string) => void;
-  undo: UndoState;
-  restoreUndo: () => void;
-}) {
-  const noteContentRef = useRef<HTMLTextAreaElement>(null);
-  const noteTitleRef = useRef<HTMLInputElement>(null);
-
-  return (
-    <section className="notes-page">
-      <div className="page-heading">
-        <h1>Заметки</h1>
-        <Button className="add-primary" onClick={createNote}>
-          <Plus /> Новая заметка
-        </Button>
-      </div>
-      <SortableList items={notes.map((note) => note.id)} grid onMove={moveNote}>
-        <div className="notes-grid">
-          {notes.map((note) => (
-            <SortableNote
-              key={note.id}
-              note={note}
-              onOpen={() => {
-                setSelection({ start: 0, end: 0 });
-                setOpenNoteId(note.id);
-              }}
-            />
-          ))}
-        </div>
-      </SortableList>
-
-      <Dialog
-        open={Boolean(openNote)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setOpenNoteId(null);
-            setSelection({ start: 0, end: 0 });
-          }
-        }}
-      >
-        {openNote && (
-          <DialogContent
-            className={`note-dialog ${openNote.color}`}
-            showCloseButton={false}
-            initialFocus={() =>
-              !openNote.title && !openNote.content
-                ? noteTitleRef.current
-                : noteContentRef.current
-            }
-            finalFocus={() =>
-              document.querySelector<HTMLButtonElement>(
-                `[data-note-id="${openNote.id}"]`,
-              )
-            }
-          >
-            <DialogTitle className="sr-only">
-              {openNote.title || 'Заметка без названия'}
-            </DialogTitle>
-            <div className="note-dialog-toolbar">
-              <div className="color-picker" aria-label="Цвет заметки">
-                {(['teal', 'purple', 'white', 'red'] as const).map((color) => (
-                  <button
-                    key={color}
-                    className={`color-dot ${color} ${openNote.color === color ? 'selected' : ''}`}
-                    onClick={() =>
-                      updateNote(openNote.id, (note) => ({ ...note, color }))
-                    }
-                    aria-label={`Выбрать цвет ${color}`}
-                  />
-                ))}
-              </div>
-              <button
-                className="note-close"
-                aria-label="Закрыть заметку"
-                onClick={() => setOpenNoteId(null)}
-              >
-                <X />
-              </button>
-            </div>
-            <input
-              ref={noteTitleRef}
-              className="note-title-input"
-              value={openNote.title}
-              placeholder="Название"
-              aria-label="Название заметки"
-              onChange={(event) =>
-                updateNote(openNote.id, (note) => ({
-                  ...note,
-                  title: event.target.value,
-                }))
-              }
-            />
-            <NoteEditor
-              editorRef={noteContentRef}
-              value={openNote.content}
-              selection={selection}
-              onChange={(content) =>
-                updateNote(openNote.id, (note) => ({
-                  ...note,
-                  content,
-                }))
-              }
-              onSelection={setSelection}
-              onTake={(cursor) => takeSelection(openNote, cursor)}
-            />
-            <div className="note-dialog-action">
-              {undo && (
-                <output className="note-undo">
-                  <span>{undo.message}</span>
-                  <Button variant="ghost" onClick={restoreUndo}>
-                    Отменить
-                  </Button>
-                </output>
-              )}
-              <Button
-                className="take-to-work-button"
-                disabled={!selectedText}
-                title={
-                  selectedText
-                    ? 'Взять абзац в работу · ⌘↵'
-                    : 'Поставь курсор в нужный абзац'
-                }
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => takeSelection(openNote)}
-              >
-                <Plus /> Взять в работу <kbd>⌘↵</kbd>
-              </Button>
-            </div>
-          </DialogContent>
-        )}
-      </Dialog>
-    </section>
-  );
-}
-
-function SortableNote({ note, onOpen }: { note: Note; onOpen: () => void }) {
-  const {
-    setNodeRef,
-    attributes,
-    listeners,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: note.id });
-  return (
-    <button
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      data-note-id={note.id}
-      style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={`note-card ${note.color} ${isDragging ? 'dragging' : ''}`}
-      aria-label={`Открыть заметку ${note.title || 'Без названия'}`}
-      onClick={onOpen}
-    >
-      <h2>{note.title || 'Без названия'}</h2>
-      <p>{note.content}</p>
-    </button>
-  );
-}
-
-function HistoryView({ data, now }: { data: AppData; now: number }) {
-  const days = data.history.reduce<Record<string, AppData['history']>>(
-    (groups, item) => {
-      const day = dateKey(new Date(item.finishedAt));
-      (groups[day] ??= []).push(item);
-      return groups;
-    },
-    {},
-  );
-
-  return (
-    <section className="history-page">
-      <div className="page-heading">
-        <h1>История</h1>
-      </div>
-      {data.history.length ? (
-        <div className="history-days">
-          {Object.entries(days).map(([day, items]) => (
-            <section className="history-day" key={day}>
-              <h2>{ruDate.format(new Date(`${day}T12:00:00`))}</h2>
-              <div className="history-list">
-                {[...items]
-                  .sort((a, b) => a.finishedAt - b.finishedAt)
-                  .map((item) => {
-                    const total = item.intervals.reduce(
-                      (sum, interval) =>
-                        sum + ((interval.end ?? now) - interval.start),
-                      0,
-                    );
-                    const first = item.intervals[0]?.start;
-                    const last = item.intervals.at(-1)?.end ?? item.finishedAt;
-                    return (
-                      <article key={item.id}>
-                        <Check />
-                        <div>
-                          <h3>{item.text || 'Без названия'}</h3>
-                          <p>
-                            {first
-                              ? `${ruTime.format(first)}–${ruTime.format(last)} · ${minutesLabel(total)}`
-                              : `${ruTime.format(item.finishedAt)} · завершено`}
-                          </p>
-                        </div>
-                      </article>
-                    );
-                  })}
-              </div>
-            </section>
-          ))}
-        </div>
-      ) : (
-        <div className="empty-history">Пока ничего не завершено.</div>
-      )}
-    </section>
   );
 }
