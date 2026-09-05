@@ -9,7 +9,8 @@
 
 Pull request в `dev` или `main` запускает CI, но ничего не разворачивает. Прямой
 push в `dev` также только проверяется. Это позволяет свободно собирать следующую
-версию без риска изменить production.
+версию без риска изменить production. `dev` является веткой GitHub по умолчанию.
+`main` защищён от прямых и force-push, удаления и merge при незелёном `verify`.
 
 ## Номер версии
 
@@ -30,7 +31,8 @@ Production использует SemVer `MAJOR.MINOR.PATCH`. До `1.0.0`:
 3. Обновить оба package-файла и сделать отдельный commit вида
    `chore: prepare vX.Y.Z release`.
 4. Запустить `npm run verify`.
-5. Влить `dev` в `main` отдельным release-коммитом и отправить `main`.
+5. Создать pull request `dev` → `main`, дождаться обязательного `verify` и слить
+   его merge-коммитом.
 6. Дождаться успешного workflow `Verify and deploy` и проверить production.
 7. Создать на развёрнутом commit аннотированный тег `vX.Y.Z` и отправить его.
 8. Fast-forward `dev` до release-коммита, если merge создал отдельный commit.
