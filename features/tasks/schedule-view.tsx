@@ -9,7 +9,9 @@ import {
   MoreHorizontal,
   Plus,
 } from 'lucide-react';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
+import { dayTimeline } from '@/lib/day-timeline';
+import { TimeDialog } from './time-dialog';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -126,6 +128,7 @@ type ScheduleProps = {
   now: number;
   todayKey: string;
   addTask: (day: string) => string;
+  setDayWindow: (day: string, window: { start?: string; end?: string }) => void;
   updateTask: (day: string, id: string, change: (task: Task) => Task) => void;
   runTimer: (day: string, id: string) => void;
   finishTask: (day: string, id: string) => void;
@@ -157,6 +160,7 @@ type TaskInteractions = {
   canMoveDown: boolean;
   onToggleTimer?: () => void;
   onSetColor: (color?: TaskColor) => void;
+  onSetTime: () => void;
   onSendToBacklog: () => void;
   onActivate: () => void;
   onDiscard: () => void;
@@ -166,6 +170,14 @@ export function ScheduleView(props: ScheduleProps) {
   const { data, now, todayKey, addTask } = props;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [timeTarget, setTimeTarget] = useState<{
+    day: string;
+    id?: string;
+  } | null>(null);
+  const dayWindow = data.dayWindows?.[todayKey] ?? {};
+  const timedTask = timeTarget?.id
+    ? data.schedule[timeTarget.day]?.find((task) => task.id === timeTarget.id)
+    : undefined;
   const today = new Date(now);
   const todayTasks = data.schedule[todayKey] ?? [];
   const futureMonths = (() => {
@@ -316,6 +328,7 @@ export function ScheduleView(props: ScheduleProps) {
       canMoveDown: true,
       onToggleTimer:
         day === todayKey ? () => props.runTimer(day, id) : undefined,
+      onSetTime: () => setTimeTarget({ day, id }),
       onSetColor: (color?: TaskColor) => props.setTaskColor(day, id, color),
       onSendToBacklog: () => {
         selectAfterRemoval(day, id);
@@ -361,23 +374,35 @@ export function ScheduleView(props: ScheduleProps) {
           </div>
           <SortableDropZone
             id={`schedule-day:${todayKey}`}
-            className="task-list"
+            className="task-list today-timeline"
           >
+            <button
+              className="timeline-boundary"
+              onClick={() => setTimeTarget({ day: todayKey })}
+            >
+              <span>{dayWindow.start ?? '···'}</span> Начало дня{' '}
+              <span className="boundary-edit">Изменить</span>
+            </button>
             <SortableItems items={todayTasks.map((task) => task.id)}>
               {todayTasks.length ? (
-                todayTasks.map((task) => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    day={todayKey}
-                    {...interactionsFor(todayKey, task.id)}
-                    onActivate={() => {
-                      selectAfterRemoval(todayKey, task.id);
-                      props.finishTask(todayKey, task.id);
-                    }}
-                    {...props}
-                  />
-                ))
+                dayTimeline(todayTasks, dayWindow).map(
+                  ({ task, range, warning }) => (
+                    <Fragment key={task.id}>
+                      {range && <div className="timeline-range">{range}</div>}
+                      <TaskRow
+                        warning={warning}
+                        task={task}
+                        day={todayKey}
+                        {...interactionsFor(todayKey, task.id)}
+                        onActivate={() => {
+                          selectAfterRemoval(todayKey, task.id);
+                          props.finishTask(todayKey, task.id);
+                        }}
+                        {...props}
+                      />
+                    </Fragment>
+                  ),
+                )
               ) : (
                 <button
                   className="empty-today"
@@ -387,6 +412,13 @@ export function ScheduleView(props: ScheduleProps) {
                 </button>
               )}
             </SortableItems>
+            <button
+              className="timeline-boundary"
+              onClick={() => setTimeTarget({ day: todayKey })}
+            >
+              <span>{dayWindow.end ?? '···'}</span> Конец дня{' '}
+              <span className="boundary-edit">Изменить</span>
+            </button>
           </SortableDropZone>
         </section>
 
@@ -468,6 +500,29 @@ export function ScheduleView(props: ScheduleProps) {
           </div>
         </section>
       </div>
+      {timeTarget && (
+        <TimeDialog
+          key={`${timeTarget.day}:${timeTarget.id ?? 'day'}`}
+          kind={timeTarget.id ? 'task' : 'day'}
+          start={
+            timeTarget.id
+              ? timedTask?.plannedStart
+              : data.dayWindows?.[timeTarget.day]?.start
+          }
+          end={
+            timeTarget.id ? undefined : data.dayWindows?.[timeTarget.day]?.end
+          }
+          onClose={() => setTimeTarget(null)}
+          onSave={(start, end) => {
+            if (timeTarget.id)
+              props.updateTask(timeTarget.day, timeTarget.id, (task) => {
+                const { plannedStart: _previous, ...rest } = task;
+                return start ? { ...rest, plannedStart: start } : rest;
+              });
+            else props.setDayWindow(timeTarget.day, { start, end });
+          }}
+        />
+      )}
     </SortableRoot>
   );
 }
@@ -485,6 +540,7 @@ function FutureTaskRow({
   canMoveUp,
   canMoveDown,
   onSetColor,
+  onSetTime,
   onSendToBacklog,
   onActivate,
   onDiscard,
@@ -541,44 +597,56 @@ function FutureTaskRow({
       >
         <GripVertical />
       </button>
-      {editing ? (
-        <TaskTextEditor
-          text={task.text}
-          ariaLabel={`Дело на ${ruShortDate.format(new Date(`${day}T12:00:00`))}`}
-          onDone={onStopEditing}
-          onDiscard={onDiscard}
-          onShortcut={handleShortcut}
-          onChange={(text) =>
-            updateTask(day, task.id, (current) => ({
-              ...current,
-              text,
-            }))
-          }
-        />
-      ) : (
-        <button
-          data-task-focus
-          className="future-task-text"
-          onClick={onSelect}
-          onDoubleClick={onEdit}
-          onKeyDown={handleShortcut}
-        >
-          <TaskTextPreview
+      <div className="future-task-body">
+        {task.plannedStart && (
+          <button
+            className="planned-time-badge"
+            onClick={onSetTime}
+            aria-label={`Изменить начало: ${task.plannedStart}`}
+          >
+            <Clock3 />
+            {task.plannedStart}
+          </button>
+        )}
+        {editing ? (
+          <TaskTextEditor
             text={task.text}
-            revealDescription={selected || task.intervals.length > 0}
+            ariaLabel={`Дело на ${ruShortDate.format(new Date(`${day}T12:00:00`))}`}
+            onDone={onStopEditing}
+            onDiscard={onDiscard}
+            onShortcut={handleShortcut}
+            onChange={(text) =>
+              updateTask(day, task.id, (current) => ({
+                ...current,
+                text,
+              }))
+            }
           />
-        </button>
-      )}
+        ) : (
+          <button
+            data-task-focus
+            className="future-task-text"
+            onClick={onSelect}
+            onDoubleClick={onEdit}
+            onKeyDown={handleShortcut}
+          >
+            <TaskTextPreview
+              text={task.text}
+              revealDescription={selected || task.intervals.length > 0}
+            />
+          </button>
+        )}
+      </div>
       <Button
         className="future-take"
-        variant="outline"
+        variant="ghost"
+        size="icon"
         title="Перенести в Сегодня · ⌘↵"
         aria-label="В работу сегодня"
         onClick={onActivate}
         onKeyDown={handleShortcut}
       >
         <ArrowUpToLine />
-        <span>В работу</span>
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger
@@ -598,6 +666,12 @@ function FutureTaskRow({
             Переместить вниз
             <DropdownMenuShortcut>⌘↓</DropdownMenuShortcut>
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={onSetTime}>
+            <Clock3 />
+            {task.plannedStart
+              ? `Начало: ${task.plannedStart}`
+              : 'Назначить время'}
+          </DropdownMenuItem>
           <TaskColorMenu color={task.color} onChange={onSetColor} />
           <DropdownMenuItem onClick={onSendToBacklog}>
             Перенести в Дела
@@ -614,6 +688,7 @@ function FutureTaskRow({
 
 function TaskRow({
   task,
+  warning,
   day,
   now,
   updateTask,
@@ -629,12 +704,14 @@ function TaskRow({
   canMoveDown,
   onToggleTimer,
   onSetColor,
+  onSetTime,
   onSendToBacklog,
   onActivate,
   onDiscard,
 }: ScheduleProps & {
   task: Task;
   day: string;
+  warning?: string;
 } & TaskInteractions) {
   const state = taskState(task);
   const timerLabel =
@@ -680,6 +757,18 @@ function TaskRow({
       }}
     >
       <button
+        className={`timeline-time ${task.plannedStart ? 'has-time' : ''}`}
+        onClick={onSetTime}
+        aria-label={
+          task.plannedStart
+            ? `Изменить начало: ${task.plannedStart}`
+            : 'Назначить время'
+        }
+        title="Плановое начало"
+      >
+        {task.plannedStart ?? <Plus />}
+      </button>
+      <button
         ref={setActivatorNodeRef}
         className="drag-handle"
         {...attributes}
@@ -692,6 +781,7 @@ function TaskRow({
         <GripVertical />
       </button>
       <div className="task-body">
+        {warning && <p className="timeline-warning">{warning}</p>}
         {editing ? (
           <TaskTextEditor
             text={task.text}
@@ -769,6 +859,12 @@ function TaskRow({
             <DropdownMenuItem disabled={!canMoveDown} onClick={() => onMove(1)}>
               Переместить вниз
               <DropdownMenuShortcut>⌘↓</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onSetTime}>
+              <Clock3 />
+              {task.plannedStart
+                ? `Начало: ${task.plannedStart}`
+                : 'Назначить время'}
             </DropdownMenuItem>
             <TaskColorMenu color={task.color} onChange={onSetColor} />
             <DropdownMenuItem onClick={onSendToBacklog}>

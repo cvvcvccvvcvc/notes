@@ -1,5 +1,7 @@
 'use client';
 
+import { setDayWindow } from '@/lib/day-timeline';
+
 import {
   CalendarDays,
   FileText,
@@ -638,6 +640,9 @@ export default function Home() {
             todayKey={todayKey}
             addTask={addTask}
             updateTask={updateTask}
+            setDayWindow={(day, window) =>
+              commit((current) => setDayWindow(current, day, window))
+            }
             runTimer={runTimer}
             finishTask={finishTask}
             discardTask={discardTask}

@@ -1699,3 +1699,206 @@ h1 {
     transition: none !important;
   }
 }
+
+/* The rail represents order and anchors, never task duration. */
+.today-timeline {
+  position: relative;
+  margin-left: 80px;
+}
+.today-timeline::before {
+  content: '';
+  position: absolute;
+  left: -18px;
+  top: 20px;
+  bottom: 20px;
+  width: 1px;
+  background: #d5dcd5;
+}
+.timeline-boundary {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  gap: 12px;
+  color: #727c74;
+  font-size: 12px;
+  text-align: left;
+}
+.timeline-boundary > span:first-child {
+  position: absolute;
+  right: calc(100% + 28px);
+  font-variant-numeric: tabular-nums;
+}
+.timeline-boundary::before,
+.timeline-time::after {
+  content: '';
+  position: absolute;
+  left: -21px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #98aea0;
+}
+.boundary-edit {
+  opacity: 0;
+}
+.timeline-boundary:hover .boundary-edit,
+.timeline-boundary:focus-visible .boundary-edit {
+  opacity: 1;
+}
+.timeline-time {
+  position: absolute;
+  top: 12px;
+  right: calc(100% + 26px);
+  width: 52px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #87968c;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.timeline-time.has-time {
+  color: #316b55;
+  font-weight: 650;
+}
+.timeline-time svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0;
+}
+.task-row:hover .timeline-time svg,
+.task-row:focus-within .timeline-time svg {
+  opacity: 1;
+}
+.timeline-time::after {
+  left: auto;
+  right: -10px;
+  width: 5px;
+  height: 5px;
+  background: #c3cfc5;
+}
+.timeline-time.has-time::after {
+  background: #467b60;
+  width: 7px;
+  height: 7px;
+  right: -11px;
+}
+.timeline-time:hover,
+.timeline-time:focus-visible {
+  background: #e5ece5;
+}
+.timeline-range {
+  color: #7b857d;
+  font-size: 11px;
+  padding: 4px 0 0 3px;
+}
+.timeline-warning {
+  color: #a35527;
+  font-size: 11px;
+  padding: 0 8px 3px;
+}
+.future-task-body {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.future-task-body > .future-task-text,
+.future-task-body > .task-editor-fields {
+  flex: 1;
+  min-width: 0;
+}
+.planned-time-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #52715f;
+  font-size: 12px;
+  white-space: nowrap;
+  border-radius: 5px;
+  padding: 3px;
+}
+.planned-time-badge svg {
+  width: 12px;
+  height: 12px;
+}
+.future-take {
+  width: 34px;
+  min-width: 34px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.time-dialog p {
+  color: #737b74;
+  font-size: 13px;
+}
+.time-dialog form {
+  display: grid;
+  gap: 16px;
+}
+.time-dialog label {
+  display: grid;
+  gap: 6px;
+}
+.time-dialog input {
+  padding: 10px;
+  border: 1px solid #cbd3cb;
+  border-radius: 8px;
+  font-size: 16px;
+}
+.time-dialog-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.time-dialog #time-error {
+  color: #a44332;
+}
+@media (hover: hover) {
+  .future-take {
+    opacity: 0;
+  }
+  .future-task:hover .future-take,
+  .future-task:focus-within .future-take,
+  .future-task.selected .future-take {
+    opacity: 1;
+  }
+}
+@media (max-width: 640px) {
+  .today-timeline {
+    margin-left: 63px;
+  }
+  .timeline-time {
+    width: 43px;
+    right: calc(100% + 20px);
+    top: 5px;
+  }
+  .timeline-time::after {
+    right: -4px;
+  }
+  .timeline-time.has-time::after {
+    right: -5px;
+  }
+  .timeline-boundary > span:first-child {
+    right: calc(100% + 24px);
+  }
+  .timeline-time svg {
+    opacity: 1;
+  }
+  .today-timeline .task-actions {
+    grid-column: 2 / 4;
+    grid-row: 2;
+    justify-self: end;
+  }
+  .today-timeline .task-body {
+    grid-column: 2 / 4;
+  }
+  .future-task-body {
+    flex-wrap: wrap;
+    gap: 0;
+  }
+}
