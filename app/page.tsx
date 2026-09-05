@@ -61,6 +61,12 @@ import {
   monthTemplateTaskCount,
   nextMonthKey,
 } from '@/lib/month-template';
+import {
+  addNoteTaskToSchedule,
+  moveNote as moveNoteInData,
+  prependNote,
+  updateNote as updateNoteInData,
+} from '@/lib/note-operations';
 import { SortableDropZone, SortableItems, SortableRoot } from '@/lib/sorting';
 import { paragraphRange } from '@/lib/paragraph';
 import { TaskTextEditor, TaskTextPreview } from '@/lib/task-text';
@@ -562,65 +568,37 @@ export default function Home() {
   }
 
   function updateNote(id: string, change: (note: Note) => Note) {
-    commit((current) => ({
-      ...current,
-      notes: current.notes.map((note) =>
-        note.id === id ? change(note) : note,
-      ),
-    }));
+    commit((current) => updateNoteInData(current, id, change));
   }
 
   function createNote() {
     const id = uid();
-    commit((current) => ({
-      ...current,
-      notes: [{ id, title: '', content: '', color: 'white' }, ...current.notes],
-    }));
+    commit((current) =>
+      prependNote(current, { id, title: '', content: '', color: 'white' }),
+    );
     setSelection({ start: 0, end: 0 });
     setOpenNoteId(id);
   }
 
   function moveNote(sourceId: string, targetId: string) {
-    if (sourceId === targetId) return;
-    commit((current) => {
-      const from = current.notes.findIndex((note) => note.id === sourceId);
-      const to = current.notes.findIndex((note) => note.id === targetId);
-      if (from < 0 || to < 0) return current;
-      const notes = [...current.notes];
-      const [moved] = notes.splice(from, 1);
-      notes.splice(to, 0, moved);
-      return { ...current, notes };
-    });
+    commit((current) => moveNoteInData(current, sourceId, targetId));
   }
 
   function takeSelection(note: Note, cursor = selection) {
     const range = paragraphRange(note.content, cursor);
     const text = note.content.slice(range.start, range.end).trim();
     if (!text) return;
-    const task: Task = {
-      id: uid(),
-      text,
-      intervals: [],
-      source: { noteId: note.id, snapshot: text },
-    };
+    const taskId = uid();
     commitWithUndo(
       'Добавлено в Сегодня',
-      (current) => ({
-        ...current,
-        schedule: {
-          ...current.schedule,
-          [todayKey]: [...(current.schedule[todayKey] ?? []), task],
-        },
-      }),
-      (current) => ({
-        ...current,
-        schedule: {
-          ...current.schedule,
-          [todayKey]: (current.schedule[todayKey] ?? []).filter(
-            (item) => item.id !== task.id,
-          ),
-        },
-      }),
+      (current) =>
+        addNoteTaskToSchedule(current, {
+          today: todayKey,
+          taskId,
+          noteId: note.id,
+          text,
+        }),
+      (current) => removeScheduledTask(current, todayKey, taskId),
     );
   }
 
