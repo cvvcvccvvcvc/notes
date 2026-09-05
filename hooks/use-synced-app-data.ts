@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { createDemoData, type AppData } from '@/lib/data';
+import type { AppData } from '@/lib/data';
+import { createEmptyAppData } from '@/lib/initial-data';
 import { migrateAppData } from '@/lib/migrations';
-import { importPreviewSchedule } from '@/lib/preview-schedule';
 import { rolloverPastTasks } from '@/lib/rollover';
 import { loadEnvelope, saveEnvelope } from '@/lib/storage';
 import {
@@ -33,10 +33,7 @@ export type SyncState =
   | 'error';
 
 function normalize(data: AppData, today: string) {
-  return rolloverPastTasks(
-    migrateAppData(importPreviewSchedule(data, today)),
-    today,
-  );
+  return rolloverPastTasks(migrateAppData(data), today);
 }
 
 function connectionFailure(error: unknown): SyncState {
@@ -242,7 +239,7 @@ export function useSyncedAppData(today: string) {
       .then(async (stored) => {
         if (!active) return;
         const initialData = normalize(
-          stored?.data ?? createDemoData(todayRef.current),
+          stored?.data ?? createEmptyAppData(todayRef.current),
           todayRef.current,
         );
         const envelope: SyncEnvelope = stored

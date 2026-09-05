@@ -55,6 +55,7 @@ export type MonthPlanning = {
 
 export type AppData = {
   version: number;
+  /** Historical ids of one-time imports applied by older releases. */
   appliedImports?: string[];
   schedule: Record<string, Task[]>;
   backlog?: TaskGroup[];
@@ -62,53 +63,3 @@ export type AppData = {
   notes: Note[];
   history: HistoryItem[];
 };
-
-export function createDemoData(today: string): AppData {
-  return {
-    version: 1,
-    schedule: {
-      [today]: [
-        { id: 'demo-article', text: 'Писать статью', intervals: [] },
-        { id: 'demo-sql', text: 'SQL: видео и практика', intervals: [] },
-        {
-          id: 'demo-scroll',
-          text: 'Исправить листание карточки\nПроверить Safari и Яндекс. Учесть, почему прошлый фикс не сработал.',
-          intervals: [],
-        },
-        { id: 'demo-dance', text: 'Позвонить на танцы', intervals: [] },
-      ],
-    },
-    history: [],
-    notes: [
-      {
-        id: 'vocabulary',
-        title: 'The Vocabulary App',
-        color: 'teal',
-        pinned: true,
-        content:
-          'Механики:\n— коллаборация с дизайнером\n— автопереводчик?\n\nпосты:\n— механика free review\n\nПридумать сообщение одногруппникам\n\nфиксы:\nИсправить листание карточки\nПроверить Safari и Яндекс. Учесть, почему прошлый фикс не сработал.',
-      },
-      {
-        id: 'coursework',
-        title: 'Курсовая работа',
-        color: 'teal',
-        content: 'Писать статью\n\nПосмотреть результаты',
-      },
-      {
-        id: 'important',
-        title: 'Дела / важное',
-        color: 'purple',
-        pinned: true,
-        content:
-          'Учёба\n— читать статью\n— лекция по MO\n\nРабота\n— SQL: видео и практика\n— пройти Git\n— курс по Docker\n\nПравила\n— весь написанный код смотреть и понимать\n\nЧто брать в зал\nбутылка, шорты, тапки, полотенце, пропуск',
-      },
-      {
-        id: 'memo',
-        title: 'Памятка',
-        color: 'white',
-        content:
-          'Мне не нужно знать всё. Важнее понимать, проверять и уметь изменить созданное агентом.',
-      },
-    ],
-  };
-}
