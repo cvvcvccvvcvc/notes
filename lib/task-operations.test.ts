@@ -4,11 +4,15 @@ import { describe, it } from 'node:test';
 import type { AppData, Task } from './data';
 import { UNSORTED_GROUP_ID } from './backlog';
 import {
+  finishScheduledTask,
   moveBacklogTask,
   moveBacklogTaskVertically,
   moveScheduledTask,
+  removeBacklogTask,
   removeBacklogGroup,
+  removeScheduledTask,
   sendScheduledTaskToBacklog,
+  toggleScheduledTaskTimer,
 } from './task-operations';
 
 function task(id: string, overrides: Partial<Task> = {}): Task {
@@ -30,6 +34,47 @@ function data(overrides: Partial<AppData> = {}): AppData {
 }
 
 void describe('schedule task operations', () => {
+  void it('starts, pauses and resumes the same task timer', () => {
+    const current = data({ schedule: { '2026-09-05': [task('one')] } });
+    const started = toggleScheduledTaskTimer(current, '2026-09-05', 'one', 100);
+    const paused = toggleScheduledTaskTimer(started, '2026-09-05', 'one', 250);
+    const resumed = toggleScheduledTaskTimer(paused, '2026-09-05', 'one', 400);
+
+    assert.deepEqual(resumed.schedule['2026-09-05'][0].intervals, [
+      { start: 100, end: 250 },
+      { start: 400 },
+    ]);
+  });
+
+  void it('finishes into history while plain removal creates no history', () => {
+    const running = task('one', {
+      text: 'Работа',
+      intervals: [{ start: 100 }],
+    });
+    const current = data({ schedule: { '2026-09-05': [running] } });
+    const finished = finishScheduledTask(current, {
+      day: '2026-09-05',
+      id: 'one',
+      historyId: 'history-one',
+      stamp: 250,
+    });
+
+    assert.deepEqual(finished.schedule['2026-09-05'], []);
+    assert.deepEqual(finished.history, [
+      {
+        id: 'history-one',
+        taskId: 'one',
+        text: 'Работа',
+        finishedAt: 250,
+        intervals: [{ start: 100, end: 250 }],
+      },
+    ]);
+    assert.deepEqual(
+      removeScheduledTask(current, '2026-09-05', 'one').history,
+      [],
+    );
+  });
+
   void it('falls back to the unsorted group instead of losing a task whose old group was deleted', () => {
     const running = task('one', {
       backlogGroupId: 'deleted-group',
@@ -75,6 +120,21 @@ void describe('schedule task operations', () => {
 });
 
 void describe('backlog task operations', () => {
+  void it('removes only the requested task without creating history', () => {
+    const one = task('one', { backlogGroupId: 'study' });
+    const two = task('two', { backlogGroupId: 'study' });
+    const current = data({
+      backlog: [
+        { id: UNSORTED_GROUP_ID, title: 'Не разобрано', tasks: [] },
+        { id: 'study', title: 'Учёба', tasks: [one, two] },
+      ],
+    });
+
+    const result = removeBacklogTask(current, 'study', 'one');
+    assert.deepEqual(result.backlog?.[1].tasks, [two]);
+    assert.deepEqual(result.history, []);
+  });
+
   void it('does not remove a task when a drop target group is stale', () => {
     const current = data({
       backlog: [

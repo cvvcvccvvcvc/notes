@@ -28,6 +28,59 @@ export function pauseTaskAt(task: Task, stamp: number): Task {
   };
 }
 
+export function toggleScheduledTaskTimer(
+  data: AppData,
+  day: string,
+  id: string,
+  stamp: number,
+) {
+  return updateScheduledTask(data, day, id, (task) =>
+    taskState(task) === 'running'
+      ? pauseTaskAt(task, stamp)
+      : { ...task, intervals: [...task.intervals, { start: stamp }] },
+  );
+}
+
+export function finishScheduledTask(
+  data: AppData,
+  input: { day: string; id: string; historyId: string; stamp: number },
+) {
+  const { day, id, historyId, stamp } = input;
+  const tasks = data.schedule[day] ?? [];
+  const task = tasks.find((candidate) => candidate.id === id);
+  if (!task) return data;
+  const finished = pauseTaskAt(task, stamp);
+  return {
+    ...data,
+    schedule: {
+      ...data.schedule,
+      [day]: tasks.filter((candidate) => candidate.id !== id),
+    },
+    history: [
+      {
+        id: historyId,
+        taskId: task.id,
+        text: task.text,
+        finishedAt: stamp,
+        intervals: finished.intervals,
+      },
+      ...data.history,
+    ],
+  };
+}
+
+export function removeScheduledTask(data: AppData, day: string, id: string) {
+  const tasks = data.schedule[day] ?? [];
+  if (!tasks.some((task) => task.id === id)) return data;
+  return {
+    ...data,
+    schedule: {
+      ...data.schedule,
+      [day]: tasks.filter((task) => task.id !== id),
+    },
+  };
+}
+
 export function restoreScheduledTask(
   data: AppData,
   day: string,
@@ -242,6 +295,23 @@ export function updateBacklogTask(
   const backlog = [...groups];
   backlog[groupIndex] = { ...groups[groupIndex], tasks };
   return { ...data, backlog };
+}
+
+export function removeBacklogTask(data: AppData, groupId: string, id: string) {
+  const groups = data.backlog ?? [];
+  const group = groups.find((candidate) => candidate.id === groupId);
+  if (!group?.tasks.some((task) => task.id === id)) return data;
+  return {
+    ...data,
+    backlog: groups.map((candidate) =>
+      candidate.id === groupId
+        ? {
+            ...candidate,
+            tasks: candidate.tasks.filter((task) => task.id !== id),
+          }
+        : candidate,
+    ),
+  };
 }
 
 export function moveBacklogTask(

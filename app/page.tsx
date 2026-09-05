@@ -69,14 +69,17 @@ import {
   moveBacklogTaskVertically as moveBacklogTaskVerticallyInData,
   moveScheduledTask,
   moveScheduledTaskToDay,
-  pauseTaskAt,
+  finishScheduledTask,
+  removeBacklogTask as removeBacklogTaskFromData,
   removeBacklogGroup as removeBacklogGroupFromData,
+  removeScheduledTask,
   restoreScheduledTask,
   sendScheduledTaskToBacklog,
   takeBacklogTask as takeBacklogTaskFromData,
   takeFutureTask as takeFutureTaskFromData,
   taskDuration,
   taskState,
+  toggleScheduledTaskTimer,
   updateBacklogTask as updateBacklogTaskInData,
   updateScheduledTask,
   updateScheduledTasks,
@@ -300,20 +303,7 @@ export default function Home() {
 
   function runTimer(day: string, id: string) {
     if (day !== todayKey) return;
-    const stamp = Date.now();
-    updateTask(day, id, (task) => {
-      if (taskState(task) === 'running') {
-        return {
-          ...task,
-          intervals: task.intervals.map((interval, index) =>
-            index === task.intervals.length - 1
-              ? { ...interval, end: stamp }
-              : interval,
-          ),
-        };
-      }
-      return { ...task, intervals: [...task.intervals, { start: stamp }] };
-    });
+    commit((current) => toggleScheduledTaskTimer(current, day, id, Date.now()));
   }
 
   function finishTask(day: string, id: string) {
@@ -327,28 +317,9 @@ export default function Home() {
     );
     const historyId = uid();
     const stamp = Date.now();
-    const intervals = pauseTaskAt(task, stamp).intervals;
     commitWithUndo(
       'Дело завершено',
-      (current) => ({
-        ...current,
-        schedule: {
-          ...current.schedule,
-          [day]: (current.schedule[day] ?? []).filter(
-            (candidate) => candidate.id !== id,
-          ),
-        },
-        history: [
-          {
-            id: historyId,
-            taskId: task.id,
-            text: task.text,
-            finishedAt: stamp,
-            intervals,
-          },
-          ...current.history,
-        ],
-      }),
+      (current) => finishScheduledTask(current, { day, id, historyId, stamp }),
       (current) => ({
         ...restoreScheduledTask(current, day, task, index),
         history: current.history.filter((item) => item.id !== historyId),
@@ -363,13 +334,7 @@ export default function Home() {
     if (!task) return;
     commitWithUndo(
       'Дело убрано без истории',
-      (current) => ({
-        ...current,
-        schedule: {
-          ...current.schedule,
-          [day]: (current.schedule[day] ?? []).filter((task) => task.id !== id),
-        },
-      }),
+      (current) => removeScheduledTask(current, day, id),
       (current) => restoreScheduledTask(current, day, task, index),
     );
   }
@@ -503,17 +468,7 @@ export default function Home() {
     if (!task || index < 0) return;
     commitWithUndo(
       'Дело убрано',
-      (current) => ({
-        ...current,
-        backlog: (current.backlog ?? []).map((candidate) =>
-          candidate.id === groupId
-            ? {
-                ...candidate,
-                tasks: candidate.tasks.filter((item) => item.id !== id),
-              }
-            : candidate,
-        ),
-      }),
+      (current) => removeBacklogTaskFromData(current, groupId, id),
       (current) => ({
         ...current,
         backlog: (current.backlog ?? []).map((candidate) => {
