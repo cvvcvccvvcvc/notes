@@ -739,7 +739,8 @@ function TaskRow({
             runTimer(day, task.id);
           }}
         >
-          <TimerIcon /> {timerLabel}
+          <TimerIcon />
+          <span className="task-action-label">{timerLabel}</span>
         </Button>
         <Button
           className="finish-button"

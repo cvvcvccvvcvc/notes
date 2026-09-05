@@ -1538,20 +1538,22 @@ h1 {
     gap: 9px;
   }
   .task-row {
-    grid-template-columns: 24px minmax(0, 1fr);
-    padding: 10px 10px 9px;
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    padding: 6px 7px 6px 4px;
     gap: 2px;
   }
   .drag-handle {
     display: grid;
-    padding: 8px 0;
-    min-height: 44px;
+    padding: 6px 0;
+    min-height: 40px;
   }
   .task-actions {
-    grid-column: 2;
+    grid-column: 3;
+    grid-row: 1;
+    align-self: start;
   }
   .task-text {
-    padding: 7px 5px;
+    padding: 6px 5px;
     font-size: 16px;
   }
   .timer-meta,
@@ -1559,14 +1561,27 @@ h1 {
     margin-left: 5px;
   }
   .task-actions {
-    padding: 5px 3px 0;
+    gap: 2px;
+    padding: 2px 0 0;
   }
-  .task-actions > button:first-child {
-    min-width: 118px;
+  .task-actions > button,
+  .task-actions [data-slot='button'] {
+    width: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+  }
+  .task-action-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .finish-button,
   .more-button {
-    margin-left: auto;
+    margin-left: 0;
   }
   .future-section {
     padding-top: 22px;
