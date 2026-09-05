@@ -56,10 +56,14 @@ import {
 } from '@/lib/date-time';
 import { UNSORTED_GROUP_ID } from '@/lib/backlog';
 import {
+  appendMonthTemplateRule,
   createMonthFromTemplate,
   defaultMonthTemplateSchedule,
+  moveMonthTemplateRule as moveMonthTemplateRuleInData,
   monthTemplateTaskCount,
   nextMonthKey,
+  removeMonthTemplateRule as removeMonthTemplateRuleFromData,
+  updateMonthTemplateRule as updateMonthTemplateRuleInData,
 } from '@/lib/month-template';
 import {
   addNoteTaskToSchedule,
@@ -602,20 +606,6 @@ export default function Home() {
     );
   }
 
-  function updateMonthTemplateRules(
-    change: (rules: MonthTemplateRule[]) => MonthTemplateRule[],
-  ) {
-    commit((current) => {
-      const monthPlanning = current.monthPlanning ?? {
-        rules: [],
-        createdMonths: [],
-      };
-      const rules = change(monthPlanning.rules);
-      if (rules === monthPlanning.rules) return current;
-      return { ...current, monthPlanning: { ...monthPlanning, rules } };
-    });
-  }
-
   function addMonthTemplateRule(kind: MonthTemplateSchedule['kind']) {
     const id = uid();
     const rule: MonthTemplateRule = {
@@ -623,7 +613,7 @@ export default function Home() {
       text: '',
       schedule: defaultMonthTemplateSchedule(kind, new Date(now)),
     };
-    updateMonthTemplateRules((rules) => [...rules, rule]);
+    commit((current) => appendMonthTemplateRule(current, rule));
     requestAnimationFrame(() =>
       document.getElementById(`template-rule-${id}`)?.focus(),
     );
@@ -633,24 +623,15 @@ export default function Home() {
     id: string,
     change: (rule: MonthTemplateRule) => MonthTemplateRule,
   ) {
-    updateMonthTemplateRules((rules) =>
-      rules.map((rule) => (rule.id === id ? change(rule) : rule)),
-    );
+    commit((current) => updateMonthTemplateRuleInData(current, id, change));
   }
 
   function removeMonthTemplateRule(id: string) {
-    updateMonthTemplateRules((rules) => rules.filter((rule) => rule.id !== id));
+    commit((current) => removeMonthTemplateRuleFromData(current, id));
   }
 
   function moveMonthTemplateRule(id: string, direction: -1 | 1) {
-    updateMonthTemplateRules((rules) => {
-      const index = rules.findIndex((rule) => rule.id === id);
-      const target = index + direction;
-      if (index < 0 || target < 0 || target >= rules.length) return rules;
-      const next = [...rules];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
+    commit((current) => moveMonthTemplateRuleInData(current, id, direction));
   }
 
   function createMonth(month: string) {

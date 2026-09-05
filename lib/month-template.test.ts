@@ -3,9 +3,13 @@ import test from 'node:test';
 
 import type { AppData } from './data';
 import {
+  appendMonthTemplateRule,
   createMonthFromTemplate,
+  moveMonthTemplateRule,
   monthTemplateTaskCount,
   nextMonthKey,
+  removeMonthTemplateRule,
+  updateMonthTemplateRule,
 } from './month-template';
 
 function data(): AppData {
@@ -70,4 +74,27 @@ void test('month generation materializes each date and matching rules exactly on
   assert.equal(result.schedule['2027-01-15'][0].text, 'День рождения');
   assert.deepEqual(result.monthPlanning?.createdMonths, ['2026-12', '2027-01']);
   assert.equal(createMonthFromTemplate(result, '2027-01'), result);
+});
+
+void test('template rule operations preserve order and created months', () => {
+  const current = data();
+  const added = appendMonthTemplateRule(current, {
+    id: 'new',
+    text: 'Новое',
+    schedule: { kind: 'weekly', weekday: 1 },
+  });
+  const updated = updateMonthTemplateRule(added, 'new', (rule) => ({
+    ...rule,
+    color: 'rose',
+  }));
+  const moved = moveMonthTemplateRule(updated, 'new', -1);
+  const removed = removeMonthTemplateRule(moved, 'blank');
+
+  assert.deepEqual(removed.monthPlanning?.createdMonths, ['2026-12']);
+  assert.equal(removed.monthPlanning?.rules.at(-1)?.id, 'new');
+  assert.equal(removed.monthPlanning?.rules.at(-1)?.color, 'rose');
+  assert.equal(
+    removed.monthPlanning?.rules.some((rule) => rule.id === 'blank'),
+    false,
+  );
 });

@@ -29,6 +29,62 @@ function planning(data: AppData): MonthPlanning {
   return data.monthPlanning ?? { rules: [], createdMonths: [] };
 }
 
+export function updateMonthTemplateRules(
+  data: AppData,
+  change: (rules: MonthTemplateRule[]) => MonthTemplateRule[],
+) {
+  const monthPlanning = planning(data);
+  const rules = change(monthPlanning.rules);
+  if (rules === monthPlanning.rules) return data;
+  return { ...data, monthPlanning: { ...monthPlanning, rules } };
+}
+
+export function appendMonthTemplateRule(
+  data: AppData,
+  rule: MonthTemplateRule,
+) {
+  if (planning(data).rules.some((candidate) => candidate.id === rule.id))
+    return data;
+  return updateMonthTemplateRules(data, (rules) => [...rules, rule]);
+}
+
+export function updateMonthTemplateRule(
+  data: AppData,
+  id: string,
+  change: (rule: MonthTemplateRule) => MonthTemplateRule,
+) {
+  const rules = planning(data).rules;
+  const index = rules.findIndex((rule) => rule.id === id);
+  if (index < 0) return data;
+  const rule = change(rules[index]);
+  if (rule === rules[index]) return data;
+  const next = [...rules];
+  next[index] = rule;
+  return updateMonthTemplateRules(data, () => next);
+}
+
+export function removeMonthTemplateRule(data: AppData, id: string) {
+  const rules = planning(data).rules;
+  if (!rules.some((rule) => rule.id === id)) return data;
+  return updateMonthTemplateRules(data, () =>
+    rules.filter((rule) => rule.id !== id),
+  );
+}
+
+export function moveMonthTemplateRule(
+  data: AppData,
+  id: string,
+  direction: -1 | 1,
+) {
+  const rules = planning(data).rules;
+  const index = rules.findIndex((rule) => rule.id === id);
+  const target = index + direction;
+  if (index < 0 || target < 0 || target >= rules.length) return data;
+  const next = [...rules];
+  [next[index], next[target]] = [next[target], next[index]];
+  return updateMonthTemplateRules(data, () => next);
+}
+
 function dayNumber(day: string) {
   if (!DAY_KEY.test(day)) return null;
   const [year, month, date] = day.split('-').map(Number);
