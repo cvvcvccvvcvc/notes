@@ -30,9 +30,9 @@ npm start
 ```sh
 npm run format
 npm run lint
-npm run build
-npm test
 npm run typecheck
+npm test
+npm run build
 ```
 
 Изменённые пользовательские сценарии дополнительно проходят вручную. Не храните
