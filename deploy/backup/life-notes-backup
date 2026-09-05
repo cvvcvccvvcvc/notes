@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+umask 077
+
+readonly database_path="/var/lib/docker/volumes/life-notes_notes_data/_data/notes.sqlite3"
+readonly backup_directory="/var/backups/life-notes"
+readonly snapshot_path="${backup_directory}/notes.sqlite3"
+readonly config_path="/etc/life-notes-backup.env"
+readonly password_path="/root/.config/life-notes-backup/restic-password"
+readonly lock_path="/run/lock/life-notes-backup.lock"
+readonly cache_path="/var/cache/life-notes-backup"
+
+restore_directory=""
+
+cleanup() {
+  rm -f "$snapshot_path"
+  if [[ -n "$restore_directory" ]]; then
+    rm -rf "$restore_directory"
+  fi
+}
+trap cleanup EXIT
+
+exec 9>"$lock_path"
+if ! flock -n 9; then
+  echo "Another Life Notes backup is already running" >&2
+  exit 1
+fi
+
+test -r "$database_path"
+test -r "$config_path"
+test -r "$password_path"
+
+set -a
+# shellcheck disable=SC1090
+source "$config_path"
+set +a
+export RESTIC_PASSWORD_FILE="$password_path"
+export RESTIC_CACHE_DIR="$cache_path"
+
+: "${RESTIC_REPOSITORY:?RESTIC_REPOSITORY is required}"
+: "${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}"
+: "${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required}"
+
+restic unlock --quiet
+
+mkdir -p "$backup_directory"
+chmod 700 "$backup_directory"
+
+sqlite3 "$database_path" ".timeout 30000" ".backup '$snapshot_path'"
+if [[ "$(sqlite3 "$snapshot_path" 'PRAGMA integrity_check;')" != "ok" ]]; then
+  echo "SQLite snapshot integrity check failed" >&2
+  exit 1
+fi
+
+restic backup --quiet --tag life-notes "$snapshot_path"
+restic forget \
+  --quiet \
+  --tag life-notes \
+  --keep-daily 14 \
+  --keep-weekly 8 \
+  --keep-monthly 12 \
+  --keep-yearly 3 \
+  --prune
+restic check --quiet
+
+restore_directory="$(mktemp -d)"
+restic restore latest --quiet --tag life-notes --target "$restore_directory"
+readonly restored_database="${restore_directory}${snapshot_path}"
+if [[ "$(sqlite3 "$restored_database" 'PRAGMA integrity_check;')" != "ok" ]]; then
+  echo "Restored SQLite backup integrity check failed" >&2
+  exit 1
+fi
+
+readonly revision="$(sqlite3 "$restored_database" 'SELECT MAX(revision) FROM owner_state;')"
+echo "Life Notes backup uploaded and restored successfully (revision ${revision:-unknown})"

@@ -64,19 +64,49 @@ docker inspect --format '{{.State.Health.Status}}' life-notes-app-1
 
 ## Резервная копия данных
 
-До автоматизации используйте согласованную копию при остановленных записях:
+Production ежедневно создаёт согласованный SQLite snapshot через `.backup` и
+отправляет его в отдельный приватный Selectel S3 bucket с помощью Restic. Restic
+шифрует содержимое до отправки. После загрузки job скачивает последний snapshot
+во временный каталог и выполняет SQLite `integrity_check` — успешная загрузка без
+успешного восстановления не считается готовым backup.
 
-1. Создать закрытый каталог `/root/life-notes-backups`.
-2. Остановить только `life-notes-app-1`.
-3. Скопировать всё содержимое volume `life-notes_notes_data` в новый
-   датированный каталог backup, включая возможные `-wal` и `-shm`; один основной
-   файл не является полной копией.
-4. Сразу снова запустить Notes и проверить health.
-5. Открыть копию отдельно, выполнить SQLite `integrity_check` и проверить
-   revision, затем перенести зашифрованную копию с сервера.
+В репозитории находятся:
 
-Обычное копирование работающего SQLite-файла не считается backup. Сервер не
-должен становиться единственной копией важных данных до проверки восстановления.
+- `deploy/backup/life-notes-backup` — snapshot, retention и restore check;
+- `deploy/backup/life-notes-backup.service` — одноразовый systemd job;
+- `deploy/backup/life-notes-backup.timer` — ежедневный запуск;
+- `deploy/backup/life-notes-backup.env.example` — только форма конфигурации.
+
+Production-конфигурация хранится в `/etc/life-notes-backup.env`, пароль Restic —
+в `/root/.config/life-notes-backup/restic-password`; оба файла имеют права
+`0600` и не входят в Git. Recovery-копия пароля должна храниться вне сервера.
+Потеря этого пароля делает зашифрованные snapshots невосстановимыми.
+
+S3-ключ должен принадлежать отдельному сервисному пользователю с ролью
+`s3.bucket.user` и политикой, разрешающей доступ только к bucket Notes. Не
+использовать постоянно ключ владельца аккаунта или ключ другого приложения.
+После ротации заменить только `AWS_ACCESS_KEY_ID` и `AWS_SECRET_ACCESS_KEY` в
+`/etc/life-notes-backup.env` и сразу вручную запустить service для проверки.
+
+Политика хранения: 14 дневных, 8 недельных, 12 месячных и 3 годовых snapshot.
+Проверка состояния:
+
+```sh
+systemctl status life-notes-backup.timer
+systemctl status life-notes-backup.service
+journalctl -u life-notes-backup.service -n 50 --no-pager
+```
+
+Для ручного восстановления отключить запись в приложение, загрузить выбранный
+snapshot через `restic restore`, проверить восстановленный файл командой
+`sqlite3 <path> 'PRAGMA integrity_check;'` и только затем заменить содержимое
+volume. Никогда не восстанавливать поверх работающего контейнера и не запускать
+`forget` или `prune`, пока расследуется повреждение repository.
+
+Аварийная локальная копия всего volume перед рискованным deploy по-прежнему
+создаётся отдельно. Копирование одного работающего SQLite-файла не считается
+согласованным backup: используйте `.backup` либо копируйте весь volume вместе с
+`-wal` и `-shm` при остановленных записях.
 
 ## Откат
 
