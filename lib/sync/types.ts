@@ -61,6 +61,7 @@ export type SyncEntityKind =
   | 'task'
   | 'dayWindow'
   | 'taskGroup'
+  | 'rule'
   | 'note'
   | 'historyItem'
   | 'monthTemplateRule';
@@ -89,6 +90,7 @@ export type OrderContainer =
   | { kind: 'schedule'; day: string }
   | { kind: 'backlog'; groupId: string }
   | { kind: 'backlogGroups' }
+  | { kind: 'rules' }
   | { kind: 'notes' }
   | { kind: 'history' }
   | { kind: 'monthTemplateRules' };
@@ -108,6 +110,7 @@ export type InvariantConflict = {
     | 'duplicate_task_id'
     | 'task_not_in_exactly_one_container'
     | 'duplicate_task_group_id'
+    | 'duplicate_rule_id'
     | 'duplicate_note_id'
     | 'duplicate_history_item_id'
     | 'duplicate_month_template_rule_id'

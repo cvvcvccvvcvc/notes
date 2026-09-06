@@ -53,6 +53,11 @@ export const noteSchema = z.looseObject({
   pinned: z.boolean().optional(),
 });
 
+export const ruleSchema = z.looseObject({
+  id: idSchema,
+  text: z.string().max(10_000),
+});
+
 export const taskGroupSchema = z.looseObject({
   id: idSchema,
   title: z.string().max(10_000),
@@ -98,6 +103,7 @@ export const appDataSchema = z.looseObject({
   backlog: z.array(taskGroupSchema).max(10_000).optional(),
   monthPlanning: monthPlanningSchema.optional(),
   dayWindows: z.record(z.string(), dayWindowSchema).optional(),
+  rules: z.array(ruleSchema).max(100).optional(),
   notes: z.array(noteSchema).max(100_000),
   history: z.array(historyItemSchema).max(1_000_000),
 });
@@ -108,6 +114,7 @@ export type Task = z.infer<typeof taskSchema>;
 export type HistoryItem = z.infer<typeof historyItemSchema>;
 export type NoteColor = z.infer<typeof noteColorSchema>;
 export type Note = z.infer<typeof noteSchema>;
+export type Rule = z.infer<typeof ruleSchema>;
 export type TaskGroup = z.infer<typeof taskGroupSchema>;
 export type MonthTemplateSchedule = z.infer<typeof monthTemplateScheduleSchema>;
 export type MonthTemplateRule = z.infer<typeof monthTemplateRuleSchema>;

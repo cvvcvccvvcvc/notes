@@ -8,6 +8,7 @@ export type {
   MonthTemplateSchedule,
   Note,
   NoteColor,
+  Rule,
   Task,
   TaskColor,
   TaskGroup,

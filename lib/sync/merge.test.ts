@@ -319,6 +319,32 @@ void test('merges template fields and unions created months', () => {
   );
 });
 
+void test('merges independent rule edits and additions', () => {
+  const base = data({ rules: [{ id: 'focus', text: 'Focus' }] });
+  const local = data({
+    rules: [
+      { id: 'focus', text: 'Work first' },
+      { id: 'local-rule', text: 'Local' },
+    ],
+  });
+  const remote = data({
+    rules: [
+      { id: 'focus', text: 'Focus' },
+      { id: 'remote-rule', text: 'Remote' },
+    ],
+  });
+
+  const result = merged(mergeAppData({ base, local, remote }));
+  assert.equal(
+    result.rules?.find((rule) => rule.id === 'focus')?.text,
+    'Work first',
+  );
+  assert.deepEqual(
+    new Set(result.rules?.map((rule) => rule.id)),
+    new Set(['focus', 'local-rule', 'remote-rule']),
+  );
+});
+
 void test('rejects duplicate month-template rule ids', () => {
   const invalid = data({
     monthPlanning: {
