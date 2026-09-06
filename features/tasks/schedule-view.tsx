@@ -5,13 +5,13 @@ import {
   CirclePause,
   CirclePlay,
   Clock3,
-  GripVertical,
   MoreHorizontal,
   Plus,
 } from 'lucide-react';
 import { Fragment, useState } from 'react';
 import { dayTimeline } from '@/lib/day-timeline';
-import { TimeDialog } from './time-dialog';
+import { InlineTime } from './inline-time';
+import { cardDragListeners, isCardSurface } from '@/lib/sorting';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -69,6 +69,8 @@ function selectedTaskShortcut(
     toggleTimer?: () => void;
   },
 ) {
+  if ((event.target as HTMLElement).closest('[data-no-drag], [role="menu"]'))
+    return false;
   if (event.nativeEvent.isComposing || event.shiftKey) return false;
   if (isTextEditor(event.target)) {
     if (
@@ -127,7 +129,7 @@ type ScheduleProps = {
   data: AppData;
   now: number;
   todayKey: string;
-  addTask: (day: string) => string;
+  addTask: (day: string, afterId?: string) => string;
   setDayWindow: (day: string, window: { start?: string; end?: string }) => void;
   updateTask: (day: string, id: string, change: (task: Task) => Task) => void;
   runTimer: (day: string, id: string) => void;
@@ -161,6 +163,9 @@ type TaskInteractions = {
   onToggleTimer?: () => void;
   onSetColor: (color?: TaskColor) => void;
   onSetTime: () => void;
+  timeEditing: boolean;
+  onCloseTime: () => void;
+  onAddBelow: () => void;
   onSendToBacklog: () => void;
   onActivate: () => void;
   onDiscard: () => void;
@@ -170,14 +175,8 @@ export function ScheduleView(props: ScheduleProps) {
   const { data, now, todayKey, addTask } = props;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [timeTarget, setTimeTarget] = useState<{
-    day: string;
-    id?: string;
-  } | null>(null);
+  const [timeEditingId, setTimeEditingId] = useState<string | null>(null);
   const dayWindow = data.dayWindows?.[todayKey] ?? {};
-  const timedTask = timeTarget?.id
-    ? data.schedule[timeTarget.day]?.find((task) => task.id === timeTarget.id)
-    : undefined;
   const today = new Date(now);
   const todayTasks = data.schedule[todayKey] ?? [];
   const futureMonths = (() => {
@@ -263,8 +262,8 @@ export function ScheduleView(props: ScheduleProps) {
     focusTask(target?.day ?? day, target?.id);
   }
 
-  function addAndEdit(day: string) {
-    const id = addTask(day);
+  function addAndEdit(day: string, afterId?: string) {
+    const id = addTask(day, afterId);
     setSelectedId(id);
     setEditingId(id);
   }
@@ -296,8 +295,11 @@ export function ScheduleView(props: ScheduleProps) {
       : taskDay(targetId);
     if (!sourceDay || !targetDay || targetDay < todayKey) return;
     if (sourceDay === targetDay) {
-      if (!targetId.startsWith('schedule-day:'))
-        props.dropTask(sourceDay, sourceId, targetId);
+      const target = targetId.startsWith('schedule-day:')
+        ? data.schedule[sourceDay]?.at(-1)?.id
+        : targetId;
+      if (target && target !== sourceId)
+        props.dropTask(sourceDay, sourceId, target);
       return;
     }
     props.moveTaskToDay(
@@ -328,7 +330,10 @@ export function ScheduleView(props: ScheduleProps) {
       canMoveDown: true,
       onToggleTimer:
         day === todayKey ? () => props.runTimer(day, id) : undefined,
-      onSetTime: () => setTimeTarget({ day, id }),
+      onSetTime: () => setTimeEditingId(id),
+      timeEditing: timeEditingId === id,
+      onCloseTime: () => setTimeEditingId(null),
+      onAddBelow: () => addAndEdit(day, id),
       onSetColor: (color?: TaskColor) => props.setTaskColor(day, id, color),
       onSendToBacklog: () => {
         selectAfterRemoval(day, id);
@@ -345,6 +350,23 @@ export function ScheduleView(props: ScheduleProps) {
     <SortableRoot onDrop={dropAcrossSchedule}>
       <div
         className="schedule-page"
+        onKeyDownCapture={(event) => {
+          if (
+            event.key !== 'Enter' ||
+            !event.shiftKey ||
+            event.metaKey ||
+            event.altKey ||
+            event.ctrlKey ||
+            event.nativeEvent.isComposing ||
+            (event.target as HTMLElement).closest('[data-no-drag]')
+          )
+            return;
+          event.preventDefault();
+          event.stopPropagation();
+          if (event.repeat) return;
+          const day = selectedId ? (taskDay(selectedId) ?? todayKey) : todayKey;
+          addAndEdit(day, selectedId ?? undefined);
+        }}
         onPointerDownCapture={(event) => {
           if (!(event.target as HTMLElement).closest('[data-task-card]')) {
             setSelectedId(null);
@@ -364,25 +386,27 @@ export function ScheduleView(props: ScheduleProps) {
               <p className="eyebrow">Сегодня</p>
               <h1>{ruDate.format(today)}</h1>
             </div>
-            <Button
-              id={`add-${todayKey}`}
-              className="add-primary"
-              onClick={() => addAndEdit(todayKey)}
-            >
-              <Plus /> Добавить дело
-            </Button>
           </div>
           <SortableDropZone
             id={`schedule-day:${todayKey}`}
             className="task-list today-timeline"
           >
-            <button
-              className="timeline-boundary"
-              onClick={() => setTimeTarget({ day: todayKey })}
-            >
-              <span>{dayWindow.start ?? '···'}</span> Начало дня{' '}
-              <span className="boundary-edit">Изменить</span>
-            </button>
+            <div className="timeline-boundary">
+              <InlineTime
+                className="boundary-time"
+                value={dayWindow.start}
+                label="Начало дня"
+                validate={(value) =>
+                  value && dayWindow.end && value >= dayWindow.end
+                    ? 'Конец должен быть позже начала'
+                    : undefined
+                }
+                onChange={(value) =>
+                  props.setDayWindow(todayKey, { ...dayWindow, start: value })
+                }
+              />
+              Начало дня
+            </div>
             <SortableItems items={todayTasks.map((task) => task.id)}>
               {todayTasks.length ? (
                 dayTimeline(todayTasks, dayWindow).map(
@@ -405,20 +429,39 @@ export function ScheduleView(props: ScheduleProps) {
                 )
               ) : (
                 <button
+                  id={`add-${todayKey}`}
                   className="empty-today"
-                  onClick={() => addTask(todayKey)}
+                  onClick={() => addAndEdit(todayKey)}
                 >
                   <Plus /> Написать первое дело
                 </button>
               )}
             </SortableItems>
-            <button
-              className="timeline-boundary"
-              onClick={() => setTimeTarget({ day: todayKey })}
-            >
-              <span>{dayWindow.end ?? '···'}</span> Конец дня{' '}
-              <span className="boundary-edit">Изменить</span>
-            </button>
+            {todayTasks.length > 0 && (
+              <button
+                id={`add-${todayKey}`}
+                className="today-add"
+                onClick={() => addAndEdit(todayKey)}
+              >
+                <Plus /> Добавить дело <kbd>⇧ Enter</kbd>
+              </button>
+            )}
+            <div className="timeline-boundary">
+              <InlineTime
+                className="boundary-time"
+                value={dayWindow.end}
+                label="Конец дня"
+                validate={(value) =>
+                  value && dayWindow.start && value <= dayWindow.start
+                    ? 'Конец должен быть позже начала'
+                    : undefined
+                }
+                onChange={(value) =>
+                  props.setDayWindow(todayKey, { ...dayWindow, end: value })
+                }
+              />
+              Конец дня
+            </div>
           </SortableDropZone>
         </section>
 
@@ -500,29 +543,6 @@ export function ScheduleView(props: ScheduleProps) {
           </div>
         </section>
       </div>
-      {timeTarget && (
-        <TimeDialog
-          key={`${timeTarget.day}:${timeTarget.id ?? 'day'}`}
-          kind={timeTarget.id ? 'task' : 'day'}
-          start={
-            timeTarget.id
-              ? timedTask?.plannedStart
-              : data.dayWindows?.[timeTarget.day]?.start
-          }
-          end={
-            timeTarget.id ? undefined : data.dayWindows?.[timeTarget.day]?.end
-          }
-          onClose={() => setTimeTarget(null)}
-          onSave={(start, end) => {
-            if (timeTarget.id)
-              props.updateTask(timeTarget.day, timeTarget.id, (task) => {
-                const { plannedStart: _previous, ...rest } = task;
-                return start ? { ...rest, plannedStart: start } : rest;
-              });
-            else props.setDayWindow(timeTarget.day, { start, end });
-          }}
-        />
-      )}
     </SortableRoot>
   );
 }
@@ -541,6 +561,9 @@ function FutureTaskRow({
   canMoveDown,
   onSetColor,
   onSetTime,
+  timeEditing,
+  onCloseTime,
+  onAddBelow,
   onSendToBacklog,
   onActivate,
   onDiscard,
@@ -549,15 +572,8 @@ function FutureTaskRow({
   task: Task;
   day: string;
 } & TaskInteractions) {
-  const {
-    setNodeRef,
-    setActivatorNodeRef,
-    attributes,
-    listeners,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: task.id });
+  const { setNodeRef, listeners, transform, transition, isDragging } =
+    useSortable({ id: task.id });
   function handleShortcut(event: React.KeyboardEvent<HTMLElement>) {
     return selectedTaskShortcut(event, {
       edit: onEdit,
@@ -572,12 +588,17 @@ function FutureTaskRow({
       ref={setNodeRef}
       id={`task-${task.id}`}
       data-task-card
+      {...cardDragListeners(listeners, editing)}
+      onKeyDownCapture={handleShortcut}
+      onDoubleClickCapture={(event) => {
+        if (isCardSurface(event.target)) onEdit();
+      }}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={`future-task ${task.color ? `task-color-${task.color}` : ''} ${selected ? 'selected' : ''} ${editing ? 'editing' : ''} ${isDragging ? 'dragging' : ''}`}
       onFocusCapture={onSelect}
       onPointerDownCapture={(event) => {
         onSelect();
-        if (!(event.target as HTMLElement).closest('button, input, textarea')) {
+        if (isCardSurface(event.target)) {
           const card = event.currentTarget;
           requestAnimationFrame(() =>
             card.querySelector<HTMLElement>('[data-task-focus]')?.focus(),
@@ -585,29 +606,21 @@ function FutureTaskRow({
         }
       }}
     >
-      <button
-        ref={setActivatorNodeRef}
-        className="drag-handle"
-        {...attributes}
-        {...listeners}
-        onKeyDown={(event) => {
-          if (!handleShortcut(event)) listeners?.onKeyDown?.(event);
-        }}
-        aria-label="Перетащить дело"
-      >
-        <GripVertical />
-      </button>
       <div className="future-task-body">
-        {task.plannedStart && (
-          <button
-            className="planned-time-badge"
-            onClick={onSetTime}
-            aria-label={`Изменить начало: ${task.plannedStart}`}
-          >
-            <Clock3 />
-            {task.plannedStart}
-          </button>
-        )}
+        <InlineTime
+          className={`planned-time-badge ${!task.plannedStart && !timeEditing ? 'unset-time' : ''}`}
+          value={task.plannedStart}
+          label="Плановое начало"
+          placeholder="+"
+          open={timeEditing}
+          onClose={onCloseTime}
+          onChange={(plannedStart) =>
+            updateTask(day, task.id, (current) => {
+              const { plannedStart: _old, ...rest } = current;
+              return plannedStart ? { ...rest, plannedStart } : rest;
+            })
+          }
+        />
         {editing ? (
           <TaskTextEditor
             text={task.text}
@@ -627,8 +640,6 @@ function FutureTaskRow({
             data-task-focus
             className="future-task-text"
             onClick={onSelect}
-            onDoubleClick={onEdit}
-            onKeyDown={handleShortcut}
           >
             <TaskTextPreview
               text={task.text}
@@ -644,7 +655,6 @@ function FutureTaskRow({
         title="Перенести в Сегодня · ⌘↵"
         aria-label="В работу сегодня"
         onClick={onActivate}
-        onKeyDown={handleShortcut}
       >
         <ArrowUpToLine />
       </Button>
@@ -652,12 +662,17 @@ function FutureTaskRow({
         <DropdownMenuTrigger
           className="more-button"
           aria-label="Действия с делом"
-          onKeyDown={handleShortcut}
           render={<button type="button" aria-label="Действия с делом" />}
         >
           <MoreHorizontal />
         </DropdownMenuTrigger>
         <DropdownMenuContent className="task-menu" align="end" sideOffset={8}>
+          <DropdownMenuItem onClick={onAddBelow}>
+            <Plus />
+            Создать ниже
+            <DropdownMenuShortcut>⇧↵</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem disabled={!canMoveUp} onClick={() => onMove(-1)}>
             Переместить вверх
             <DropdownMenuShortcut>⌘↑</DropdownMenuShortcut>
@@ -705,6 +720,9 @@ function TaskRow({
   onToggleTimer,
   onSetColor,
   onSetTime,
+  timeEditing,
+  onCloseTime,
+  onAddBelow,
   onSendToBacklog,
   onActivate,
   onDiscard,
@@ -717,15 +735,8 @@ function TaskRow({
   const timerLabel =
     state === 'idle' ? 'Начать' : state === 'running' ? 'Пауза' : 'Продолжить';
   const TimerIcon = state === 'running' ? CirclePause : CirclePlay;
-  const {
-    setNodeRef,
-    setActivatorNodeRef,
-    attributes,
-    listeners,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: task.id });
+  const { setNodeRef, listeners, transform, transition, isDragging } =
+    useSortable({ id: task.id });
 
   function handleShortcut(event: React.KeyboardEvent<HTMLElement>) {
     return selectedTaskShortcut(event, {
@@ -743,12 +754,17 @@ function TaskRow({
       ref={setNodeRef}
       id={`task-${task.id}`}
       data-task-card
+      {...cardDragListeners(listeners, editing)}
+      onKeyDownCapture={handleShortcut}
+      onDoubleClickCapture={(event) => {
+        if (isCardSurface(event.target)) onEdit();
+      }}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={`task-row ${task.color ? `task-color-${task.color}` : ''} ${selected ? 'selected' : ''} ${editing ? 'editing' : ''} ${state === 'running' ? 'running' : ''} ${isDragging ? 'dragging' : ''}`}
       onFocusCapture={onSelect}
       onPointerDownCapture={(event) => {
         onSelect();
-        if (!(event.target as HTMLElement).closest('button, input, textarea')) {
+        if (isCardSurface(event.target)) {
           const card = event.currentTarget;
           requestAnimationFrame(() =>
             card.querySelector<HTMLElement>('[data-task-focus]')?.focus(),
@@ -756,30 +772,20 @@ function TaskRow({
         }
       }}
     >
-      <button
-        className={`timeline-time ${task.plannedStart ? 'has-time' : ''}`}
-        onClick={onSetTime}
-        aria-label={
-          task.plannedStart
-            ? `Изменить начало: ${task.plannedStart}`
-            : 'Назначить время'
+      <InlineTime
+        className="timeline-time"
+        value={task.plannedStart}
+        label="Плановое начало"
+        placeholder="+"
+        open={timeEditing}
+        onClose={onCloseTime}
+        onChange={(plannedStart) =>
+          updateTask(day, task.id, (current) => {
+            const { plannedStart: _old, ...rest } = current;
+            return plannedStart ? { ...rest, plannedStart } : rest;
+          })
         }
-        title="Плановое начало"
-      >
-        {task.plannedStart ?? <Plus />}
-      </button>
-      <button
-        ref={setActivatorNodeRef}
-        className="drag-handle"
-        {...attributes}
-        {...listeners}
-        onKeyDown={(event) => {
-          if (!handleShortcut(event)) listeners?.onKeyDown?.(event);
-        }}
-        aria-label="Перетащить дело"
-      >
-        <GripVertical />
-      </button>
+      />
       <div className="task-body">
         {warning && <p className="timeline-warning">{warning}</p>}
         {editing ? (
@@ -801,8 +807,6 @@ function TaskRow({
             data-task-focus
             className="task-text task-text-display"
             onClick={onSelect}
-            onDoubleClick={onEdit}
-            onKeyDown={handleShortcut}
           >
             <TaskTextPreview
               text={task.text}
@@ -823,7 +827,6 @@ function TaskRow({
         <Button
           variant={state === 'running' ? 'secondary' : 'outline'}
           title={`${timerLabel} · ⌥↵`}
-          onKeyDown={handleShortcut}
           onClick={() => {
             onSelect();
             runTimer(day, task.id);
@@ -835,7 +838,6 @@ function TaskRow({
         <Button
           className="finish-button"
           size="icon"
-          onKeyDown={handleShortcut}
           onClick={onActivate}
           aria-label="Завершить дело"
           title="Завершить · ⌘↵"
@@ -846,12 +848,17 @@ function TaskRow({
           <DropdownMenuTrigger
             className="more-button"
             aria-label="Другие действия"
-            onKeyDown={handleShortcut}
             render={<button type="button" aria-label="Другие действия" />}
           >
             <MoreHorizontal />
           </DropdownMenuTrigger>
           <DropdownMenuContent className="task-menu" align="end" sideOffset={8}>
+            <DropdownMenuItem onClick={onAddBelow}>
+              <Plus />
+              Создать ниже
+              <DropdownMenuShortcut>⇧↵</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem disabled={!canMoveUp} onClick={() => onMove(-1)}>
               Переместить вверх
               <DropdownMenuShortcut>⌘↑</DropdownMenuShortcut>

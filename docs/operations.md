@@ -36,7 +36,9 @@ npm run verify
 
 `.github/workflows/deploy.yml` запускает ту же проверку для push и pull request в
 `dev` и `main`. Развёртывание выполняется только для успешно проверенного commit
-в `main`. Workflow:
+в `main`. Ветка `main` принимает изменения только через pull request с
+обязательным зелёным `verify`; веткой по умолчанию для новой работы является
+`dev`. Workflow:
 
 1. создаёт согласованный зашифрованный backup;
 2. проверяет, что целевой commit принадлежит `origin/main`;
@@ -59,6 +61,7 @@ Workflow использует GitHub environment `production` и два environm
 | `DEPLOY_KNOWN_HOSTS` | проверенный `ssh-keyscan` для production host |
 
 Если secrets отсутствуют, CI остаётся рабочим, но deploy явно пропускается.
+Environment допускает deploy только из ветки `main`.
 Ключ Notes не переиспользуется для Vocabulary и хранится только в GitHub и на
 доверенном recovery-устройстве. Публичная топология находится в
 `deploy/production.env`.

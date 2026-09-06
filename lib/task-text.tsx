@@ -9,10 +9,6 @@ export function splitTaskText(text: string) {
   };
 }
 
-function joinTaskText(title: string, description: string) {
-  return description ? `${title}\n${description}` : title;
-}
-
 function resize(element: HTMLTextAreaElement | null) {
   if (!element) return;
   element.style.height = '0px';
@@ -63,88 +59,47 @@ export function TaskTextEditor({
     event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => void;
 }) {
-  const titleRef = useRef<HTMLInputElement>(null);
-  const descriptionRef = useRef<HTMLTextAreaElement>(null);
-  const { title, description } = splitTaskText(text);
-  const initialTitleLength = useRef(title.length);
-
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+  const initialTitleLength = useRef(splitTaskText(text).title.length);
   useEffect(() => {
-    titleRef.current?.focus();
-    titleRef.current?.setSelectionRange(
+    const editor = editorRef.current;
+    editor?.focus();
+    editor?.setSelectionRange(
       initialTitleLength.current,
       initialTitleLength.current,
     );
-    resize(descriptionRef.current);
+    resize(editor);
   }, []);
-
-  function handleKeyDown(
-    event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) {
-    if (event.nativeEvent.isComposing) return;
-    if (
-      event.metaKey &&
-      (event.key === 'Backspace' || event.key === 'Delete')
-    ) {
-      event.preventDefault();
-      event.stopPropagation();
-      onDiscard();
-      return;
-    }
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      onDone(true);
-      return;
-    }
-    onShortcut?.(event);
-  }
-
+  useEffect(() => resize(editorRef.current), [text]);
   return (
-    <div
-      className="task-editor-fields"
-      onBlur={(event) => {
-        const next = event.relatedTarget;
-        if (!(next instanceof Node) || !event.currentTarget.contains(next))
-          onDone(false);
+    <textarea
+      ref={editorRef}
+      className="task-editor-fields task-unified-editor"
+      value={text}
+      rows={1}
+      aria-label={ariaLabel}
+      placeholder="Что сделать?"
+      onBlur={() => onDone(false)}
+      onChange={(event) => {
+        resize(event.currentTarget);
+        onChange(event.target.value);
       }}
-    >
-      <input
-        ref={titleRef}
-        className="task-title-editor"
-        value={title}
-        aria-label={ariaLabel}
-        placeholder="Что сделать?"
-        onChange={(event) =>
-          onChange(joinTaskText(event.target.value, description))
+      onKeyDown={(event) => {
+        if (event.nativeEvent.isComposing) return;
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          event.stopPropagation();
+          onDone(true);
+          return;
         }
-        onKeyDown={(event) => {
-          handleKeyDown(event);
-          if (
-            !event.defaultPrevented &&
-            event.key === 'Enter' &&
-            !event.metaKey &&
-            !event.altKey &&
-            !event.shiftKey
-          ) {
-            event.preventDefault();
-            descriptionRef.current?.focus();
-          }
-        }}
-      />
-      <textarea
-        ref={descriptionRef}
-        className="task-description-editor"
-        value={description}
-        rows={1}
-        aria-label="Описание дела"
-        placeholder="Описание"
-        onInput={(event) => resize(event.currentTarget)}
-        onChange={(event) => {
-          resize(event.currentTarget);
-          onChange(joinTaskText(title, event.target.value));
-        }}
-        onKeyDown={handleKeyDown}
-      />
-    </div>
+        if (event.metaKey && ['Backspace', 'Delete'].includes(event.key)) {
+          event.preventDefault();
+          event.stopPropagation();
+          onDiscard();
+          return;
+        }
+        onShortcut?.(event);
+      }}
+    />
   );
 }

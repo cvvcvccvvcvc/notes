@@ -194,10 +194,20 @@ export default function Home() {
     commit((current) => updateScheduledTasks(current, day, change));
   }
 
-  function addTask(day: string) {
+  function addTask(day: string, afterId?: string) {
     const id = uid();
-    updateTasks(day, (tasks) => [...tasks, { id, text: '', intervals: [] }]);
-    window.setTimeout(() => document.getElementById(`task-${id}`)?.focus(), 0);
+    updateTasks(day, (tasks) => {
+      const next = [...tasks];
+      const index = afterId
+        ? tasks.findIndex((task) => task.id === afterId)
+        : -1;
+      next.splice(index < 0 ? tasks.length : index + 1, 0, {
+        id,
+        text: '',
+        intervals: [],
+      });
+      return next;
+    });
     return id;
   }
 

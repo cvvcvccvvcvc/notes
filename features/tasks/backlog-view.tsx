@@ -1,9 +1,5 @@
-import {
-  ArrowUpToLine,
-  GripVertical,
-  MoreHorizontal,
-  Plus,
-} from 'lucide-react';
+import { cardDragListeners, isCardSurface } from '@/lib/sorting';
+import { ArrowUpToLine, MoreHorizontal, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -73,6 +69,7 @@ function backlogShortcut(
     discard: () => void;
   },
 ) {
+  if ((event.target as HTMLElement).closest('[role="menu"]')) return false;
   if (isTextEditor(event.target)) {
     if (
       event.metaKey &&
@@ -153,7 +150,12 @@ export function BacklogView(props: BacklogProps) {
       sourceGroup,
       sourceId,
       targetGroup,
-      targetId.startsWith('backlog-group:') ? undefined : targetId,
+      targetId.startsWith('backlog-group:')
+        ? sourceGroup === targetGroup
+          ? props.groups.find((group) => group.id === targetGroup)?.tasks.at(-1)
+              ?.id
+          : undefined
+        : targetId,
     );
     select(sourceId);
   }
@@ -331,15 +333,8 @@ function BacklogTaskRow({
   onTake: () => void;
   onDiscard: () => void;
 }) {
-  const {
-    setNodeRef,
-    setActivatorNodeRef,
-    attributes,
-    listeners,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: task.id });
+  const { setNodeRef, listeners, transform, transition, isDragging } =
+    useSortable({ id: task.id });
 
   function handleShortcut(event: React.KeyboardEvent<HTMLElement>) {
     return backlogShortcut(event, {
@@ -356,12 +351,17 @@ function BacklogTaskRow({
       ref={setNodeRef}
       id={`backlog-task-${task.id}`}
       data-task-card
+      {...cardDragListeners(listeners, editing)}
+      onKeyDownCapture={handleShortcut}
+      onDoubleClickCapture={(event) => {
+        if (isCardSurface(event.target)) onEdit();
+      }}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={`backlog-task ${task.color ? `task-color-${task.color}` : ''} ${selected ? 'selected' : ''} ${editing ? 'editing' : ''} ${isDragging ? 'dragging' : ''}`}
       onFocusCapture={onSelect}
       onPointerDownCapture={(event) => {
         onSelect();
-        if (!(event.target as HTMLElement).closest('button, input, textarea')) {
+        if (isCardSurface(event.target)) {
           const card = event.currentTarget;
           requestAnimationFrame(() =>
             card.querySelector<HTMLElement>('[data-task-focus]')?.focus(),
@@ -369,18 +369,6 @@ function BacklogTaskRow({
         }
       }}
     >
-      <button
-        ref={setActivatorNodeRef}
-        className="drag-handle"
-        {...attributes}
-        {...listeners}
-        onKeyDown={(event) => {
-          if (!handleShortcut(event)) listeners?.onKeyDown?.(event);
-        }}
-        aria-label="Перетащить дело"
-      >
-        <GripVertical />
-      </button>
       {editing ? (
         <TaskTextEditor
           text={task.text}
@@ -400,8 +388,6 @@ function BacklogTaskRow({
           data-task-focus
           className="backlog-task-text"
           onClick={onSelect}
-          onDoubleClick={onEdit}
-          onKeyDown={handleShortcut}
         >
           <TaskTextPreview
             text={task.text}
@@ -414,14 +400,12 @@ function BacklogTaskRow({
         variant="outline"
         title="Перенести в Сегодня · ⌘↵"
         onClick={onTake}
-        onKeyDown={handleShortcut}
       >
         <ArrowUpToLine /> В Сегодня
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger
           className="more-button"
-          onKeyDown={handleShortcut}
           render={<button type="button" aria-label="Действия с делом" />}
         >
           <MoreHorizontal />
