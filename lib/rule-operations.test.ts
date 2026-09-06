@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import type { AppData } from './data';
 import { createEmptyAppData } from './initial-data';
 import {
   appendRule,
@@ -14,7 +15,7 @@ import {
 } from './rule-operations';
 
 void test('rule operations preserve ids and explicit order', () => {
-  let data = { ...createEmptyAppData('2026-09-06'), rules: [] };
+  let data: AppData = { ...createEmptyAppData('2026-09-06'), rules: [] };
   data = appendRule(data, { id: 'one', text: 'One' });
   data = appendRule(data, { id: 'two', text: 'Two' });
   data = appendRule(data, { id: 'three', text: 'Three' });

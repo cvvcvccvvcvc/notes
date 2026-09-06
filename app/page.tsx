@@ -8,6 +8,8 @@ import {
   History,
   ListTodo,
   NotebookPen,
+  PanelLeftClose,
+  PanelLeftOpen,
   RotateCcw,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -24,6 +26,7 @@ import {
   type MonthTemplateRule,
   type MonthTemplateSchedule,
   type Note,
+  type Rule,
   type Task,
   type TaskColor,
   type TaskGroup,
@@ -44,6 +47,14 @@ import {
   prependNote,
   updateNote as updateNoteInData,
 } from '@/lib/note-operations';
+import {
+  appendRule,
+  moveRule as moveRuleInData,
+  moveRuleTo,
+  removeRule as removeRuleFromData,
+  restoreRule,
+  updateRule as updateRuleInData,
+} from '@/lib/rule-operations';
 import { paragraphRange } from '@/lib/paragraph';
 import {
   moveBacklogTask as moveBacklogTaskInData,
@@ -106,6 +117,11 @@ export default function Home() {
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [undo, setUndo] = useState<UndoState>(null);
   const [syncPanelOpen, setSyncPanelOpen] = useState(false);
+  const [sidebarCompact, setSidebarCompact] = useState(() =>
+    typeof window === 'undefined'
+      ? true
+      : window.localStorage.getItem('notes-sidebar') !== 'expanded',
+  );
   const todayKey = dateKey(new Date(now));
   const {
     data,
@@ -120,6 +136,13 @@ export default function Home() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [view]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      'notes-sidebar',
+      sidebarCompact ? 'compact' : 'expanded',
+    );
+  }, [sidebarCompact]);
 
   useEffect(() => {
     const clock = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -492,6 +515,38 @@ export default function Home() {
     commit((current) => moveNoteInData(current, sourceId, targetId));
   }
 
+  function createRule() {
+    const id = uid();
+    commit((current) => appendRule(current, { id, text: '' }));
+    return id;
+  }
+
+  function updateRule(id: string, text: string) {
+    commit((current) =>
+      updateRuleInData(current, id, (rule) => ({ ...rule, text })),
+    );
+  }
+
+  function moveRule(id: string, direction: -1 | 1) {
+    commit((current) => moveRuleInData(current, id, direction));
+  }
+
+  function dropRule(sourceId: string, targetId: string) {
+    commit((current) => moveRuleTo(current, sourceId, targetId));
+  }
+
+  function discardRule(id: string) {
+    const rules = dataRef.current?.rules ?? [];
+    const index = rules.findIndex((rule) => rule.id === id);
+    const rule: Rule | undefined = rules[index];
+    if (!rule) return;
+    commitWithUndo(
+      'Правило удалено',
+      (current) => removeRuleFromData(current, id),
+      (current) => restoreRule(current, rule, index),
+    );
+  }
+
   function takeSelection(note: Note, cursor = selection) {
     const range = paragraphRange(note.content, cursor);
     const text = note.content.slice(range.start, range.end).trim();
@@ -585,13 +640,23 @@ export default function Home() {
   };
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${sidebarCompact ? 'sidebar-compact' : ''}`}>
       <aside className="sidebar">
         <button className="brand" onClick={() => setView('today')}>
-          notes
+          <span className="brand-full">notes</span>
+          <span className="brand-compact">n</span>
         </button>
         <nav aria-label="Основная навигация">{navigation}</nav>
         <div className="sidebar-spacer" />
+        <button
+          className="utility-button sidebar-toggle"
+          onClick={() => setSidebarCompact((compact) => !compact)}
+          aria-label={sidebarCompact ? 'Развернуть меню' : 'Свернуть меню'}
+          title={sidebarCompact ? 'Развернуть меню' : 'Свернуть меню'}
+        >
+          {sidebarCompact ? <PanelLeftOpen /> : <PanelLeftClose />}
+          <span>{sidebarCompact ? 'Развернуть' : 'Свернуть'}</span>
+        </button>
         <button
           className={`utility-button ${view === 'templates' ? 'active' : ''}`}
           onClick={() => setView('templates')}
@@ -616,7 +681,7 @@ export default function Home() {
 
       <header className="mobile-header">
         <button className="brand" onClick={() => setView('today')}>
-          notes
+          <span className="brand-full">notes</span>
         </button>
         <div className="mobile-tools">
           <button
@@ -664,6 +729,12 @@ export default function Home() {
             takeFutureTask={takeFutureTask}
             createMonth={createMonth}
             openTemplates={() => setView('templates')}
+            rules={data.rules ?? []}
+            addRule={createRule}
+            updateRule={updateRule}
+            removeRule={discardRule}
+            moveRule={moveRule}
+            dropRule={dropRule}
           />
         )}
         {view === 'backlog' && (
