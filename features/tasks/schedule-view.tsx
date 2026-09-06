@@ -165,6 +165,7 @@ type TaskInteractions = {
   onSetTime: () => void;
   timeEditing: boolean;
   onCloseTime: () => void;
+  onAddBelow: () => void;
   onSendToBacklog: () => void;
   onActivate: () => void;
   onDiscard: () => void;
@@ -332,6 +333,7 @@ export function ScheduleView(props: ScheduleProps) {
       onSetTime: () => setTimeEditingId(id),
       timeEditing: timeEditingId === id,
       onCloseTime: () => setTimeEditingId(null),
+      onAddBelow: () => addAndEdit(day, id),
       onSetColor: (color?: TaskColor) => props.setTaskColor(day, id, color),
       onSendToBacklog: () => {
         selectAfterRemoval(day, id);
@@ -561,6 +563,7 @@ function FutureTaskRow({
   onSetTime,
   timeEditing,
   onCloseTime,
+  onAddBelow,
   onSendToBacklog,
   onActivate,
   onDiscard,
@@ -664,6 +667,12 @@ function FutureTaskRow({
           <MoreHorizontal />
         </DropdownMenuTrigger>
         <DropdownMenuContent className="task-menu" align="end" sideOffset={8}>
+          <DropdownMenuItem onClick={onAddBelow}>
+            <Plus />
+            Создать ниже
+            <DropdownMenuShortcut>⇧↵</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem disabled={!canMoveUp} onClick={() => onMove(-1)}>
             Переместить вверх
             <DropdownMenuShortcut>⌘↑</DropdownMenuShortcut>
@@ -713,6 +722,7 @@ function TaskRow({
   onSetTime,
   timeEditing,
   onCloseTime,
+  onAddBelow,
   onSendToBacklog,
   onActivate,
   onDiscard,
@@ -843,6 +853,12 @@ function TaskRow({
             <MoreHorizontal />
           </DropdownMenuTrigger>
           <DropdownMenuContent className="task-menu" align="end" sideOffset={8}>
+            <DropdownMenuItem onClick={onAddBelow}>
+              <Plus />
+              Создать ниже
+              <DropdownMenuShortcut>⇧↵</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem disabled={!canMoveUp} onClick={() => onMove(-1)}>
               Переместить вверх
               <DropdownMenuShortcut>⌘↑</DropdownMenuShortcut>

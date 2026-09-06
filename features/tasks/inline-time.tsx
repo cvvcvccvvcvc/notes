@@ -21,9 +21,11 @@ export function InlineTime({
   onClose?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState('');
+  const [hours, setHours] = useState('');
+  const [minutes, setMinutes] = useState('');
   const [error, setError] = useState<string>();
-  const input = useRef<HTMLInputElement>(null);
+  const hoursInput = useRef<HTMLInputElement>(null);
+  const minutesInput = useRef<HTMLInputElement>(null);
   const root = useRef<HTMLSpanElement>(null);
   const errorId = useId();
   const cancelBlur = useRef(false);
@@ -31,14 +33,15 @@ export function InlineTime({
   if (open !== previousOpen) {
     setPreviousOpen(open);
     if (open) {
-      setDraft(value ?? '');
+      setHours(value?.slice(0, 2) ?? '');
+      setMinutes(value?.slice(3, 5) ?? '');
       setEditing(true);
     }
   }
   useEffect(() => {
     if (editing) {
-      input.current?.focus();
-      input.current?.select();
+      hoursInput.current?.focus();
+      hoursInput.current?.select();
     }
   }, [editing]);
   function close(refocus = true) {
@@ -56,21 +59,90 @@ export function InlineTime({
     onClose?.();
   }
   function save(refocus = true) {
-    const raw = draft.trim();
-    const match = /^(\d{1,2})(?::(\d{2}))?$/.exec(raw);
-    const next = match
-      ? `${match[1].padStart(2, '0')}:${match[2] ?? '00'}`
-      : undefined;
-    const message =
-      raw && (!next || !/^([01]\d|2[0-3]):[0-5]\d$/.test(next))
-        ? 'Введите время, например 17:30'
-        : validate?.(next);
+    const empty = !hours && !minutes;
+    const complete = hours.length === 2 && minutes.length === 2;
+    const next = complete ? `${hours}:${minutes}` : undefined;
+    const valid = next != null && Number(hours) <= 23 && Number(minutes) <= 59;
+    const message = empty
+      ? validate?.(undefined)
+      : !complete
+        ? 'Введите по две цифры часов и минут'
+        : !valid
+          ? 'Допустимое время — от 00:00 до 23:59'
+          : validate?.(next);
     if (message) {
       setError(message);
       return;
     }
-    if (next !== value) onChange(next);
+    if ((empty ? undefined : next) !== value)
+      onChange(empty ? undefined : next);
+    if (refocus) cancelBlur.current = true;
     close(refocus);
+  }
+
+  function digits(value: string) {
+    return value.replace(/\D/g, '').slice(0, 2);
+  }
+
+  function edit() {
+    cancelBlur.current = false;
+    setHours(value?.slice(0, 2) ?? '');
+    setMinutes(value?.slice(3, 5) ?? '');
+    setEditing(true);
+  }
+
+  function focusMinutes() {
+    minutesInput.current?.focus();
+    minutesInput.current?.select();
+  }
+
+  function pasteHours(event: React.ClipboardEvent<HTMLInputElement>) {
+    event.preventDefault();
+    const pasted = event.clipboardData
+      .getData('text')
+      .replace(/\D/g, '')
+      .slice(0, 4);
+    setHours(pasted.slice(0, 2));
+    if (pasted.length > 2) setMinutes(pasted.slice(2, 4));
+    setError(undefined);
+    if (pasted.length >= 2) focusMinutes();
+  }
+
+  function pasteMinutes(event: React.ClipboardEvent<HTMLInputElement>) {
+    event.preventDefault();
+    setMinutes(
+      event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 2),
+    );
+    setError(undefined);
+  }
+
+  function handleBlur(event: React.FocusEvent<HTMLInputElement>) {
+    if (root.current?.contains(event.relatedTarget)) return;
+    if (!cancelBlur.current) save(false);
+    cancelBlur.current = false;
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    event.stopPropagation();
+    if (
+      event.key.length === 1 &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.altKey &&
+      !/[0-9]/.test(event.key)
+    ) {
+      event.preventDefault();
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      save();
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelBlur.current = true;
+      close();
+    }
   }
   return (
     <span
@@ -79,47 +151,55 @@ export function InlineTime({
       className={`inline-time ${className} ${value ? 'has-time' : ''}`}
     >
       {editing ? (
-        <input
-          ref={input}
-          type="text"
-          inputMode="numeric"
-          value={draft}
-          aria-label={label}
-          placeholder="чч:мм"
-          aria-invalid={!!error}
-          aria-describedby={error ? errorId : undefined}
-          onChange={(event) => {
-            setDraft(event.target.value);
-            setError(undefined);
-          }}
-          onBlur={() => {
-            if (!cancelBlur.current) save(false);
-            cancelBlur.current = false;
-          }}
-          onKeyDown={(event) => {
-            event.stopPropagation();
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              save();
-            }
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              cancelBlur.current = true;
-              close();
-            }
-          }}
-        />
+        <span aria-label={`${label}: время`} className="inline-time-fields">
+          <input
+            ref={hoursInput}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]{2}"
+            maxLength={2}
+            value={hours}
+            aria-label={`${label}: часы`}
+            placeholder="чч"
+            aria-invalid={!!error}
+            aria-describedby={error ? errorId : undefined}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            onPaste={pasteHours}
+            onChange={(event) => {
+              const next = digits(event.target.value);
+              setHours(next);
+              setError(undefined);
+              if (next.length === 2) focusMinutes();
+            }}
+          />
+          <span aria-hidden="true">:</span>
+          <input
+            ref={minutesInput}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]{2}"
+            maxLength={2}
+            value={minutes}
+            aria-label={`${label}: минуты`}
+            placeholder="мм"
+            aria-invalid={!!error}
+            aria-describedby={error ? errorId : undefined}
+            onBlur={handleBlur}
+            onPaste={pasteMinutes}
+            onChange={(event) => {
+              setMinutes(digits(event.target.value));
+              setError(undefined);
+            }}
+            onKeyDown={(event) => {
+              handleKeyDown(event);
+              if (event.key === 'Backspace' && !minutes)
+                hoursInput.current?.focus();
+            }}
+          />
+        </span>
       ) : (
-        <button
-          type="button"
-          aria-label={label}
-          title={label}
-          onClick={() => {
-            cancelBlur.current = false;
-            setDraft(value ?? '');
-            setEditing(true);
-          }}
-        >
+        <button type="button" aria-label={label} title={label} onClick={edit}>
           {value ?? (placeholder === '+' ? <Plus /> : placeholder)}
         </button>
       )}

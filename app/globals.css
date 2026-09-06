@@ -1883,19 +1883,28 @@ h1 {
   border-radius: 6px;
   cursor: text;
 }
-.inline-time input {
-  width: 60px;
-  min-width: 0;
-  padding: 5px 3px;
+.inline-time-fields {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
   border: 1px solid #78a28f;
   border-radius: 5px;
   background: #fffefb;
-  font: inherit;
   color: #285e49;
+}
+.inline-time input {
+  width: 24px;
+  min-width: 0;
+  padding: 3px 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
   text-align: center;
   outline: none;
 }
-.inline-time input[aria-invalid='true'] {
+.inline-time-fields:has(input[aria-invalid='true']) {
   border-color: #b86743;
 }
 .inline-time-error {
@@ -1961,9 +1970,6 @@ h1 {
   }
   .timeline-boundary > .boundary-time {
     right: calc(100% + 18px);
-  }
-  .inline-time input {
-    width: 51px;
   }
   .today-add kbd {
     display: none;
