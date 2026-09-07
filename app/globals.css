@@ -1730,8 +1730,14 @@ h1 {
     min-height: 40px;
   }
   .future-day.has-tasks {
-    grid-template-columns: 1fr;
-    gap: 0;
+    grid-template-columns: 55px minmax(0, 1fr);
+    gap: 0 8px;
+  }
+  .future-day.has-tasks .future-date {
+    grid-column: 1 / -1;
+  }
+  .future-day.has-tasks .future-tasks {
+    grid-column: 2;
   }
   .notes-page,
   .templates-page,
@@ -1897,15 +1903,6 @@ h1 {
   color: #316b55;
   font-weight: 650;
 }
-.timeline-time svg {
-  width: 14px;
-  height: 14px;
-  opacity: 0;
-}
-.task-row:hover .timeline-time svg,
-.task-row:focus-within .timeline-time svg {
-  opacity: 1;
-}
 .timeline-time::after {
   left: auto;
   right: -10px;
@@ -1944,19 +1941,20 @@ h1 {
   flex: 1;
   min-width: 0;
 }
-.planned-time-badge {
-  display: inline-flex;
+.future-task > .planned-time-badge {
+  position: absolute;
+  top: 3px;
+  right: calc(100% + 12px);
+  width: 52px;
+  min-height: 36px;
+  display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
   color: #52715f;
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  border-radius: 5px;
-  padding: 3px;
-}
-.planned-time-badge svg {
-  width: 12px;
-  height: 12px;
+  border-radius: 8px;
 }
 .future-take {
   width: 34px;
@@ -1993,8 +1991,9 @@ h1 {
   .timeline-boundary > span:first-child {
     right: calc(100% + 24px);
   }
-  .timeline-time svg {
-    opacity: 1;
+  .future-task > .planned-time-badge {
+    right: calc(100% + 6px);
+    width: 49px;
   }
   .today-timeline .task-actions {
     grid-column: 2 / 4;
@@ -2054,23 +2053,29 @@ h1 {
 .inline-time > button {
   min-width: 40px;
   min-height: 36px;
+  padding: 0;
+  border: 0;
   border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: inherit;
   cursor: text;
 }
 .inline-time-fields {
+  min-width: 40px;
+  min-height: 36px;
   display: inline-flex;
   align-items: center;
-  gap: 1px;
-  padding: 2px;
-  border: 1px solid #78a28f;
-  border-radius: 5px;
-  background: #fffefb;
-  color: #285e49;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+  color: inherit;
 }
 .inline-time input {
-  width: 24px;
+  width: 2ch;
   min-width: 0;
-  padding: 3px 0;
+  padding: 0;
   border: 0;
   background: transparent;
   font: inherit;
@@ -2079,7 +2084,7 @@ h1 {
   outline: none;
 }
 .inline-time-fields:has(input[aria-invalid='true']) {
-  border-color: #b86743;
+  color: #a35527;
 }
 .inline-time-error {
   position: absolute;
@@ -2101,12 +2106,9 @@ h1 {
   position: absolute;
   right: calc(100% + 22px);
 }
-.planned-time-badge.unset-time {
-  display: none;
-}
-.future-task.selected .planned-time-badge.unset-time,
-.future-task:focus-within .planned-time-badge.unset-time {
-  display: inline-flex;
+.planned-time-badge:hover,
+.planned-time-badge:focus-within {
+  background: #e5ece5;
 }
 .today-add {
   display: flex;

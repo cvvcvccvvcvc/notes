@@ -8,16 +8,17 @@
   "scripts": {
     "dev": "tsx watch src/server/index.ts",
     "dev:client": "vite",
+    "preview": "npm run build && tsx scripts/local-preview.ts",
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build",
     "build:server": "tsc -p tsconfig.server.json",
     "start": "node dist/server/server/index.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.scripts.json --noEmit",
     "test": "tsx --test lib/*.test.ts lib/sync/*.test.ts src/server/*.test.ts",
     "password:hash": "tsx src/server/hash-password.ts",
-    "lint": "oxlint app components features hooks lib src public/service-worker.js",
-    "format": "oxfmt app components features hooks lib src public/service-worker.js vite.config.ts",
-    "format:check": "oxfmt --check app components features hooks lib src public/service-worker.js vite.config.ts",
+    "lint": "oxlint app components features hooks lib scripts src public/service-worker.js",
+    "format": "oxfmt app components features hooks lib scripts src public/service-worker.js vite.config.ts",
+    "format:check": "oxfmt --check app components features hooks lib scripts src public/service-worker.js vite.config.ts",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {

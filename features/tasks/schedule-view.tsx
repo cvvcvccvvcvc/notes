@@ -626,21 +626,21 @@ function FutureTaskRow({
         }
       }}
     >
+      <InlineTime
+        className={`planned-time-badge ${!task.plannedStart && !timeEditing ? 'unset-time' : ''}`}
+        value={task.plannedStart}
+        label="Плановое начало"
+        placeholder=""
+        open={timeEditing}
+        onClose={onCloseTime}
+        onChange={(plannedStart) =>
+          updateTask(day, task.id, (current) => {
+            const { plannedStart: _old, ...rest } = current;
+            return plannedStart ? { ...rest, plannedStart } : rest;
+          })
+        }
+      />
       <div className="future-task-body">
-        <InlineTime
-          className={`planned-time-badge ${!task.plannedStart && !timeEditing ? 'unset-time' : ''}`}
-          value={task.plannedStart}
-          label="Плановое начало"
-          placeholder="+"
-          open={timeEditing}
-          onClose={onCloseTime}
-          onChange={(plannedStart) =>
-            updateTask(day, task.id, (current) => {
-              const { plannedStart: _old, ...rest } = current;
-              return plannedStart ? { ...rest, plannedStart } : rest;
-            })
-          }
-        />
         {editing ? (
           <TaskTextEditor
             text={task.text}
@@ -796,7 +796,7 @@ function TaskRow({
         className="timeline-time"
         value={task.plannedStart}
         label="Плановое начало"
-        placeholder="+"
+        placeholder=""
         open={timeEditing}
         onClose={onCloseTime}
         onChange={(plannedStart) =>
