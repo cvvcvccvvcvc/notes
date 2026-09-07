@@ -277,6 +277,23 @@ export function removeBacklogGroup(data: AppData, id: string) {
   };
 }
 
+export function moveBacklogGroup(data: AppData, id: string, direction: -1 | 1) {
+  if (id === UNSORTED_GROUP_ID) return data;
+  const groups = data.backlog ?? [];
+  const from = groups.findIndex((group) => group.id === id);
+  const to = from + direction;
+  if (
+    from < 0 ||
+    to < 0 ||
+    to >= groups.length ||
+    groups[to].id === UNSORTED_GROUP_ID
+  )
+    return data;
+  const backlog = [...groups];
+  [backlog[from], backlog[to]] = [backlog[to], backlog[from]];
+  return { ...data, backlog };
+}
+
 export function updateBacklogTask(
   data: AppData,
   groupId: string,

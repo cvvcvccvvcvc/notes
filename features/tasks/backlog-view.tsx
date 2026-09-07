@@ -3,6 +3,7 @@ import {
   ArrowUpToLine,
   ChevronRight,
   MoreHorizontal,
+  Pencil,
   Plus,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -11,6 +12,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { MarkdownContent } from '@/components/markdown-content';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,6 +43,7 @@ type BacklogProps = {
   setGroupContent: (id: string, content: string) => void;
   setGroupColor: (id: string, color?: TaskColor) => void;
   removeGroup: (id: string) => void;
+  moveGroup: (id: string, direction: -1 | 1) => void;
   updateTask: (
     groupId: string,
     id: string,
@@ -64,6 +67,20 @@ function focusBacklogTask(id?: string) {
       card?.querySelector<HTMLElement>('[data-task-focus]') ?? card;
     element?.focus({ preventScroll: true });
     element?.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+function focusBacklogGroup(id: string) {
+  requestAnimationFrame(() => {
+    const title = document.getElementById(`backlog-group-title-${id}`);
+    title?.focus({ preventScroll: true });
+    title?.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+function focusProjectInfo(id: string) {
+  requestAnimationFrame(() => {
+    document.getElementById(`project-info-input-${id}`)?.focus();
   });
 }
 
@@ -117,11 +134,14 @@ function backlogShortcut(
 export function BacklogView(props: BacklogProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [editingInfoId, setEditingInfoId] = useState<string | null>(null);
   const entries = props.groups.flatMap((group) =>
     group.tasks.map((task) => ({ groupId: group.id, id: task.id })),
   );
 
   function select(id: string) {
+    setSelectedGroupId(null);
     setSelectedId(id);
     setEditingId((current) => (current === id ? current : null));
   }
@@ -181,15 +201,28 @@ export function BacklogView(props: BacklogProps) {
 
   function addTask(groupId: string) {
     const id = props.addTask(groupId);
+    setSelectedGroupId(null);
     setSelectedId(id);
     setEditingId(id);
+  }
+
+  function moveGroup(id: string, direction: -1 | 1) {
+    props.moveGroup(id, direction);
+    setSelectedGroupId(id);
+    focusBacklogGroup(id);
+  }
+
+  function editProjectInfo(id: string) {
+    setEditingInfoId(id);
+    focusProjectInfo(id);
   }
 
   return (
     <div
       className="backlog-page"
       onPointerDownCapture={(event) => {
-        if (!(event.target as HTMLElement).closest('[data-task-card]')) {
+        const target = event.target as HTMLElement;
+        if (!target.closest('[data-task-card]')) {
           setSelectedId(null);
           setEditingId(null);
           const active = document.activeElement;
@@ -199,6 +232,7 @@ export function BacklogView(props: BacklogProps) {
           )
             active.blur();
         }
+        if (!target.closest('[data-project-group]')) setSelectedGroupId(null);
       }}
     >
       <div className="page-heading backlog-heading">
@@ -210,7 +244,9 @@ export function BacklogView(props: BacklogProps) {
         <div className="backlog-groups">
           {props.groups.map((group, groupIndex) => (
             <section
-              className={`backlog-group ${group.color ? `group-color-${group.color}` : ''}`}
+              id={`backlog-group-${group.id}`}
+              data-project-group
+              className={`backlog-group ${group.color ? `group-color-${group.color}` : ''} ${selectedGroupId === group.id ? 'selected' : ''}`}
               key={group.id}
             >
               <header className="backlog-group-heading">
@@ -220,11 +256,27 @@ export function BacklogView(props: BacklogProps) {
                   value={group.title}
                   readOnly={group.id === UNSORTED_GROUP_ID}
                   aria-label="Название проекта"
+                  onFocus={() => {
+                    setSelectedGroupId(group.id);
+                    setSelectedId(null);
+                    setEditingId(null);
+                  }}
                   onChange={(event) =>
                     props.renameGroup(group.id, event.target.value)
                   }
                   onKeyDown={(event) => {
-                    if (event.key === 'Enter') event.currentTarget.blur();
+                    if (
+                      event.metaKey &&
+                      !event.altKey &&
+                      !event.shiftKey &&
+                      ['ArrowUp', 'ArrowDown'].includes(event.key)
+                    ) {
+                      event.preventDefault();
+                      if (!event.repeat)
+                        moveGroup(group.id, event.key === 'ArrowUp' ? -1 : 1);
+                    } else if (event.key === 'Enter') {
+                      event.currentTarget.blur();
+                    }
                   }}
                 />
                 <DropdownMenu>
@@ -237,6 +289,29 @@ export function BacklogView(props: BacklogProps) {
                     <MoreHorizontal />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    {group.id !== UNSORTED_GROUP_ID && (
+                      <>
+                        <DropdownMenuItem
+                          disabled={
+                            groupIndex === 0 ||
+                            props.groups[groupIndex - 1]?.id ===
+                              UNSORTED_GROUP_ID
+                          }
+                          onClick={() => moveGroup(group.id, -1)}
+                        >
+                          Переместить выше
+                          <DropdownMenuShortcut>⌘↑</DropdownMenuShortcut>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={groupIndex === props.groups.length - 1}
+                          onClick={() => moveGroup(group.id, 1)}
+                        >
+                          Переместить ниже
+                          <DropdownMenuShortcut>⌘↓</DropdownMenuShortcut>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                      </>
+                    )}
                     <TaskColorMenu
                       label="Цвет проекта"
                       color={group.color}
@@ -256,23 +331,6 @@ export function BacklogView(props: BacklogProps) {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </header>
-              {group.id !== UNSORTED_GROUP_ID && (
-                <details className="project-info">
-                  <summary>
-                    <ChevronRight />
-                    <span>Информация</span>
-                  </summary>
-                  <Textarea
-                    className="project-info-input"
-                    value={group.content ?? ''}
-                    placeholder="Информация о проекте"
-                    aria-label={`Информация о проекте ${group.title}`}
-                    onChange={(event) =>
-                      props.setGroupContent(group.id, event.target.value)
-                    }
-                  />
-                </details>
-              )}
               <SortableDropZone
                 id={`backlog-group:${group.id}`}
                 className="backlog-list"
@@ -290,6 +348,11 @@ export function BacklogView(props: BacklogProps) {
                         setEditingId(task.id);
                       }}
                       onStopEditing={(refocus = false) => {
+                        if (!task.text.trim()) {
+                          selectAfterRemoval(task.id);
+                          props.discardTask(group.id, task.id);
+                          return;
+                        }
                         setEditingId(null);
                         if (refocus) focusBacklogTask(task.id);
                       }}
@@ -327,6 +390,59 @@ export function BacklogView(props: BacklogProps) {
               >
                 <Plus /> Новое дело
               </Button>
+              {group.id !== UNSORTED_GROUP_ID && (
+                <details
+                  className="project-info"
+                  onToggle={(event) => {
+                    if (event.currentTarget.open && !group.content?.trim())
+                      editProjectInfo(group.id);
+                  }}
+                >
+                  <summary>
+                    <ChevronRight />
+                    <span>Информация</span>
+                  </summary>
+                  <div className="project-info-card">
+                    {editingInfoId === group.id ? (
+                      <Textarea
+                        id={`project-info-input-${group.id}`}
+                        className="project-info-input"
+                        value={group.content ?? ''}
+                        placeholder="Информация о проекте"
+                        aria-label={`Информация о проекте ${group.title}`}
+                        onBlur={() => setEditingInfoId(null)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Escape')
+                            event.currentTarget.blur();
+                        }}
+                        onChange={(event) =>
+                          props.setGroupContent(group.id, event.target.value)
+                        }
+                      />
+                    ) : group.content?.trim() ? (
+                      <>
+                        <MarkdownContent>{group.content}</MarkdownContent>
+                        <button
+                          className="project-info-edit"
+                          type="button"
+                          aria-label="Редактировать информацию"
+                          onClick={() => editProjectInfo(group.id)}
+                        >
+                          <Pencil />
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="project-info-empty"
+                        type="button"
+                        onClick={() => editProjectInfo(group.id)}
+                      >
+                        Добавить информацию
+                      </button>
+                    )}
+                  </div>
+                </details>
+              )}
             </section>
           ))}
           <Button
@@ -371,15 +487,16 @@ function BacklogTaskRow({
   onTake: () => void;
   onDiscard: () => void;
 }) {
+  const hasName = Boolean(task.text.trim());
   const { setNodeRef, listeners, transform, transition, isDragging } =
-    useSortable({ id: task.id });
+    useSortable({ id: task.id, disabled: !hasName });
 
   function handleShortcut(event: React.KeyboardEvent<HTMLElement>) {
     return backlogShortcut(event, {
       edit: onEdit,
       navigate: onNavigate,
-      move: onMove,
-      take: onTake,
+      move: hasName ? onMove : () => {},
+      take: hasName ? onTake : () => {},
       discard: onDiscard,
     });
   }
@@ -437,6 +554,7 @@ function BacklogTaskRow({
         className="backlog-take"
         variant="outline"
         title="Перенести в Сегодня · ⌘↵"
+        disabled={!hasName}
         onClick={onTake}
       >
         <ArrowUpToLine /> В Сегодня

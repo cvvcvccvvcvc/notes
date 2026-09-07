@@ -328,12 +328,18 @@ export function ScheduleView(props: ScheduleProps) {
   const interactionsFor = (day: string, id: string) => {
     const tasks = data.schedule[day] ?? [];
     const index = tasks.findIndex((task) => task.id === id);
+    const task = tasks[index];
     return {
       selected: selectedId === id,
       editing: editingId === id,
       onSelect: () => markSelected(id),
       onEdit: () => editTask(day, id),
       onStopEditing: (refocus = false) => {
+        if (!task?.text.trim()) {
+          selectAfterRemoval(day, id);
+          props.discardTask(day, id);
+          return;
+        }
         setEditingId(null);
         if (refocus) focusTask(day, id);
       },
@@ -592,15 +598,16 @@ function FutureTaskRow({
   task: Task;
   day: string;
 } & TaskInteractions) {
+  const hasName = Boolean(task.text.trim());
   const { setNodeRef, listeners, transform, transition, isDragging } =
-    useSortable({ id: task.id });
+    useSortable({ id: task.id, disabled: !hasName });
   function handleShortcut(event: React.KeyboardEvent<HTMLElement>) {
     return selectedTaskShortcut(event, {
       edit: onEdit,
       navigate: onNavigate,
-      activate: onActivate,
+      activate: hasName ? onActivate : () => {},
       discard: onDiscard,
-      move: onMove,
+      move: hasName ? onMove : () => {},
     });
   }
   return (
@@ -674,6 +681,7 @@ function FutureTaskRow({
         size="icon"
         title="Перенести в Сегодня · ⌘↵"
         aria-label="В работу сегодня"
+        disabled={!hasName}
         onClick={onActivate}
       >
         <ArrowUpToLine />
@@ -708,7 +716,7 @@ function FutureTaskRow({
               : 'Назначить время'}
           </DropdownMenuItem>
           <TaskColorMenu color={task.color} onChange={onSetColor} />
-          <DropdownMenuItem onClick={onSendToBacklog}>
+          <DropdownMenuItem disabled={!hasName} onClick={onSendToBacklog}>
             Перенести в проекты
           </DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -751,21 +759,22 @@ function TaskRow({
   day: string;
   warning?: string;
 } & TaskInteractions) {
+  const hasName = Boolean(task.text.trim());
   const state = taskState(task);
   const timerLabel =
     state === 'idle' ? 'Начать' : state === 'running' ? 'Пауза' : 'Продолжить';
   const TimerIcon = state === 'running' ? CirclePause : CirclePlay;
   const { setNodeRef, listeners, transform, transition, isDragging } =
-    useSortable({ id: task.id });
+    useSortable({ id: task.id, disabled: !hasName });
 
   function handleShortcut(event: React.KeyboardEvent<HTMLElement>) {
     return selectedTaskShortcut(event, {
       edit: onEdit,
       navigate: onNavigate,
-      activate: onActivate,
+      activate: hasName ? onActivate : () => {},
       discard: onDiscard,
-      move: onMove,
-      toggleTimer: onToggleTimer,
+      move: hasName ? onMove : () => {},
+      toggleTimer: hasName ? onToggleTimer : undefined,
     });
   }
 
@@ -847,6 +856,7 @@ function TaskRow({
         <Button
           variant={state === 'running' ? 'secondary' : 'outline'}
           title={`${timerLabel} · ⌥↵`}
+          disabled={!hasName}
           onClick={() => {
             onSelect();
             runTimer(day, task.id);
@@ -858,6 +868,7 @@ function TaskRow({
         <Button
           className="finish-button"
           size="icon"
+          disabled={!hasName}
           onClick={onActivate}
           aria-label="Завершить дело"
           title="Завершить · ⌘↵"
@@ -894,7 +905,7 @@ function TaskRow({
                 : 'Назначить время'}
             </DropdownMenuItem>
             <TaskColorMenu color={task.color} onChange={onSetColor} />
-            <DropdownMenuItem onClick={onSendToBacklog}>
+            <DropdownMenuItem disabled={!hasName} onClick={onSendToBacklog}>
               Перенести в проекты
             </DropdownMenuItem>
             <DropdownMenuSeparator />

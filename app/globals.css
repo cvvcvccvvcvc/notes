@@ -885,6 +885,11 @@ h1 {
   padding: 10px 0 12px;
   border-top: 1px solid #dfe1dc;
   border-radius: 12px;
+  outline: 0;
+  transition: box-shadow 140ms ease;
+}
+.backlog-group.selected {
+  box-shadow: 0 0 0 2px #79a793;
 }
 .backlog-group:first-child {
   border-top-color: transparent;
@@ -932,7 +937,7 @@ h1 {
   background: #eceee9;
 }
 .project-info {
-  margin: -2px 0 8px;
+  margin: 10px 0 0;
 }
 .project-info summary {
   width: fit-content;
@@ -960,17 +965,154 @@ h1 {
 .project-info[open] summary svg {
   transform: rotate(90deg);
 }
+.project-info-card {
+  position: relative;
+  width: 100%;
+  min-height: 170px;
+  margin-top: 5px;
+  padding: 22px 24px;
+  border: 1px solid rgb(42 55 48 / 12%);
+  border-radius: 15px;
+  background: rgb(255 255 255 / 62%);
+  box-shadow: 0 1px 3px rgb(27 39 32 / 6%);
+}
 .project-info-input {
   width: 100%;
-  min-height: 104px;
-  max-height: 420px;
-  margin: 3px 0 4px;
-  padding: 12px 14px;
+  min-height: 220px;
+  margin: 0;
+  padding: 0 44px 0 0;
   resize: vertical;
-  border-color: rgb(42 55 48 / 12%);
-  background: rgb(255 255 255 / 55%);
-  line-height: 1.55;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  line-height: 1.65;
+  font-size: 16px;
+}
+.project-info-input:focus {
+  border-color: transparent;
+  box-shadow: none;
+}
+.project-info-edit {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #68716c;
+  cursor: pointer;
+}
+.project-info-edit:hover,
+.project-info-edit:focus-visible {
+  background: rgb(42 55 48 / 8%);
+  color: #303632;
+}
+.project-info-edit svg {
+  width: 17px;
+}
+.project-info-empty {
+  width: 100%;
+  min-height: 120px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #7d8580;
+  cursor: text;
+  text-align: left;
   font-size: 15px;
+}
+.markdown-content {
+  color: #252c28;
+  font-size: 16px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.markdown-content > :first-child {
+  margin-top: 0;
+}
+.markdown-content > :last-child {
+  margin-bottom: 0;
+}
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3 {
+  margin: 1.15em 0 0.45em;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+}
+.markdown-content h1 {
+  font-size: 1.55em;
+}
+.markdown-content h2 {
+  font-size: 1.3em;
+}
+.markdown-content h3 {
+  font-size: 1.12em;
+}
+.markdown-content p,
+.markdown-content ul,
+.markdown-content ol,
+.markdown-content blockquote,
+.markdown-content pre,
+.markdown-content table {
+  margin: 0.75em 0;
+}
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 1.5em;
+}
+.markdown-content li + li {
+  margin-top: 0.2em;
+}
+.markdown-content blockquote {
+  padding-left: 1em;
+  border-left: 3px solid #a9cbb9;
+  color: #59635d;
+}
+.markdown-content code {
+  padding: 0.15em 0.35em;
+  border-radius: 5px;
+  background: rgb(42 55 48 / 8%);
+  font-size: 0.9em;
+}
+.markdown-content pre {
+  overflow-x: auto;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #26312b;
+  color: #f4f7f5;
+}
+.markdown-content pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+.markdown-content a {
+  color: #39755a;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.markdown-content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.markdown-content th,
+.markdown-content td {
+  padding: 6px 10px;
+  border: 1px solid #d7ddd8;
+  text-align: left;
+}
+.markdown-content hr {
+  margin: 1.2em 0;
+  border: 0;
+  border-top: 1px solid #d7ddd8;
 }
 .backlog-list {
   min-height: 46px;

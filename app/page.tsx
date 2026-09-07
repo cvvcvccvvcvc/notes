@@ -70,6 +70,7 @@ import {
 } from '@/lib/review-operations';
 import {
   appendBacklogTask,
+  moveBacklogGroup as moveBacklogGroupInData,
   moveBacklogTask as moveBacklogTaskInData,
   moveBacklogTaskVertically as moveBacklogTaskVerticallyInData,
   moveScheduledTask,
@@ -269,6 +270,10 @@ export default function Home() {
     const index = tasks.findIndex((item) => item.id === id);
     const task = tasks[index];
     if (!task) return;
+    if (!task.text.trim()) {
+      commit((current) => removeScheduledTask(current, day, id));
+      return;
+    }
     commitWithUndo(
       'Дело убрано без истории',
       (current) => removeScheduledTask(current, day, id),
@@ -376,6 +381,10 @@ export default function Home() {
     commit((current) => removeBacklogGroupFromData(current, id));
   }
 
+  function moveBacklogGroup(id: string, direction: -1 | 1) {
+    commit((current) => moveBacklogGroupInData(current, id, direction));
+  }
+
   function updateBacklogTask(
     groupId: string,
     id: string,
@@ -417,6 +426,10 @@ export default function Home() {
     const index = group?.tasks.findIndex((task) => task.id === id) ?? -1;
     const task = group?.tasks[index];
     if (!task || index < 0) return;
+    if (!task.text.trim()) {
+      commit((current) => removeBacklogTaskFromData(current, groupId, id));
+      return;
+    }
     commitWithUndo(
       'Дело убрано',
       (current) => removeBacklogTaskFromData(current, groupId, id),
@@ -808,6 +821,7 @@ export default function Home() {
             setGroupContent={setBacklogGroupContent}
             setGroupColor={setBacklogGroupColor}
             removeGroup={removeBacklogGroup}
+            moveGroup={moveBacklogGroup}
             updateTask={updateBacklogTask}
             moveTask={moveBacklogTask}
             moveTaskVertically={moveBacklogTaskVertically}

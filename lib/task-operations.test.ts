@@ -7,6 +7,7 @@ import {
   appendBacklogTask,
   finishScheduledTask,
   moveBacklogTask,
+  moveBacklogGroup,
   moveBacklogTaskVertically,
   moveScheduledTask,
   removeBacklogTask,
@@ -208,5 +209,25 @@ void describe('backlog task operations', () => {
     assert.deepEqual(result.backlog?.[0].tasks, [
       { ...one, backlogGroupId: UNSORTED_GROUP_ID },
     ]);
+  });
+});
+
+void describe('project operations', () => {
+  void it('moves projects without moving the fixed unsorted group', () => {
+    const current = data({
+      backlog: [
+        { id: UNSORTED_GROUP_ID, title: 'Не разобрано', tasks: [] },
+        { id: 'study', title: 'Учёба', tasks: [] },
+        { id: 'work', title: 'Работа', tasks: [] },
+      ],
+    });
+
+    const moved = moveBacklogGroup(current, 'work', -1);
+    assert.deepEqual(
+      moved.backlog?.map((group) => group.id),
+      [UNSORTED_GROUP_ID, 'work', 'study'],
+    );
+    assert.equal(moveBacklogGroup(moved, 'work', -1), moved);
+    assert.equal(moveBacklogGroup(current, UNSORTED_GROUP_ID, 1), current);
   });
 });
