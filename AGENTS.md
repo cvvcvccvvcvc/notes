@@ -27,7 +27,7 @@ Vocabulary. Не коммитьте секреты, ключи, cookie и реа
 
 | Задача | Сначала читать | Владеющий код |
 | --- | --- | --- |
-| Поведение расписания, дел, заметок, истории | [docs/product.md](docs/product.md) | `lib/task-operations.ts`, `lib/note-operations.ts`, `features/tasks`, `features/notes`, `features/history`, `lib/data.ts` |
+| Поведение расписания, дел, заметок, целей и итогов | [docs/product.md](docs/product.md) | `lib/task-operations.ts`, `lib/note-operations.ts`, `lib/review-operations.ts`, `features/tasks`, `features/notes`, `features/reviews`, `lib/data.ts` |
 | Локальные данные, rollover, совместимость | [docs/architecture.md](docs/architecture.md) | `src/shared/data-schema.ts`, `lib/storage.ts`, `lib/initial-data.ts`, `lib/migrations.ts`, `lib/rollover.ts` |
 | Drag-and-drop и горячие клавиши | [docs/product.md](docs/product.md) | `features/tasks`, `features/notes`, `features/templates`, `lib/sorting.tsx`, `lib/note-editor.tsx` |
 | Offline shell | [docs/architecture.md](docs/architecture.md) | `public/service-worker.js` |

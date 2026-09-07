@@ -62,6 +62,8 @@ export type SyncEntityKind =
   | 'dayWindow'
   | 'taskGroup'
   | 'rule'
+  | 'goal'
+  | 'periodReview'
   | 'note'
   | 'historyItem'
   | 'monthTemplateRule';
@@ -91,6 +93,8 @@ export type OrderContainer =
   | { kind: 'backlog'; groupId: string }
   | { kind: 'backlogGroups' }
   | { kind: 'rules' }
+  | { kind: 'goals' }
+  | { kind: 'reviews' }
   | { kind: 'notes' }
   | { kind: 'history' }
   | { kind: 'monthTemplateRules' };
@@ -111,6 +115,10 @@ export type InvariantConflict = {
     | 'task_not_in_exactly_one_container'
     | 'duplicate_task_group_id'
     | 'duplicate_rule_id'
+    | 'duplicate_goal_id'
+    | 'duplicate_review_id'
+    | 'duplicate_review_result_id'
+    | 'duplicate_review_period'
     | 'duplicate_note_id'
     | 'duplicate_history_item_id'
     | 'duplicate_month_template_rule_id'

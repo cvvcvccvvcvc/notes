@@ -92,6 +92,8 @@ export function migrateAppData(data: AppData): AppData {
   const needsBacklog = !data.backlog;
   const needsMonthPlanning = !data.monthPlanning;
   const needsRules = !data.rules;
+  const needsGoals = !data.goals;
+  const needsReviews = !data.reviews;
   const sourceGroups = data.backlog ?? seedGroups;
   const missingUnsorted = !sourceGroups.some(
     (group) => group.id === UNSORTED_GROUP_ID,
@@ -118,14 +120,16 @@ export function migrateAppData(data: AppData): AppData {
     !needsBacklog &&
     !needsMonthPlanning &&
     !needsRules &&
+    !needsGoals &&
+    !needsReviews &&
     !missingUnsorted &&
     !staleTaskLocations &&
-    data.version >= 4
+    data.version >= 5
   )
     return data;
   return {
     ...data,
-    version: Math.max(data.version, 4),
+    version: Math.max(data.version, 5),
     backlog: groups,
     monthPlanning:
       data.monthPlanning ??
@@ -140,6 +144,8 @@ export function migrateAppData(data: AppData): AppData {
         ].sort(),
       } satisfies AppData['monthPlanning']),
     rules: data.rules ?? createInitialRules(),
+    goals: data.goals ?? [],
+    reviews: data.reviews ?? [],
     notes: removeLegacyRulesNote(
       needsBacklog ? migratedNotes(data.notes) : data.notes,
       needsRules,

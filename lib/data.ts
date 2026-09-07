@@ -1,6 +1,7 @@
 /** Client-facing path for the persisted model owned by the shared schema. */
 export type {
   AppData,
+  Goal,
   HistoryItem,
   Interval,
   MonthPlanning,
@@ -8,6 +9,10 @@ export type {
   MonthTemplateSchedule,
   Note,
   NoteColor,
+  PeriodReview,
+  ReviewPeriod,
+  ReviewPeriodKind,
+  ReviewResult,
   Rule,
   Task,
   TaskColor,

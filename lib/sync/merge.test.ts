@@ -345,6 +345,57 @@ void test('merges independent rule edits and additions', () => {
   );
 });
 
+void test('merges independent goals and completed reviews', () => {
+  const base = data({ reviewTrackingStartedOn: '2026-09-02' });
+  const local = data({
+    reviewTrackingStartedOn: '2026-09-02',
+    goals: [
+      {
+        id: 'weekly-goal',
+        period: { kind: 'week', key: '2026-08-31' },
+        text: 'Finish the draft',
+      },
+    ],
+  });
+  const remote = data({
+    reviewTrackingStartedOn: '2026-09-01',
+    reviews: [
+      {
+        id: 'weekly-review',
+        period: { kind: 'week', key: '2026-08-31' },
+        results: [],
+        goalSnapshot: [],
+        status: 'completed',
+        createdAt: 1,
+        completedAt: 2,
+      },
+    ],
+  });
+
+  const result = merged(mergeAppData({ base, local, remote }));
+  assert.equal(result.reviewTrackingStartedOn, '2026-09-01');
+  assert.equal(result.goals?.[0].id, 'weekly-goal');
+  assert.equal(result.reviews?.[0].id, 'weekly-review');
+});
+
+void test('rejects two reviews for the same period', () => {
+  const invalid = data({
+    reviews: ['one', 'two'].map((id) => ({
+      id,
+      period: { kind: 'month' as const, key: '2026-09' },
+      results: [],
+      goalSnapshot: [],
+      status: 'draft' as const,
+      createdAt: 1,
+    })),
+  });
+
+  assert.deepEqual(
+    validateAppData(invalid, 'local').map(({ code }) => code),
+    ['duplicate_review_period'],
+  );
+});
+
 void test('rejects duplicate month-template rule ids', () => {
   const invalid = data({
     monthPlanning: {

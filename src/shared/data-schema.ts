@@ -2,6 +2,9 @@ import { z } from 'zod';
 
 const idSchema = z.string().min(1).max(160);
 const timestampSchema = z.number().int().nonnegative();
+const dayKeySchema = z
+  .string()
+  .regex(/^\d{4}-(0[1-9]|1[0-2])-([0-2]\d|3[01])$/);
 
 export const taskColorSchema = z.enum(['blue', 'yellow', 'purple', 'rose']);
 export const noteColorSchema = z.enum(['teal', 'purple', 'white', 'red']);
@@ -42,6 +45,7 @@ export const historyItemSchema = z.looseObject({
   taskId: idSchema,
   text: z.string().max(100_000),
   finishedAt: timestampSchema,
+  finishedDay: dayKeySchema.optional(),
   intervals: z.array(intervalSchema).max(10_000),
 });
 
@@ -56,6 +60,38 @@ export const noteSchema = z.looseObject({
 export const ruleSchema = z.looseObject({
   id: idSchema,
   text: z.string().max(10_000),
+});
+
+export const reviewPeriodSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('week'), key: dayKeySchema }),
+  z.object({
+    kind: z.literal('month'),
+    key: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+  }),
+  z.object({ kind: z.literal('year'), key: z.string().regex(/^\d{4}$/) }),
+]);
+
+export const goalSchema = z.looseObject({
+  id: idSchema,
+  period: reviewPeriodSchema,
+  text: z.string().max(100_000),
+});
+
+export const reviewResultSchema = z.looseObject({
+  id: idSchema,
+  text: z.string().max(100_000),
+  included: z.boolean(),
+  sourceHistoryItemId: idSchema.optional(),
+});
+
+export const periodReviewSchema = z.looseObject({
+  id: idSchema,
+  period: reviewPeriodSchema,
+  results: z.array(reviewResultSchema).max(100_000),
+  goalSnapshot: z.array(z.string().max(100_000)).max(10_000),
+  status: z.enum(['draft', 'completed']),
+  createdAt: timestampSchema,
+  completedAt: timestampSchema.optional(),
 });
 
 export const taskGroupSchema = z.looseObject({
@@ -104,6 +140,9 @@ export const appDataSchema = z.looseObject({
   monthPlanning: monthPlanningSchema.optional(),
   dayWindows: z.record(z.string(), dayWindowSchema).optional(),
   rules: z.array(ruleSchema).max(100).optional(),
+  reviewTrackingStartedOn: dayKeySchema.optional(),
+  goals: z.array(goalSchema).max(100_000).optional(),
+  reviews: z.array(periodReviewSchema).max(10_000).optional(),
   notes: z.array(noteSchema).max(100_000),
   history: z.array(historyItemSchema).max(1_000_000),
 });
@@ -115,6 +154,11 @@ export type HistoryItem = z.infer<typeof historyItemSchema>;
 export type NoteColor = z.infer<typeof noteColorSchema>;
 export type Note = z.infer<typeof noteSchema>;
 export type Rule = z.infer<typeof ruleSchema>;
+export type ReviewPeriod = z.infer<typeof reviewPeriodSchema>;
+export type ReviewPeriodKind = ReviewPeriod['kind'];
+export type Goal = z.infer<typeof goalSchema>;
+export type ReviewResult = z.infer<typeof reviewResultSchema>;
+export type PeriodReview = z.infer<typeof periodReviewSchema>;
 export type TaskGroup = z.infer<typeof taskGroupSchema>;
 export type MonthTemplateSchedule = z.infer<typeof monthTemplateScheduleSchema>;
 export type MonthTemplateRule = z.infer<typeof monthTemplateRuleSchema>;

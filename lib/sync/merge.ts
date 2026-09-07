@@ -1,8 +1,10 @@
 import type {
   AppData,
+  Goal,
   HistoryItem,
   MonthTemplateRule,
   Note,
+  PeriodReview,
   Rule,
   Task,
   TaskGroup,
@@ -38,6 +40,10 @@ type IndexedData = {
   groupOrder: string[];
   rules: Map<string, Rule & Entity>;
   ruleOrder: string[];
+  goals: Map<string, Goal & Entity>;
+  goalOrder: string[];
+  reviews: Map<string, PeriodReview & Entity>;
+  reviewOrder: string[];
   notes: Map<string, Note & Entity>;
   noteOrder: string[];
   history: Map<string, HistoryItem & Entity>;
@@ -57,8 +63,23 @@ const TASK_FIELDS = [
 ] as const;
 const GROUP_FIELDS = ['title', 'color'] as const;
 const RULE_FIELDS = ['text'] as const;
+const GOAL_FIELDS = ['period', 'text'] as const;
+const REVIEW_FIELDS = [
+  'period',
+  'results',
+  'goalSnapshot',
+  'status',
+  'createdAt',
+  'completedAt',
+] as const;
 const NOTE_FIELDS = ['title', 'content', 'color', 'pinned'] as const;
-const HISTORY_FIELDS = ['taskId', 'text', 'finishedAt', 'intervals'] as const;
+const HISTORY_FIELDS = [
+  'taskId',
+  'text',
+  'finishedAt',
+  'finishedDay',
+  'intervals',
+] as const;
 const MONTH_TEMPLATE_RULE_FIELDS = ['text', 'color', 'schedule'] as const;
 
 export function mergeAppData(input: {
@@ -127,6 +148,22 @@ export function mergeAppData(input: {
     remote.rules,
     conflicts,
   );
+  const goals = mergeEntityMaps(
+    'goal',
+    GOAL_FIELDS,
+    base.goals,
+    local.goals,
+    remote.goals,
+    conflicts,
+  );
+  const reviews = mergeEntityMaps(
+    'periodReview',
+    REVIEW_FIELDS,
+    base.reviews,
+    local.reviews,
+    remote.reviews,
+    conflicts,
+  );
   const history = mergeEntityMaps(
     'historyItem',
     HISTORY_FIELDS,
@@ -181,6 +218,20 @@ export function mergeAppData(input: {
     filterEntityOrder(base.ruleOrder, base.rules, rules),
     filterEntityOrder(local.ruleOrder, local.rules, rules),
     filterEntityOrder(remote.ruleOrder, remote.rules, rules),
+    conflicts,
+  );
+  const goalOrder = mergeOrder(
+    { kind: 'goals' },
+    filterEntityOrder(base.goalOrder, base.goals, goals),
+    filterEntityOrder(local.goalOrder, local.goals, goals),
+    filterEntityOrder(remote.goalOrder, remote.goals, goals),
+    conflicts,
+  );
+  const reviewOrder = mergeOrder(
+    { kind: 'reviews' },
+    filterEntityOrder(base.reviewOrder, base.reviews, reviews),
+    filterEntityOrder(local.reviewOrder, local.reviews, reviews),
+    filterEntityOrder(remote.reviewOrder, remote.reviews, reviews),
     conflicts,
   );
   const historyOrder = mergeOrder(
@@ -272,6 +323,15 @@ export function mergeAppData(input: {
     ),
     backlog,
     rules: ruleOrder.map((id) => cloneValue(rules.get(id)!)) as Rule[],
+    reviewTrackingStartedOn: earliestString(
+      input.base.reviewTrackingStartedOn,
+      input.local.reviewTrackingStartedOn,
+      input.remote.reviewTrackingStartedOn,
+    ),
+    goals: goalOrder.map((id) => cloneValue(goals.get(id)!)) as Goal[],
+    reviews: reviewOrder.map((id) =>
+      cloneValue(reviews.get(id)!),
+    ) as PeriodReview[],
     monthPlanning: {
       rules: monthTemplateRuleOrder.map((id) =>
         cloneValue(monthTemplateRules.get(id)!),
@@ -340,6 +400,32 @@ export function validateAppData(
   );
   collectDuplicateIds(data.notes, 'duplicate_note_id', source, conflicts);
   collectDuplicateIds(data.rules ?? [], 'duplicate_rule_id', source, conflicts);
+  collectDuplicateIds(data.goals ?? [], 'duplicate_goal_id', source, conflicts);
+  collectDuplicateIds(
+    data.reviews ?? [],
+    'duplicate_review_id',
+    source,
+    conflicts,
+  );
+  collectDuplicateIds(
+    (data.reviews ?? []).flatMap((review) => review.results),
+    'duplicate_review_result_id',
+    source,
+    conflicts,
+  );
+  const reviewPeriods = new Set<string>();
+  for (const review of data.reviews ?? []) {
+    const key = `${review.period.kind}:${review.period.key}`;
+    if (reviewPeriods.has(key))
+      conflicts.push({
+        kind: 'invariant',
+        source,
+        code: 'duplicate_review_period',
+        entityId: key,
+        message: `Review period ${key} appears more than once`,
+      });
+    reviewPeriods.add(key);
+  }
   collectDuplicateIds(
     data.history,
     'duplicate_history_item_id',
@@ -403,6 +489,17 @@ function indexData(data: AppData): IndexedData {
       (data.rules ?? []).map((rule) => [rule.id, rule as Rule & Entity]),
     ),
     ruleOrder: (data.rules ?? []).map((rule) => rule.id),
+    goals: new Map(
+      (data.goals ?? []).map((goal) => [goal.id, goal as Goal & Entity]),
+    ),
+    goalOrder: (data.goals ?? []).map((goal) => goal.id),
+    reviews: new Map(
+      (data.reviews ?? []).map((review) => [
+        review.id,
+        review as PeriodReview & Entity,
+      ]),
+    ),
+    reviewOrder: (data.reviews ?? []).map((review) => review.id),
     notes: new Map(data.notes.map((note) => [note.id, note as Note & Entity])),
     noteOrder: data.notes.map((note) => note.id),
     history: new Map(
@@ -693,6 +790,10 @@ function keyToContainer(key: string): OrderContainer {
 
 function unionStrings(...values: Array<string[] | undefined>): string[] {
   return [...new Set(values.flatMap((value) => value ?? []))];
+}
+
+function earliestString(...values: Array<string | undefined>) {
+  return values.filter((value): value is string => !!value).sort()[0];
 }
 
 function collectDuplicateIds(

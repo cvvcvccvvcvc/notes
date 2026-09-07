@@ -66,6 +66,7 @@ void describe('schedule task operations', () => {
         taskId: 'one',
         text: 'Работа',
         finishedAt: 250,
+        finishedDay: '2026-09-05',
         intervals: [{ start: 100, end: 250 }],
       },
     ]);
