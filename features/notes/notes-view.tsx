@@ -12,7 +12,7 @@ import { Plus, X } from 'lucide-react';
 export function NotesView({
   notes,
   openNote,
-  setOpenNoteId,
+  openNoteById,
   closeNote,
   updateNote,
   createNote,
@@ -22,13 +22,17 @@ export function NotesView({
 }: {
   notes: Note[];
   openNote: Note | null;
-  setOpenNoteId: (id: string | null) => void;
+  openNoteById: (id: string) => void;
   closeNote: (id: string) => void;
   updateNote: (id: string, change: (note: Note) => Note) => void;
   createNote: () => void;
   moveNote: (sourceId: string, targetId: string) => void;
-  undo: { message: string } | null;
-  restoreUndo: () => void;
+  undo: {
+    message: string;
+    visible: boolean;
+    noteContentId?: string;
+  } | null;
+  restoreUndo: () => boolean;
 }) {
   const noteContentRef = useRef<HTMLTextAreaElement>(null);
   const noteTitleRef = useRef<HTMLInputElement>(null);
@@ -47,7 +51,7 @@ export function NotesView({
             <SortableNote
               key={note.id}
               note={note}
-              onOpen={() => setOpenNoteId(note.id)}
+              onOpen={() => openNoteById(note.id)}
             />
           ))}
         </div>
@@ -120,8 +124,11 @@ export function NotesView({
                   content,
                 }))
               }
+              recoverPreviousSession={
+                undo?.noteContentId === openNote.id ? restoreUndo : undefined
+              }
             />
-            {undo && (
+            {undo?.visible && (
               <div className="note-dialog-action">
                 <output className="note-undo">
                   <span>{undo.message}</span>

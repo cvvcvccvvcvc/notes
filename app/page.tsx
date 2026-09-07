@@ -10,7 +10,7 @@ import {
   NotebookPen,
   RotateCcw,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -98,6 +98,8 @@ type View = 'today' | 'backlog' | 'notes' | 'templates' | 'reviews';
 type UndoState = {
   message: string;
   restore: (current: AppData) => AppData;
+  visible: boolean;
+  noteContentId?: string;
 } | null;
 
 function uid() {
@@ -129,6 +131,7 @@ export default function Home() {
   const [now, setNow] = useState(() => Date.now());
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const [undo, setUndo] = useState<UndoState>(null);
+  const noteEditSessionRef = useRef<{ initial: Note } | null>(null);
   const [syncPanelOpen, setSyncPanelOpen] = useState(false);
   const todayKey = dateKey(new Date(now));
   const {
@@ -179,21 +182,30 @@ export default function Home() {
     restore: (current: AppData) => AppData,
   ) {
     if (!dataRef.current) return;
-    setUndo({ message, restore });
+    registerUndo(message, restore);
     commit(change);
   }
 
+  function registerUndo(
+    message: string,
+    restore: (current: AppData) => AppData,
+    noteContentId?: string,
+  ) {
+    setUndo({ message, restore, visible: true, noteContentId });
+  }
+
   function restoreUndo() {
-    if (!undo) return;
+    if (!undo) return false;
     setUndo(null);
     commit(undo.restore);
+    return true;
   }
 
   useEffect(() => {
     function handleUndo(event: KeyboardEvent) {
       if (
         !undo ||
-        !event.metaKey ||
+        (!event.metaKey && !event.ctrlKey) ||
         event.shiftKey ||
         event.key.toLowerCase() !== 'z' ||
         isTextEditor(event.target)
@@ -209,8 +221,15 @@ export default function Home() {
   }, [commit, undo]);
 
   useEffect(() => {
-    if (!undo) return;
-    const timeout = window.setTimeout(() => setUndo(null), 15_000);
+    if (!undo?.visible) return;
+    const visibleUndo = undo;
+    const timeout = window.setTimeout(
+      () =>
+        setUndo((current) =>
+          current === visibleUndo ? { ...current, visible: false } : current,
+        ),
+      15_000,
+    );
     return () => window.clearTimeout(timeout);
   }, [undo]);
 
@@ -531,18 +550,48 @@ export default function Home() {
 
   function createNote() {
     const id = uid();
-    commit((current) =>
-      prependNote(current, { id, title: '', content: '', color: 'white' }),
+    const note: Note = { id, title: '', content: '', color: 'white' };
+    commit((current) => prependNote(current, note));
+    noteEditSessionRef.current = { initial: note };
+    setOpenNoteId(id);
+  }
+
+  function openNoteById(id: string) {
+    const note = dataRef.current?.notes.find(
+      (candidate) => candidate.id === id,
     );
+    if (!note) return;
+    noteEditSessionRef.current = { initial: note };
     setOpenNoteId(id);
   }
 
   function closeNote(id: string) {
-    const note = dataRef.current?.notes.find(
-      (candidate) => candidate.id === id,
-    );
-    if (note && !note.title.trim())
-      commit((current) => removeNoteFromData(current, id));
+    const current = dataRef.current;
+    const index = current?.notes.findIndex((note) => note.id === id) ?? -1;
+    const note = index >= 0 ? current!.notes[index] : undefined;
+    const session =
+      noteEditSessionRef.current?.initial.id === id
+        ? noteEditSessionRef.current
+        : null;
+
+    if (note && !note.title.trim()) {
+      commit((data) => removeNoteFromData(data, id));
+    } else if (note && session && note.content !== session.initial.content) {
+      const previousContent = session.initial.content;
+      const savedContent = note.content;
+      registerUndo(
+        'Изменение текста сохранено',
+        (data) =>
+          updateNoteInData(data, id, (currentNote) =>
+            currentNote.content === savedContent
+              ? { ...currentNote, content: previousContent }
+              : currentNote,
+          ),
+        id,
+      );
+    }
+
+    noteEditSessionRef.current = null;
     setOpenNoteId(null);
   }
 
@@ -833,7 +882,7 @@ export default function Home() {
           <NotesView
             notes={data.notes}
             openNote={openNote}
-            setOpenNoteId={setOpenNoteId}
+            openNoteById={openNoteById}
             closeNote={closeNote}
             updateNote={updateNote}
             createNote={createNote}
@@ -872,7 +921,7 @@ export default function Home() {
         {navigation}
       </nav>
 
-      {undo && !(view === 'notes' && openNote) && (
+      {undo?.visible && !(view === 'notes' && openNote) && (
         <output className="undo-bar">
           <span>{undo.message}</span>
           <Button variant="ghost" onClick={restoreUndo}>
