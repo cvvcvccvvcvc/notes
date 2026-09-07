@@ -1,10 +1,10 @@
-import { GripVertical, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
 import type { Rule } from '@/lib/data';
-import { cardDragListeners, SortableItems } from '@/lib/sorting';
+import { SortableItems } from '@/lib/sorting';
 
 const sortableId = (id: string) => `rule:${id}`;
 
@@ -201,7 +201,6 @@ function SortableRule({
         className={className}
         style={style}
       >
-        <GripVertical className="rule-drag" aria-hidden="true" />
         <input
           id={`rule-editor-${rule.id}`}
           value={rule.text}
@@ -223,13 +222,12 @@ function SortableRule({
       className={className}
       style={style}
       {...attributes}
-      {...cardDragListeners(listeners, false)}
+      {...listeners}
       onFocus={onSelect}
       onClick={onSelect}
       onDoubleClick={onEdit}
       onKeyDown={onKeyDown}
     >
-      <GripVertical className="rule-drag" aria-hidden="true" />
       <span className="rule-text">{rule.text || 'Новое правило'}</span>
     </button>
   );

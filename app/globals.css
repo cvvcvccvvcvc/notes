@@ -560,15 +560,14 @@ h1 {
 .rule-card {
   min-height: 42px;
   display: grid;
-  grid-template-columns: 17px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: 4px;
-  padding: 9px 8px 9px 4px;
+  padding: 9px 8px;
   border: 1px solid transparent;
   border-radius: 10px;
   background: rgb(255 254 251 / 58%);
   outline: 0;
-  cursor: default;
+  cursor: grab;
   transition:
     border-color 120ms,
     background 120ms,
@@ -583,14 +582,11 @@ h1 {
   box-shadow: 0 0 0 2px rgb(75 133 105 / 12%);
 }
 .rule-card.dragging {
+  cursor: grabbing;
   opacity: 0.48;
 }
-.rule-drag {
-  width: 15px;
-  height: 18px;
-  margin-top: 1px;
-  color: #a9a99f;
-  touch-action: none;
+.rule-card.editing {
+  cursor: default;
 }
 .rule-card .rule-text,
 .rule-card input {
