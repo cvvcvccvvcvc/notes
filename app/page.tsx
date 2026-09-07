@@ -8,8 +8,6 @@ import {
   History,
   ListTodo,
   NotebookPen,
-  PanelLeftClose,
-  PanelLeftOpen,
   RotateCcw,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -132,11 +130,6 @@ export default function Home() {
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [undo, setUndo] = useState<UndoState>(null);
   const [syncPanelOpen, setSyncPanelOpen] = useState(false);
-  const [sidebarCompact, setSidebarCompact] = useState(() =>
-    typeof window === 'undefined'
-      ? true
-      : window.localStorage.getItem('notes-sidebar') !== 'expanded',
-  );
   const todayKey = dateKey(new Date(now));
   const {
     data,
@@ -151,13 +144,6 @@ export default function Home() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [view]);
-
-  useEffect(() => {
-    window.localStorage.setItem(
-      'notes-sidebar',
-      sidebarCompact ? 'compact' : 'expanded',
-    );
-  }, [sidebarCompact]);
 
   useEffect(() => {
     const clock = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -723,7 +709,7 @@ export default function Home() {
   };
 
   return (
-    <div className={`app-shell ${sidebarCompact ? 'sidebar-compact' : ''}`}>
+    <div className="app-shell">
       <aside className="sidebar">
         <button className="brand" onClick={() => setView('today')}>
           <span className="brand-full">notes</span>
@@ -731,15 +717,6 @@ export default function Home() {
         </button>
         <nav aria-label="Основная навигация">{navigation}</nav>
         <div className="sidebar-spacer" />
-        <button
-          className="utility-button sidebar-toggle"
-          onClick={() => setSidebarCompact((compact) => !compact)}
-          aria-label={sidebarCompact ? 'Развернуть меню' : 'Свернуть меню'}
-          title={sidebarCompact ? 'Развернуть меню' : 'Свернуть меню'}
-        >
-          {sidebarCompact ? <PanelLeftOpen /> : <PanelLeftClose />}
-          <span>{sidebarCompact ? 'Развернуть' : 'Свернуть'}</span>
-        </button>
         <button
           className={`utility-button ${view === 'templates' ? 'active' : ''}`}
           onClick={() => setView('templates')}
