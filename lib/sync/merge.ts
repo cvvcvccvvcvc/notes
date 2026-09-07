@@ -31,7 +31,11 @@ type TaskRecord = Entity & {
   location: TaskLocation;
 };
 
-type GroupRecord = Entity & { title: string; color?: TaskGroup['color'] };
+type GroupRecord = Entity & {
+  title: string;
+  content?: string;
+  color?: TaskGroup['color'];
+};
 
 type IndexedData = {
   tasks: Map<string, TaskRecord>;
@@ -61,7 +65,7 @@ const TASK_FIELDS = [
   'location',
   'plannedStart',
 ] as const;
-const GROUP_FIELDS = ['title', 'color'] as const;
+const GROUP_FIELDS = ['title', 'content', 'color'] as const;
 const RULE_FIELDS = ['text'] as const;
 const GOAL_FIELDS = ['period', 'text'] as const;
 const REVIEW_FIELDS = [
@@ -298,6 +302,7 @@ export function mergeAppData(input: {
     return {
       id,
       title: group.title,
+      content: group.content,
       color: group.color,
       tasks: (taskOrders.get(key) ?? []).map((taskId) => ({
         ...taskFromRecord(tasks.get(taskId)!),
@@ -469,6 +474,7 @@ function indexData(data: AppData): IndexedData {
     groups.set(group.id, {
       id: group.id,
       title: group.title,
+      content: group.content,
       color: group.color,
     });
     const location: TaskLocation = { kind: 'backlog', groupId: group.id };

@@ -97,6 +97,7 @@ export const periodReviewSchema = z.looseObject({
 export const taskGroupSchema = z.looseObject({
   id: idSchema,
   title: z.string().max(10_000),
+  content: z.string().max(1_000_000).optional(),
   color: taskColorSchema.optional(),
   tasks: z.array(taskSchema).max(100_000),
 });

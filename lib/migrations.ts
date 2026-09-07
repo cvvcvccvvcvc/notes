@@ -124,12 +124,12 @@ export function migrateAppData(data: AppData): AppData {
     !needsReviews &&
     !missingUnsorted &&
     !staleTaskLocations &&
-    data.version >= 5
+    data.version >= 6
   )
     return data;
   return {
     ...data,
-    version: Math.max(data.version, 5),
+    version: Math.max(data.version, 6),
     backlog: groups,
     monthPlanning:
       data.monthPlanning ??

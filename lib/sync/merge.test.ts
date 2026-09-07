@@ -48,7 +48,7 @@ void test('merges independent fields of the same task', () => {
   );
 });
 
-void test('merges independent task-group title and color changes', () => {
+void test('merges independent task-group fields', () => {
   const base = data();
   const local = data({
     backlog: [
@@ -56,11 +56,24 @@ void test('merges independent task-group title and color changes', () => {
     ],
   });
   const remote = data({
-    backlog: [{ id: 'general', title: 'Позже', tasks: [] }],
+    backlog: [
+      {
+        id: 'general',
+        title: 'Позже',
+        content: 'Контекст проекта',
+        tasks: [],
+      },
+    ],
   });
 
   assert.deepEqual(merged(mergeAppData({ base, local, remote })).backlog, [
-    { id: 'general', title: 'Позже', color: 'yellow', tasks: [] },
+    {
+      id: 'general',
+      title: 'Позже',
+      content: 'Контекст проекта',
+      color: 'yellow',
+      tasks: [],
+    },
   ]);
 });
 

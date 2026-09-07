@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import type { AppData, Task } from './data';
 import { UNSORTED_GROUP_ID } from './backlog';
 import {
+  appendBacklogTask,
   finishScheduledTask,
   moveBacklogTask,
   moveBacklogTaskVertically,
@@ -121,6 +122,17 @@ void describe('schedule task operations', () => {
 });
 
 void describe('backlog task operations', () => {
+  void it('adds a new task directly to its group once', () => {
+    const current = data();
+    const created = appendBacklogTask(current, 'study', task('new'));
+
+    assert.deepEqual(created.backlog?.[1].tasks, [
+      task('new', { backlogGroupId: 'study' }),
+    ]);
+    assert.equal(appendBacklogTask(created, 'study', task('new')), created);
+    assert.equal(appendBacklogTask(current, 'missing', task('new')), current);
+  });
+
   void it('removes only the requested task without creating history', () => {
     const one = task('one', { backlogGroupId: 'study' });
     const two = task('two', { backlogGroupId: 'study' });

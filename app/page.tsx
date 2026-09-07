@@ -5,8 +5,8 @@ import { setDayWindow } from '@/lib/day-timeline';
 import {
   CalendarDays,
   FileText,
+  FolderKanban,
   History,
-  ListTodo,
   NotebookPen,
   RotateCcw,
 } from 'lucide-react';
@@ -42,7 +42,6 @@ import {
   updateMonthTemplateRule as updateMonthTemplateRuleInData,
 } from '@/lib/month-template';
 import {
-  addNoteTaskToSchedule,
   moveNote as moveNoteInData,
   prependNote,
   removeNote as removeNoteFromData,
@@ -56,7 +55,6 @@ import {
   restoreRule,
   updateRule as updateRuleInData,
 } from '@/lib/rule-operations';
-import { paragraphRange } from '@/lib/paragraph';
 import {
   appendGoal,
   appendReviewResult,
@@ -71,6 +69,7 @@ import {
   updateReviewResult as updateReviewResultInData,
 } from '@/lib/review-operations';
 import {
+  appendBacklogTask,
   moveBacklogTask as moveBacklogTaskInData,
   moveBacklogTaskVertically as moveBacklogTaskVerticallyInData,
   moveScheduledTask,
@@ -128,7 +127,6 @@ export default function Home() {
   const [view, setView] = useState<View>('today');
   const [now, setNow] = useState(() => Date.now());
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
-  const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [undo, setUndo] = useState<UndoState>(null);
   const [syncPanelOpen, setSyncPanelOpen] = useState(false);
   const todayKey = dateKey(new Date(now));
@@ -319,7 +317,7 @@ export default function Home() {
     const original = tasks[index];
     if (!original) return;
     commitWithUndo(
-      'Перенесено в Дела',
+      'Перенесено в проекты',
       (current) => sendScheduledTaskToBacklog(current, day, id, Date.now()),
       (current) => ({
         ...restoreScheduledTask(current, day, original, index),
@@ -342,14 +340,28 @@ export default function Home() {
     const id = uid();
     updateBacklog((groups) => [
       ...groups,
-      { id, title: 'Новая группа', tasks: [] },
+      { id, title: 'Новый проект', content: '', tasks: [] },
     ]);
+    return id;
+  }
+
+  function addBacklogTask(groupId: string) {
+    const id = uid();
+    commit((current) =>
+      appendBacklogTask(current, groupId, { id, text: '', intervals: [] }),
+    );
     return id;
   }
 
   function renameBacklogGroup(id: string, title: string) {
     updateBacklog((groups) =>
       groups.map((group) => (group.id === id ? { ...group, title } : group)),
+    );
+  }
+
+  function setBacklogGroupContent(id: string, content: string) {
+    updateBacklog((groups) =>
+      groups.map((group) => (group.id === id ? { ...group, content } : group)),
     );
   }
 
@@ -509,7 +521,6 @@ export default function Home() {
     commit((current) =>
       prependNote(current, { id, title: '', content: '', color: 'white' }),
     );
-    setSelection({ start: 0, end: 0 });
     setOpenNoteId(id);
   }
 
@@ -520,7 +531,6 @@ export default function Home() {
     if (note && !note.title.trim())
       commit((current) => removeNoteFromData(current, id));
     setOpenNoteId(null);
-    setSelection({ start: 0, end: 0 });
   }
 
   function moveNote(sourceId: string, targetId: string) {
@@ -556,24 +566,6 @@ export default function Home() {
       'Правило удалено',
       (current) => removeRuleFromData(current, id),
       (current) => restoreRule(current, rule, index),
-    );
-  }
-
-  function takeSelection(note: Note, cursor = selection) {
-    const range = paragraphRange(note.content, cursor);
-    const text = note.content.slice(range.start, range.end).trim();
-    if (!text) return;
-    const taskId = uid();
-    commitWithUndo(
-      'Добавлено в Сегодня',
-      (current) =>
-        addNoteTaskToSchedule(current, {
-          today: todayKey,
-          taskId,
-          noteId: note.id,
-          text,
-        }),
-      (current) => removeScheduledTask(current, todayKey, taskId),
     );
   }
 
@@ -680,9 +672,6 @@ export default function Home() {
     return <main className="loading-screen">Открываю локальные записи…</main>;
 
   const openNote = data.notes.find((note) => note.id === openNoteId) ?? null;
-  const noteRange = paragraphRange(openNote?.content ?? '', selection);
-  const selectedText =
-    openNote?.content.slice(noteRange.start, noteRange.end).trim() ?? '';
   const reviewDebtCount = dueReviewPeriods(data, todayKey).length;
 
   const navigation = (
@@ -696,10 +685,10 @@ export default function Home() {
       </NavButton>
       <NavButton
         active={view === 'backlog'}
-        icon={<ListTodo />}
+        icon={<FolderKanban />}
         onClick={() => setView('backlog')}
       >
-        Дела
+        Проекты
       </NavButton>
       <NavButton
         active={view === 'notes'}
@@ -814,7 +803,9 @@ export default function Home() {
           <BacklogView
             groups={data.backlog ?? []}
             addGroup={addBacklogGroup}
+            addTask={addBacklogTask}
             renameGroup={renameBacklogGroup}
+            setGroupContent={setBacklogGroupContent}
             setGroupColor={setBacklogGroupColor}
             removeGroup={removeBacklogGroup}
             updateTask={updateBacklogTask}
@@ -828,13 +819,9 @@ export default function Home() {
           <NotesView
             notes={data.notes}
             openNote={openNote}
-            selectedText={selectedText}
-            selection={selection}
             setOpenNoteId={setOpenNoteId}
             closeNote={closeNote}
-            setSelection={setSelection}
             updateNote={updateNote}
-            takeSelection={takeSelection}
             createNote={createNote}
             moveNote={moveNote}
             undo={undo}

@@ -709,7 +709,7 @@ function FutureTaskRow({
           </DropdownMenuItem>
           <TaskColorMenu color={task.color} onChange={onSetColor} />
           <DropdownMenuItem onClick={onSendToBacklog}>
-            Перенести в Дела
+            Перенести в проекты
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onClick={onDiscard}>
@@ -895,7 +895,7 @@ function TaskRow({
             </DropdownMenuItem>
             <TaskColorMenu color={task.color} onChange={onSetColor} />
             <DropdownMenuItem onClick={onSendToBacklog}>
-              Перенести в Дела
+              Перенести в проекты
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={onDiscard}>

@@ -34,26 +34,3 @@ export function moveNote(data: AppData, sourceId: string, targetId: string) {
   notes.splice(to, 0, moved);
   return { ...data, notes };
 }
-
-export function addNoteTaskToSchedule(
-  data: AppData,
-  input: { today: string; taskId: string; noteId: string; text: string },
-) {
-  const text = input.text.trim();
-  if (!text) return data;
-  return {
-    ...data,
-    schedule: {
-      ...data.schedule,
-      [input.today]: [
-        ...(data.schedule[input.today] ?? []),
-        {
-          id: input.taskId,
-          text,
-          intervals: [],
-          source: { noteId: input.noteId, snapshot: text },
-        },
-      ],
-    },
-  };
-}

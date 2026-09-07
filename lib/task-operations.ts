@@ -298,6 +298,31 @@ export function updateBacklogTask(
   return { ...data, backlog };
 }
 
+export function appendBacklogTask(data: AppData, groupId: string, task: Task) {
+  const groups = data.backlog ?? [];
+  if (
+    Object.values(data.schedule).some((tasks) =>
+      tasks.some((candidate) => candidate.id === task.id),
+    ) ||
+    groups.some((group) =>
+      group.tasks.some((candidate) => candidate.id === task.id),
+    )
+  )
+    return data;
+  if (!groups.some((group) => group.id === groupId)) return data;
+  return {
+    ...data,
+    backlog: groups.map((group) =>
+      group.id === groupId
+        ? {
+            ...group,
+            tasks: [...group.tasks, { ...task, backlogGroupId: groupId }],
+          }
+        : group,
+    ),
+  };
+}
+
 export function removeBacklogTask(data: AppData, groupId: string, id: string) {
   const groups = data.backlog ?? [];
   const group = groups.find((candidate) => candidate.id === groupId);

@@ -1,10 +1,16 @@
 import { cardDragListeners, isCardSurface } from '@/lib/sorting';
-import { ArrowUpToLine, MoreHorizontal, Plus } from 'lucide-react';
+import {
+  ArrowUpToLine,
+  ChevronRight,
+  MoreHorizontal,
+  Plus,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,7 +36,9 @@ function isTextEditor(target: EventTarget | null) {
 type BacklogProps = {
   groups: TaskGroup[];
   addGroup: () => string;
+  addTask: (groupId: string) => string;
   renameGroup: (id: string, title: string) => void;
+  setGroupContent: (id: string, content: string) => void;
   setGroupColor: (id: string, color?: TaskColor) => void;
   removeGroup: (id: string) => void;
   updateTask: (
@@ -171,6 +179,12 @@ export function BacklogView(props: BacklogProps) {
     });
   }
 
+  function addTask(groupId: string) {
+    const id = props.addTask(groupId);
+    setSelectedId(id);
+    setEditingId(id);
+  }
+
   return (
     <div
       className="backlog-page"
@@ -189,7 +203,7 @@ export function BacklogView(props: BacklogProps) {
     >
       <div className="page-heading backlog-heading">
         <div>
-          <h1>Дела</h1>
+          <h1>Проекты</h1>
         </div>
       </div>
       <SortableRoot onDrop={dropTask}>
@@ -205,7 +219,7 @@ export function BacklogView(props: BacklogProps) {
                   className="backlog-group-title"
                   value={group.title}
                   readOnly={group.id === UNSORTED_GROUP_ID}
-                  aria-label="Название группы"
+                  aria-label="Название проекта"
                   onChange={(event) =>
                     props.renameGroup(group.id, event.target.value)
                   }
@@ -217,14 +231,14 @@ export function BacklogView(props: BacklogProps) {
                   <DropdownMenuTrigger
                     className="more-button"
                     render={
-                      <button type="button" aria-label="Действия с группой" />
+                      <button type="button" aria-label="Действия с проектом" />
                     }
                   >
                     <MoreHorizontal />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <TaskColorMenu
-                      label="Цвет группы"
+                      label="Цвет проекта"
                       color={group.color}
                       onChange={(color) => props.setGroupColor(group.id, color)}
                     />
@@ -235,13 +249,30 @@ export function BacklogView(props: BacklogProps) {
                           variant="destructive"
                           onClick={() => props.removeGroup(group.id)}
                         >
-                          Удалить группу → Не разобрано
+                          Удалить проект → Не разобрано
                         </DropdownMenuItem>
                       </>
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </header>
+              {group.id !== UNSORTED_GROUP_ID && (
+                <details className="project-info">
+                  <summary>
+                    <ChevronRight />
+                    <span>Информация</span>
+                  </summary>
+                  <Textarea
+                    className="project-info-input"
+                    value={group.content ?? ''}
+                    placeholder="Информация о проекте"
+                    aria-label={`Информация о проекте ${group.title}`}
+                    onChange={(event) =>
+                      props.setGroupContent(group.id, event.target.value)
+                    }
+                  />
+                </details>
+              )}
               <SortableDropZone
                 id={`backlog-group:${group.id}`}
                 className="backlog-list"
@@ -289,6 +320,13 @@ export function BacklogView(props: BacklogProps) {
                   ))}
                 </SortableItems>
               </SortableDropZone>
+              <Button
+                className="project-add-task"
+                variant="ghost"
+                onClick={() => addTask(group.id)}
+              >
+                <Plus /> Новое дело
+              </Button>
             </section>
           ))}
           <Button
@@ -296,7 +334,7 @@ export function BacklogView(props: BacklogProps) {
             variant="outline"
             onClick={addGroup}
           >
-            <Plus /> Добавить группу
+            <Plus /> Добавить проект
           </Button>
         </div>
       </SortableRoot>

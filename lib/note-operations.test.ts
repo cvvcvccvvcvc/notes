@@ -5,7 +5,6 @@ import test from 'node:test';
 
 import type { AppData, Note } from './data.ts';
 import {
-  addNoteTaskToSchedule,
   moveNote,
   prependNote,
   removeNote,
@@ -59,24 +58,4 @@ void test('removing a note preserves unrelated notes', () => {
 
   assert.deepEqual(removed.notes, [second]);
   assert.equal(removeNote(current, 'missing'), current);
-});
-
-void test('taking note text creates a linked task without changing the note', () => {
-  const current = data();
-  const result = addNoteTaskToSchedule(current, {
-    today: '2026-09-05',
-    taskId: 'task',
-    noteId: 'first',
-    text: '  Сделать вещь  ',
-  });
-
-  assert.equal(result.notes, current.notes);
-  assert.deepEqual(result.schedule['2026-09-05'], [
-    {
-      id: 'task',
-      text: 'Сделать вещь',
-      intervals: [],
-      source: { noteId: 'first', snapshot: 'Сделать вещь' },
-    },
-  ]);
 });
