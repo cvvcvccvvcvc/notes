@@ -13,6 +13,7 @@ void test('fresh local data is empty and satisfies sync invariants', () => {
   assert.deepEqual(data.schedule, { '2026-09-05': [] });
   assert.deepEqual(data.notes, []);
   assert.deepEqual(data.history, []);
+  assert.equal(data.rules?.length, 3);
   assert.equal(data.backlog?.[0]?.id, UNSORTED_GROUP_ID);
   assert.deepEqual(validateAppData(data, 'local'), []);
 });

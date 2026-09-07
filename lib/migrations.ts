@@ -1,5 +1,6 @@
 import type { AppData, Note, Task, TaskGroup } from './data';
 import { UNSORTED_GROUP_ID } from './backlog';
+import { createInitialRules } from './rule-operations';
 
 const seedGroups: TaskGroup[] = [
   { id: UNSORTED_GROUP_ID, title: 'Не разобрано', tasks: [] },
@@ -90,6 +91,9 @@ function migratedNotes(notes: Note[]) {
 export function migrateAppData(data: AppData): AppData {
   const needsBacklog = !data.backlog;
   const needsMonthPlanning = !data.monthPlanning;
+  const needsRules = !data.rules;
+  const needsGoals = !data.goals;
+  const needsReviews = !data.reviews;
   const sourceGroups = data.backlog ?? seedGroups;
   const missingUnsorted = !sourceGroups.some(
     (group) => group.id === UNSORTED_GROUP_ID,
@@ -115,14 +119,17 @@ export function migrateAppData(data: AppData): AppData {
   if (
     !needsBacklog &&
     !needsMonthPlanning &&
+    !needsRules &&
+    !needsGoals &&
+    !needsReviews &&
     !missingUnsorted &&
     !staleTaskLocations &&
-    data.version >= 3
+    data.version >= 5
   )
     return data;
   return {
     ...data,
-    version: Math.max(data.version, 3),
+    version: Math.max(data.version, 5),
     backlog: groups,
     monthPlanning:
       data.monthPlanning ??
@@ -136,6 +143,26 @@ export function migrateAppData(data: AppData): AppData {
           ),
         ].sort(),
       } satisfies AppData['monthPlanning']),
-    notes: needsBacklog ? migratedNotes(data.notes) : data.notes,
+    rules: data.rules ?? createInitialRules(),
+    goals: data.goals ?? [],
+    reviews: data.reviews ?? [],
+    notes: removeLegacyRulesNote(
+      needsBacklog ? migratedNotes(data.notes) : data.notes,
+      needsRules,
+    ),
   };
+}
+
+function removeLegacyRulesNote(notes: Note[], rulesWereAdded: boolean) {
+  if (!rulesWereAdded) return notes;
+  const legacyContent =
+    'макс 2 игры в Deadlock в день / 1.5 часа\n\nвесь написанный код смотреть и понимать';
+  return notes.filter(
+    (note) =>
+      !(
+        note.id === 'work-rules' &&
+        note.title === 'Правила работы' &&
+        note.content.trim() === legacyContent
+      ),
+  );
 }

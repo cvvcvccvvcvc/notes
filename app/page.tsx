@@ -8,13 +8,15 @@ import {
   History,
   ListTodo,
   NotebookPen,
+  PanelLeftClose,
+  PanelLeftOpen,
   RotateCcw,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { HistoryView } from '@/features/history/history-view';
+import { ReviewsView } from '@/features/reviews/reviews-view';
 import { NotesView } from '@/features/notes/notes-view';
 import { BacklogView } from '@/features/tasks/backlog-view';
 import { focusTask, ScheduleView } from '@/features/tasks/schedule-view';
@@ -24,6 +26,9 @@ import {
   type MonthTemplateRule,
   type MonthTemplateSchedule,
   type Note,
+  type ReviewPeriod,
+  type ReviewResult,
+  type Rule,
   type Task,
   type TaskColor,
   type TaskGroup,
@@ -44,7 +49,28 @@ import {
   prependNote,
   updateNote as updateNoteInData,
 } from '@/lib/note-operations';
+import {
+  appendRule,
+  moveRule as moveRuleInData,
+  moveRuleTo,
+  removeRule as removeRuleFromData,
+  restoreRule,
+  updateRule as updateRuleInData,
+} from '@/lib/rule-operations';
 import { paragraphRange } from '@/lib/paragraph';
+import {
+  appendGoal,
+  appendReviewResult,
+  completePeriodReview,
+  createPeriodReview,
+  dueReviewPeriods,
+  historyItemsForPeriod,
+  removeGoal as removeGoalFromData,
+  removeReviewResult as removeReviewResultFromData,
+  reviewForPeriod,
+  updateGoal as updateGoalInData,
+  updateReviewResult as updateReviewResultInData,
+} from '@/lib/review-operations';
 import {
   moveBacklogTask as moveBacklogTaskInData,
   moveBacklogTaskVertically as moveBacklogTaskVerticallyInData,
@@ -69,7 +95,7 @@ import {
   type SyncState,
 } from '@/hooks/use-synced-app-data';
 
-type View = 'today' | 'backlog' | 'notes' | 'templates' | 'history';
+type View = 'today' | 'backlog' | 'notes' | 'templates' | 'reviews';
 type UndoState = {
   message: string;
   restore: (current: AppData) => AppData;
@@ -106,6 +132,11 @@ export default function Home() {
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [undo, setUndo] = useState<UndoState>(null);
   const [syncPanelOpen, setSyncPanelOpen] = useState(false);
+  const [sidebarCompact, setSidebarCompact] = useState(() =>
+    typeof window === 'undefined'
+      ? true
+      : window.localStorage.getItem('notes-sidebar') !== 'expanded',
+  );
   const todayKey = dateKey(new Date(now));
   const {
     data,
@@ -120,6 +151,13 @@ export default function Home() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [view]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      'notes-sidebar',
+      sidebarCompact ? 'compact' : 'expanded',
+    );
+  }, [sidebarCompact]);
 
   useEffect(() => {
     const clock = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -492,6 +530,38 @@ export default function Home() {
     commit((current) => moveNoteInData(current, sourceId, targetId));
   }
 
+  function createRule() {
+    const id = uid();
+    commit((current) => appendRule(current, { id, text: '' }));
+    return id;
+  }
+
+  function updateRule(id: string, text: string) {
+    commit((current) =>
+      updateRuleInData(current, id, (rule) => ({ ...rule, text })),
+    );
+  }
+
+  function moveRule(id: string, direction: -1 | 1) {
+    commit((current) => moveRuleInData(current, id, direction));
+  }
+
+  function dropRule(sourceId: string, targetId: string) {
+    commit((current) => moveRuleTo(current, sourceId, targetId));
+  }
+
+  function discardRule(id: string) {
+    const rules = dataRef.current?.rules ?? [];
+    const index = rules.findIndex((rule) => rule.id === id);
+    const rule: Rule | undefined = rules[index];
+    if (!rule) return;
+    commitWithUndo(
+      'Правило удалено',
+      (current) => removeRuleFromData(current, id),
+      (current) => restoreRule(current, rule, index),
+    );
+  }
+
   function takeSelection(note: Note, cursor = selection) {
     const range = paragraphRange(note.content, cursor);
     const text = note.content.slice(range.start, range.end).trim();
@@ -542,6 +612,73 @@ export default function Home() {
     commit((current) => createMonthFromTemplate(current, month));
   }
 
+  function startReview(period: ReviewPeriod) {
+    const current = dataRef.current;
+    const existing = current ? reviewForPeriod(current, period) : undefined;
+    if (existing) return existing.id;
+    const id = uid();
+    const resultIds = current
+      ? historyItemsForPeriod(current, period).map(() => uid())
+      : [];
+    commit((latest) =>
+      createPeriodReview(latest, {
+        id,
+        period,
+        createdAt: Date.now(),
+        resultIds,
+      }),
+    );
+    return id;
+  }
+
+  function updateReviewResult(
+    reviewId: string,
+    resultId: string,
+    change: (result: ReviewResult) => ReviewResult,
+  ) {
+    commit((current) =>
+      updateReviewResultInData(current, reviewId, resultId, change),
+    );
+  }
+
+  function addReviewResult(reviewId: string) {
+    const id = uid();
+    commit((current) =>
+      appendReviewResult(current, reviewId, {
+        id,
+        text: '',
+        included: true,
+      }),
+    );
+    return id;
+  }
+
+  function removeReviewResult(reviewId: string, resultId: string) {
+    commit((current) =>
+      removeReviewResultFromData(current, reviewId, resultId),
+    );
+  }
+
+  function completeReview(reviewId: string) {
+    commit((current) => completePeriodReview(current, reviewId, Date.now()));
+  }
+
+  function addGoal(period: ReviewPeriod) {
+    const id = uid();
+    commit((current) => appendGoal(current, { id, period, text: '' }));
+    return id;
+  }
+
+  function updateGoal(id: string, text: string) {
+    commit((current) =>
+      updateGoalInData(current, id, (goal) => ({ ...goal, text })),
+    );
+  }
+
+  function removeGoal(id: string) {
+    commit((current) => removeGoalFromData(current, id));
+  }
+
   if (!data)
     return <main className="loading-screen">Открываю локальные записи…</main>;
 
@@ -549,6 +686,7 @@ export default function Home() {
   const noteRange = paragraphRange(openNote?.content ?? '', selection);
   const selectedText =
     openNote?.content.slice(noteRange.start, noteRange.end).trim() ?? '';
+  const reviewDebtCount = dueReviewPeriods(data, todayKey).length;
 
   const navigation = (
     <>
@@ -585,13 +723,23 @@ export default function Home() {
   };
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${sidebarCompact ? 'sidebar-compact' : ''}`}>
       <aside className="sidebar">
         <button className="brand" onClick={() => setView('today')}>
-          notes
+          <span className="brand-full">notes</span>
+          <span className="brand-compact">n</span>
         </button>
         <nav aria-label="Основная навигация">{navigation}</nav>
         <div className="sidebar-spacer" />
+        <button
+          className="utility-button sidebar-toggle"
+          onClick={() => setSidebarCompact((compact) => !compact)}
+          aria-label={sidebarCompact ? 'Развернуть меню' : 'Свернуть меню'}
+          title={sidebarCompact ? 'Развернуть меню' : 'Свернуть меню'}
+        >
+          {sidebarCompact ? <PanelLeftOpen /> : <PanelLeftClose />}
+          <span>{sidebarCompact ? 'Развернуть' : 'Свернуть'}</span>
+        </button>
         <button
           className={`utility-button ${view === 'templates' ? 'active' : ''}`}
           onClick={() => setView('templates')}
@@ -600,11 +748,12 @@ export default function Home() {
           <span>Шаблоны</span>
         </button>
         <button
-          className={`utility-button ${view === 'history' ? 'active' : ''}`}
-          onClick={() => setView('history')}
+          className={`utility-button reviews-nav-button ${view === 'reviews' ? 'active' : ''} ${reviewDebtCount ? 'has-debt' : ''}`}
+          onClick={() => setView('reviews')}
         >
           <History />
-          <span>История</span>
+          <span>Итоги</span>
+          {reviewDebtCount > 0 && <strong>{reviewDebtCount}</strong>}
         </button>
         <button className="storage-status" onClick={openStorageStatus}>
           <span
@@ -616,7 +765,7 @@ export default function Home() {
 
       <header className="mobile-header">
         <button className="brand" onClick={() => setView('today')}>
-          notes
+          <span className="brand-full">notes</span>
         </button>
         <div className="mobile-tools">
           <button
@@ -633,11 +782,12 @@ export default function Home() {
             <CalendarDays />
           </button>
           <button
-            className={view === 'history' ? 'active' : ''}
-            onClick={() => setView('history')}
-            aria-label="История"
+            className={`${view === 'reviews' ? 'active' : ''} ${reviewDebtCount ? 'has-debt' : ''}`}
+            onClick={() => setView('reviews')}
+            aria-label={`Итоги${reviewDebtCount ? `: ожидает ${reviewDebtCount}` : ''}`}
           >
             <History />
+            {reviewDebtCount > 0 && <strong>{reviewDebtCount}</strong>}
           </button>
         </div>
       </header>
@@ -664,6 +814,12 @@ export default function Home() {
             takeFutureTask={takeFutureTask}
             createMonth={createMonth}
             openTemplates={() => setView('templates')}
+            rules={data.rules ?? []}
+            addRule={createRule}
+            updateRule={updateRule}
+            removeRule={discardRule}
+            moveRule={moveRule}
+            dropRule={dropRule}
           />
         )}
         {view === 'backlog' && (
@@ -706,7 +862,20 @@ export default function Home() {
             moveRule={moveMonthTemplateRule}
           />
         )}
-        {view === 'history' && <HistoryView data={data} now={now} />}
+        {view === 'reviews' && (
+          <ReviewsView
+            data={data}
+            now={now}
+            startReview={startReview}
+            updateResult={updateReviewResult}
+            addResult={addReviewResult}
+            removeResult={removeReviewResult}
+            completeReview={completeReview}
+            addGoal={addGoal}
+            updateGoal={updateGoal}
+            removeGoal={removeGoal}
+          />
+        )}
       </main>
 
       <nav className="mobile-nav" aria-label="Основная навигация">

@@ -39,6 +39,8 @@ import { monthTemplateTaskCount, nextMonthKey } from '@/lib/month-template';
 import { SortableDropZone, SortableItems, SortableRoot } from '@/lib/sorting';
 import { TaskTextEditor, TaskTextPreview } from '@/lib/task-text';
 import { taskDuration, taskState } from '@/lib/task-operations';
+import { RulesPanel } from '@/features/rules/rules-panel';
+import type { Rule } from '@/lib/data';
 
 export function focusTask(day: string, id?: string) {
   requestAnimationFrame(() => {
@@ -148,6 +150,12 @@ type ScheduleProps = {
   takeFutureTask: (day: string, id: string) => void;
   createMonth: (month: string) => void;
   openTemplates: () => void;
+  rules: Rule[];
+  addRule: () => string;
+  updateRule: (id: string, text: string) => void;
+  removeRule: (id: string) => void;
+  moveRule: (id: string, direction: -1 | 1) => void;
+  dropRule: (sourceId: string, targetId: string) => void;
 };
 
 type TaskInteractions = {
@@ -289,6 +297,11 @@ export function ScheduleView(props: ScheduleProps) {
   }
 
   function dropAcrossSchedule(sourceId: string, targetId: string) {
+    if (sourceId.startsWith('rule:') || targetId.startsWith('rule:')) {
+      if (sourceId.startsWith('rule:') && targetId.startsWith('rule:'))
+        props.dropRule(sourceId.slice(5), targetId.slice(5));
+      return;
+    }
     const sourceDay = taskDay(sourceId);
     const targetDay = targetId.startsWith('schedule-day:')
       ? targetId.slice('schedule-day:'.length)
@@ -380,13 +393,20 @@ export function ScheduleView(props: ScheduleProps) {
           }
         }}
       >
-        <section className="today-section">
-          <div className="page-heading">
-            <div>
-              <p className="eyebrow">Сегодня</p>
-              <h1>{ruDate.format(today)}</h1>
-            </div>
+        <div className="page-heading schedule-heading">
+          <div>
+            <p className="eyebrow">Сегодня</p>
+            <h1>{ruDate.format(today)}</h1>
           </div>
+        </div>
+        <RulesPanel
+          rules={props.rules}
+          addRule={props.addRule}
+          updateRule={props.updateRule}
+          removeRule={props.removeRule}
+          moveRule={props.moveRule}
+        />
+        <section className="today-section">
           <SortableDropZone
             id={`schedule-day:${todayKey}`}
             className="task-list today-timeline"
@@ -606,21 +626,21 @@ function FutureTaskRow({
         }
       }}
     >
+      <InlineTime
+        className={`planned-time-badge ${!task.plannedStart && !timeEditing ? 'unset-time' : ''}`}
+        value={task.plannedStart}
+        label="Плановое начало"
+        placeholder=""
+        open={timeEditing}
+        onClose={onCloseTime}
+        onChange={(plannedStart) =>
+          updateTask(day, task.id, (current) => {
+            const { plannedStart: _old, ...rest } = current;
+            return plannedStart ? { ...rest, plannedStart } : rest;
+          })
+        }
+      />
       <div className="future-task-body">
-        <InlineTime
-          className={`planned-time-badge ${!task.plannedStart && !timeEditing ? 'unset-time' : ''}`}
-          value={task.plannedStart}
-          label="Плановое начало"
-          placeholder="+"
-          open={timeEditing}
-          onClose={onCloseTime}
-          onChange={(plannedStart) =>
-            updateTask(day, task.id, (current) => {
-              const { plannedStart: _old, ...rest } = current;
-              return plannedStart ? { ...rest, plannedStart } : rest;
-            })
-          }
-        />
         {editing ? (
           <TaskTextEditor
             text={task.text}
@@ -776,7 +796,7 @@ function TaskRow({
         className="timeline-time"
         value={task.plannedStart}
         label="Плановое начало"
-        placeholder="+"
+        placeholder=""
         open={timeEditing}
         onClose={onCloseTime}
         onChange={(plannedStart) =>

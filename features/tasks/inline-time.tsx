@@ -1,5 +1,4 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { Plus } from 'lucide-react';
 
 export function InlineTime({
   value,
@@ -96,6 +95,11 @@ export function InlineTime({
     minutesInput.current?.select();
   }
 
+  function placeCaret(input: HTMLInputElement | null, position: number) {
+    input?.focus();
+    input?.setSelectionRange(position, position);
+  }
+
   function pasteHours(event: React.ClipboardEvent<HTMLInputElement>) {
     event.preventDefault();
     const pasted = event.clipboardData
@@ -164,7 +168,16 @@ export function InlineTime({
             aria-invalid={!!error}
             aria-describedby={error ? errorId : undefined}
             onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
+            onKeyDown={(event) => {
+              handleKeyDown(event);
+              if (
+                event.key === 'ArrowRight' &&
+                event.currentTarget.selectionEnd === hours.length
+              ) {
+                event.preventDefault();
+                placeCaret(minutesInput.current, 0);
+              }
+            }}
             onPaste={pasteHours}
             onChange={(event) => {
               const next = digits(event.target.value);
@@ -193,14 +206,21 @@ export function InlineTime({
             }}
             onKeyDown={(event) => {
               handleKeyDown(event);
+              if (
+                event.key === 'ArrowLeft' &&
+                event.currentTarget.selectionStart === 0
+              ) {
+                event.preventDefault();
+                placeCaret(hoursInput.current, hours.length);
+              }
               if (event.key === 'Backspace' && !minutes)
-                hoursInput.current?.focus();
+                placeCaret(hoursInput.current, hours.length);
             }}
           />
         </span>
       ) : (
         <button type="button" aria-label={label} title={label} onClick={edit}>
-          {value ?? (placeholder === '+' ? <Plus /> : placeholder)}
+          {value ?? placeholder}
         </button>
       )}
       {error && (

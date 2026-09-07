@@ -62,6 +62,7 @@ export function finishScheduledTask(
         taskId: task.id,
         text: task.text,
         finishedAt: stamp,
+        finishedDay: day,
         intervals: finished.intervals,
       },
       ...data.history,

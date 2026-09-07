@@ -118,6 +118,9 @@ body {
   flex-direction: column;
   background: #f0f1ed;
   border-right: 1px solid var(--border);
+  transition:
+    width 160ms ease,
+    padding 160ms ease;
 }
 .brand {
   border: 0;
@@ -128,6 +131,9 @@ body {
   font-weight: 650;
   letter-spacing: -0.04em;
   cursor: pointer;
+}
+.brand-compact {
+  display: none;
 }
 .sidebar nav {
   display: grid;
@@ -230,6 +236,37 @@ body {
 .main-content {
   margin-left: 220px;
   min-height: 100svh;
+  transition: margin-left 160ms ease;
+}
+.app-shell.sidebar-compact .sidebar {
+  width: 72px;
+  padding-inline: 12px;
+}
+.app-shell.sidebar-compact .main-content {
+  margin-left: 72px;
+}
+.app-shell.sidebar-compact .sidebar .brand {
+  width: 100%;
+  padding-inline: 0;
+  text-align: center;
+}
+.app-shell.sidebar-compact .sidebar .brand-full,
+.app-shell.sidebar-compact .sidebar .nav-button span,
+.app-shell.sidebar-compact .sidebar .utility-button span,
+.app-shell.sidebar-compact .sidebar .storage-status > span:last-child {
+  display: none;
+}
+.app-shell.sidebar-compact .sidebar .brand-compact {
+  display: inline;
+}
+.app-shell.sidebar-compact .sidebar .nav-button,
+.app-shell.sidebar-compact .sidebar .utility-button,
+.app-shell.sidebar-compact .sidebar .storage-status {
+  justify-content: center;
+  padding-inline: 0;
+}
+.sidebar-toggle {
+  margin-bottom: 12px;
 }
 .mobile-header,
 .mobile-nav {
@@ -264,13 +301,25 @@ h1 {
 }
 
 .schedule-page {
-  max-width: 970px;
+  max-width: 1240px;
   margin: 0 auto;
-  padding: 0 42px 90px;
+  padding: 46px 42px 90px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  grid-template-areas:
+    'heading rules'
+    'today rules'
+    'future rules';
+  column-gap: 32px;
+  align-items: start;
+}
+.schedule-heading {
+  grid-area: heading;
 }
 .today-section {
-  min-height: 100svh;
-  padding: 46px 0 68px;
+  grid-area: today;
+  min-height: calc(100svh - 120px);
+  padding: 0 0 68px;
   display: flex;
   flex-direction: column;
 }
@@ -473,8 +522,117 @@ h1 {
 }
 
 .future-section {
+  grid-area: future;
   border-top: 1px solid var(--border);
   padding-top: 30px;
+}
+
+.rules-panel {
+  grid-area: rules;
+  position: sticky;
+  top: 28px;
+  align-self: start;
+  max-height: calc(100svh - 56px);
+  padding: 16px 12px 10px;
+  border: 1px solid #e2d8c8;
+  border-left: 3px solid #7b9d84;
+  border-radius: 16px;
+  background: #f5efe4;
+  box-shadow: 0 6px 22px rgb(68 55 36 / 5%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.rules-panel h2 {
+  margin: 0 8px 10px;
+  color: #59655b;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.rules-list {
+  display: grid;
+  gap: 5px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.rule-card {
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: 17px minmax(0, 1fr);
+  align-items: start;
+  gap: 4px;
+  padding: 9px 8px 9px 4px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: rgb(255 254 251 / 58%);
+  outline: 0;
+  cursor: default;
+  transition:
+    border-color 120ms,
+    background 120ms,
+    box-shadow 120ms;
+}
+.rule-card:hover {
+  background: rgb(255 254 251 / 86%);
+}
+.rule-card.selected {
+  border-color: #6b9984;
+  background: #fffefb;
+  box-shadow: 0 0 0 2px rgb(75 133 105 / 12%);
+}
+.rule-card.dragging {
+  opacity: 0.48;
+}
+.rule-drag {
+  width: 15px;
+  height: 18px;
+  margin-top: 1px;
+  color: #a9a99f;
+  touch-action: none;
+}
+.rule-card .rule-text,
+.rule-card input {
+  min-width: 0;
+  margin: 0;
+  color: #333a35;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.42;
+}
+.rule-card input {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+}
+.rule-card .rule-text {
+  white-space: pre-wrap;
+  text-align: left;
+}
+.add-rule {
+  min-height: 34px;
+  margin-top: 8px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #607168;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.add-rule:hover,
+.add-rule:focus-visible {
+  background: rgb(255 254 251 / 75%);
+  color: #2d6955;
+}
+.add-rule svg {
+  width: 15px;
 }
 .month-heading {
   display: flex;
@@ -818,7 +976,8 @@ h1 {
 
 .notes-page,
 .templates-page,
-.history-page {
+.reviews-page,
+.review-editor {
   max-width: 1120px;
   margin: 0 auto;
   padding: 46px 42px 110px;
@@ -1278,7 +1437,7 @@ h1 {
   display: grid;
   gap: 32px;
 }
-.history-day > h2 {
+.history-day > h3 {
   margin: 0 0 11px;
   color: #66706a;
   font-size: 15px;
@@ -1326,6 +1485,477 @@ h1 {
   padding: 40px;
   text-align: center;
   color: #7d847f;
+}
+.reviews-intro {
+  max-width: 620px;
+  margin: 8px 0 0;
+  color: #737b76;
+  line-height: 1.5;
+}
+.review-debt {
+  margin-top: 28px;
+  padding: 20px;
+  border: 1px solid #d8ddd8;
+  border-radius: 14px;
+  background: #f1f3ef;
+}
+.review-debt.has-debt {
+  border-color: #bfd7cd;
+  background: #eaf3ef;
+}
+.review-debt-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.review-debt-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: #dcebe5;
+  color: #236e5b;
+}
+.review-debt-icon svg {
+  width: 20px;
+  height: 20px;
+}
+.review-debt h2,
+.reviews-section-heading h2,
+.review-editor-section h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.review-debt p,
+.reviews-section-heading p {
+  margin: 4px 0 0;
+  color: #6d756f;
+  font-size: 14px;
+}
+.review-debt-list {
+  margin-top: 17px;
+  display: grid;
+  gap: 6px;
+}
+.review-debt-row {
+  width: 100%;
+  min-height: 54px;
+  padding: 8px 12px;
+  border: 1px solid #d2dfd9;
+  border-radius: 10px;
+  background: #fffefb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  text-align: left;
+}
+.review-debt-row:hover {
+  border-color: #8fb7a8;
+  background: #fbfdfa;
+}
+.review-debt-row > span:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.review-debt-row strong {
+  font-size: 14px;
+}
+.review-debt-row small {
+  color: #707872;
+  font-size: 13px;
+  text-transform: capitalize;
+}
+.review-debt-row > span:last-child {
+  color: #236e5b;
+  font-size: 14px;
+  font-weight: 650;
+}
+.goals-section,
+.reviews-archive {
+  margin-top: 36px;
+}
+.reviews-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+.goal-period-grid {
+  margin-top: 15px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+.goal-period-card {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: #fffefb;
+}
+.goal-period-heading {
+  min-height: 43px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.goal-period-heading > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.goal-period-heading span,
+.period-review-card header span {
+  color: #737b76;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.goal-period-heading strong {
+  font-size: 14px;
+  font-weight: 650;
+  text-transform: capitalize;
+}
+.goal-period-arrows {
+  display: flex;
+}
+.goal-period-arrows button,
+.goal-row > button,
+.review-result-row > button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #747c77;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.goal-period-arrows button:hover,
+.goal-row > button:hover,
+.review-result-row > button:hover {
+  background: #ecefe9;
+  color: #39423d;
+}
+.goal-period-arrows svg,
+.goal-row > button svg,
+.review-result-row > button svg {
+  width: 16px;
+  height: 16px;
+}
+.goal-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+}
+.goal-empty,
+.review-empty-copy {
+  margin: 4px 0 7px;
+  color: #7b827e;
+  font-size: 14px;
+}
+.goal-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 34px;
+  align-items: start;
+  gap: 4px;
+}
+.goal-row > span {
+  padding-top: 9px;
+  color: #8a908c;
+  font-size: 13px;
+}
+.goal-row textarea,
+.review-result-row textarea {
+  width: 100%;
+  min-height: 40px;
+  resize: vertical;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  padding: 8px;
+  font: inherit;
+  line-height: 1.4;
+}
+.goal-row textarea:hover,
+.review-result-row textarea:hover {
+  background: #f7f8f4;
+}
+.goal-row textarea:focus,
+.review-result-row textarea:focus {
+  outline: 0;
+  border-color: #80aa9a;
+  background: #fff;
+}
+.review-text-action {
+  width: fit-content;
+  min-height: 38px;
+  padding: 0 7px;
+  border: 0;
+  background: transparent;
+  color: #236e5b;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: left;
+}
+.review-text-action svg {
+  width: 16px;
+  height: 16px;
+}
+.archive-heading {
+  align-items: center;
+}
+.review-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.review-tabs button {
+  min-height: 36px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #727a75;
+  cursor: pointer;
+}
+.review-tabs button.active {
+  background: #dcebe5;
+  color: #1d6653;
+  font-weight: 650;
+}
+.period-review-list {
+  margin-top: 18px;
+  display: grid;
+  gap: 12px;
+}
+.period-review-card {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: #fffefb;
+}
+.period-review-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.period-review-card h3 {
+  margin: 3px 0 0;
+  font-size: 18px;
+  text-transform: capitalize;
+}
+.period-review-card header button {
+  min-height: 36px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #65706a;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.period-review-card header button:hover {
+  background: #eef0eb;
+}
+.period-review-card header button svg {
+  width: 15px;
+}
+.period-review-goals {
+  margin-top: 15px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f0f3ef;
+  font-size: 14px;
+}
+.period-review-goals strong {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.period-review-goals ul,
+.period-review-results,
+.review-goal-snapshot {
+  margin: 8px 0 0;
+  padding-left: 22px;
+}
+.period-review-goals li + li,
+.period-review-results li + li,
+.review-goal-snapshot li + li {
+  margin-top: 6px;
+}
+.period-review-results {
+  margin-top: 16px;
+  line-height: 1.5;
+}
+.review-editor {
+  max-width: 900px;
+}
+.review-editor-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.review-editor-heading p {
+  margin: 0 0 2px;
+  color: #23705c;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.review-editor-heading h1 {
+  font-size: clamp(26px, 3vw, 36px);
+  text-transform: capitalize;
+}
+.review-back {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fffefb;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.review-back svg {
+  width: 18px;
+}
+.review-editor-section {
+  margin-top: 32px;
+}
+.review-goal-snapshot {
+  padding: 15px 18px 15px 38px;
+  border-radius: 11px;
+  background: #eef2ee;
+  line-height: 1.45;
+}
+.review-editor-note {
+  margin: 6px 0 0;
+  color: #737b76;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.review-result-group {
+  margin-top: 20px;
+}
+.review-result-group h3,
+.history-day > h3 {
+  margin: 0 0 9px;
+  color: #66706a;
+  font-size: 14px;
+  font-weight: 650;
+  text-transform: capitalize;
+}
+.review-result-rows {
+  display: grid;
+  gap: 7px;
+}
+.review-result-row {
+  min-height: 54px;
+  padding: 6px 8px 6px 13px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: #fffefb;
+}
+.review-result-row.excluded {
+  opacity: 0.5;
+}
+.review-result-row input {
+  width: 17px;
+  height: 17px;
+  accent-color: #27765f;
+}
+.review-result-row textarea {
+  resize: vertical;
+}
+.review-result-row > button:last-child:first-of-type {
+  grid-column: 3;
+}
+.review-editor-section > .goal-list {
+  max-width: 720px;
+  margin-top: 13px;
+}
+.review-editor-footer {
+  margin-top: 34px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.review-editor-footer > span {
+  color: #737b76;
+  font-size: 13px;
+}
+.review-complete {
+  min-height: 42px;
+  padding: 0 17px;
+  border: 0;
+  border-radius: 10px;
+  background: #236e5b;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 650;
+}
+.reviews-nav-button {
+  position: relative;
+}
+.reviews-nav-button.has-debt {
+  background: #dcebe5;
+  color: #1d6653;
+}
+.reviews-nav-button strong,
+.mobile-tools > button.has-debt strong {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #236e5b;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+.reviews-nav-button strong {
+  margin-left: auto;
+}
+.mobile-tools > button.has-debt {
+  position: relative;
+  background: #dcebe5;
+  color: #1d6653;
+}
+.mobile-tools > button.has-debt strong {
+  position: absolute;
+  top: -4px;
+  right: -5px;
 }
 .undo-bar {
   position: fixed;
@@ -1433,7 +2063,14 @@ h1 {
     width: 20px;
   }
   .schedule-page {
-    padding: 0 16px 40px;
+    padding: 25px 16px 40px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'heading'
+      'rules'
+      'today'
+      'future';
   }
   .backlog-page {
     padding: 25px 16px 90px;
@@ -1471,8 +2108,17 @@ h1 {
     grid-row: 1 / span 2;
   }
   .today-section {
-    min-height: calc(100svh - 58px - env(safe-area-inset-top));
-    padding: 25px 0 50px;
+    min-height: calc(100svh - 130px - env(safe-area-inset-top));
+    padding: 0 0 50px;
+  }
+  .rules-panel {
+    position: static;
+    max-height: none;
+    margin-top: 18px;
+    padding: 12px 10px 8px;
+  }
+  .rules-panel h2 {
+    margin-bottom: 7px;
   }
   .page-heading {
     align-items: center;
@@ -1556,13 +2202,60 @@ h1 {
     min-height: 40px;
   }
   .future-day.has-tasks {
-    grid-template-columns: 1fr;
-    gap: 0;
+    grid-template-columns: 55px minmax(0, 1fr);
+    gap: 0 8px;
+  }
+  .future-day.has-tasks .future-date {
+    grid-column: 1 / -1;
+  }
+  .future-day.has-tasks .future-tasks {
+    grid-column: 2;
   }
   .notes-page,
   .templates-page,
-  .history-page {
+  .reviews-page,
+  .review-editor {
     padding: 25px 16px 90px;
+  }
+  .review-debt {
+    padding: 16px;
+  }
+  .review-debt-heading {
+    align-items: flex-start;
+  }
+  .goal-period-grid {
+    grid-template-columns: 1fr;
+  }
+  .reviews-section-heading,
+  .review-editor-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .archive-heading {
+    align-items: stretch;
+  }
+  .review-tabs {
+    width: 100%;
+  }
+  .review-tabs button {
+    flex: 1;
+    padding: 0 7px;
+  }
+  .review-editor-heading {
+    gap: 10px;
+  }
+  .review-editor-heading h1 {
+    margin-top: 2px;
+  }
+  .review-result-row {
+    grid-template-columns: 22px minmax(0, 1fr) 40px;
+  }
+  .period-review-card header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .period-review-card header button {
+    width: fit-content;
   }
   .templates-explanation {
     margin-bottom: 22px;
@@ -1723,15 +2416,6 @@ h1 {
   color: #316b55;
   font-weight: 650;
 }
-.timeline-time svg {
-  width: 14px;
-  height: 14px;
-  opacity: 0;
-}
-.task-row:hover .timeline-time svg,
-.task-row:focus-within .timeline-time svg {
-  opacity: 1;
-}
 .timeline-time::after {
   left: auto;
   right: -10px;
@@ -1770,19 +2454,20 @@ h1 {
   flex: 1;
   min-width: 0;
 }
-.planned-time-badge {
-  display: inline-flex;
+.future-task > .planned-time-badge {
+  position: absolute;
+  top: 3px;
+  right: calc(100% + 12px);
+  width: 52px;
+  min-height: 36px;
+  display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
   color: #52715f;
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  border-radius: 5px;
-  padding: 3px;
-}
-.planned-time-badge svg {
-  width: 12px;
-  height: 12px;
+  border-radius: 8px;
 }
 .future-take {
   width: 34px;
@@ -1819,8 +2504,9 @@ h1 {
   .timeline-boundary > span:first-child {
     right: calc(100% + 24px);
   }
-  .timeline-time svg {
-    opacity: 1;
+  .future-task > .planned-time-badge {
+    right: calc(100% + 6px);
+    width: 49px;
   }
   .today-timeline .task-actions {
     grid-column: 2 / 4;
@@ -1880,23 +2566,29 @@ h1 {
 .inline-time > button {
   min-width: 40px;
   min-height: 36px;
+  padding: 0;
+  border: 0;
   border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: inherit;
   cursor: text;
 }
 .inline-time-fields {
+  min-width: 40px;
+  min-height: 36px;
   display: inline-flex;
   align-items: center;
-  gap: 1px;
-  padding: 2px;
-  border: 1px solid #78a28f;
-  border-radius: 5px;
-  background: #fffefb;
-  color: #285e49;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+  color: inherit;
 }
 .inline-time input {
-  width: 24px;
+  width: 2ch;
   min-width: 0;
-  padding: 3px 0;
+  padding: 0;
   border: 0;
   background: transparent;
   font: inherit;
@@ -1905,7 +2597,7 @@ h1 {
   outline: none;
 }
 .inline-time-fields:has(input[aria-invalid='true']) {
-  border-color: #b86743;
+  color: #a35527;
 }
 .inline-time-error {
   position: absolute;
@@ -1927,12 +2619,9 @@ h1 {
   position: absolute;
   right: calc(100% + 22px);
 }
-.planned-time-badge.unset-time {
-  display: none;
-}
-.future-task.selected .planned-time-badge.unset-time,
-.future-task:focus-within .planned-time-badge.unset-time {
-  display: inline-flex;
+.planned-time-badge:hover,
+.planned-time-badge:focus-within {
+  background: #e5ece5;
 }
 .today-add {
   display: flex;

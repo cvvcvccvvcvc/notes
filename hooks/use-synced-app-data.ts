@@ -4,6 +4,7 @@ import type { AppData } from '@/lib/data';
 import { createEmptyAppData } from '@/lib/initial-data';
 import { migrateAppData } from '@/lib/migrations';
 import { rolloverPastTasks } from '@/lib/rollover';
+import { startReviewTracking } from '@/lib/review-operations';
 import { loadEnvelope, saveEnvelope } from '@/lib/storage';
 import {
   fetchRemoteSnapshot,
@@ -33,7 +34,10 @@ export type SyncState =
   | 'error';
 
 function normalize(data: AppData, today: string) {
-  return rolloverPastTasks(migrateAppData(data), today);
+  return startReviewTracking(
+    rolloverPastTasks(migrateAppData(data), today),
+    today,
+  );
 }
 
 function connectionFailure(error: unknown): SyncState {
