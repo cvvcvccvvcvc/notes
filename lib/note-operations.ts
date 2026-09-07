@@ -19,6 +19,11 @@ export function prependNote(data: AppData, note: Note) {
   return { ...data, notes: [note, ...data.notes] };
 }
 
+export function removeNote(data: AppData, id: string) {
+  if (!data.notes.some((note) => note.id === id)) return data;
+  return { ...data, notes: data.notes.filter((note) => note.id !== id) };
+}
+
 export function moveNote(data: AppData, sourceId: string, targetId: string) {
   if (sourceId === targetId) return data;
   const from = data.notes.findIndex((note) => note.id === sourceId);

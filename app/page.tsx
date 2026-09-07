@@ -45,6 +45,7 @@ import {
   addNoteTaskToSchedule,
   moveNote as moveNoteInData,
   prependNote,
+  removeNote as removeNoteFromData,
   updateNote as updateNoteInData,
 } from '@/lib/note-operations';
 import {
@@ -512,6 +513,16 @@ export default function Home() {
     setOpenNoteId(id);
   }
 
+  function closeNote(id: string) {
+    const note = dataRef.current?.notes.find(
+      (candidate) => candidate.id === id,
+    );
+    if (note && !note.title.trim())
+      commit((current) => removeNoteFromData(current, id));
+    setOpenNoteId(null);
+    setSelection({ start: 0, end: 0 });
+  }
+
   function moveNote(sourceId: string, targetId: string) {
     commit((current) => moveNoteInData(current, sourceId, targetId));
   }
@@ -820,6 +831,7 @@ export default function Home() {
             selectedText={selectedText}
             selection={selection}
             setOpenNoteId={setOpenNoteId}
+            closeNote={closeNote}
             setSelection={setSelection}
             updateNote={updateNote}
             takeSelection={takeSelection}

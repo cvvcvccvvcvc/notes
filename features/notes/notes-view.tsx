@@ -16,6 +16,7 @@ export function NotesView({
   selectedText,
   selection,
   setOpenNoteId,
+  closeNote,
   setSelection,
   updateNote,
   takeSelection,
@@ -29,6 +30,7 @@ export function NotesView({
   selectedText: string;
   selection: TextRange;
   setOpenNoteId: (id: string | null) => void;
+  closeNote: (id: string) => void;
   setSelection: (selection: { start: number; end: number }) => void;
   updateNote: (id: string, change: (note: Note) => Note) => void;
   takeSelection: (note: Note, cursor?: TextRange) => void;
@@ -66,10 +68,7 @@ export function NotesView({
       <Dialog
         open={Boolean(openNote)}
         onOpenChange={(open) => {
-          if (!open) {
-            setOpenNoteId(null);
-            setSelection({ start: 0, end: 0 });
-          }
+          if (!open && openNote) closeNote(openNote.id);
         }}
       >
         {openNote && (
@@ -88,7 +87,7 @@ export function NotesView({
             }
           >
             <DialogTitle className="sr-only">
-              {openNote.title || 'Заметка без названия'}
+              {openNote.title || 'Новая заметка'}
             </DialogTitle>
             <div className="note-dialog-toolbar">
               <div className="color-picker" aria-label="Цвет заметки">
@@ -106,7 +105,7 @@ export function NotesView({
               <button
                 className="note-close"
                 aria-label="Закрыть заметку"
-                onClick={() => setOpenNoteId(null)}
+                onClick={() => closeNote(openNote.id)}
               >
                 <X />
               </button>
@@ -184,10 +183,12 @@ function SortableNote({ note, onOpen }: { note: Note; onOpen: () => void }) {
       data-note-id={note.id}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={`note-card ${note.color} ${isDragging ? 'dragging' : ''}`}
-      aria-label={`Открыть заметку ${note.title || 'Без названия'}`}
+      aria-label={
+        note.title ? `Открыть заметку ${note.title}` : 'Открыть заметку'
+      }
       onClick={onOpen}
     >
-      <h2>{note.title || 'Без названия'}</h2>
+      <h2>{note.title}</h2>
       <p>{note.content}</p>
     </button>
   );

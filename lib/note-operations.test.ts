@@ -8,6 +8,7 @@ import {
   addNoteTaskToSchedule,
   moveNote,
   prependNote,
+  removeNote,
   updateNote,
 } from './note-operations.ts';
 
@@ -50,6 +51,14 @@ void test('a new note is prepended once', () => {
   const created = prependNote(data(), note);
   assert.equal(created.notes[0], note);
   assert.equal(prependNote(created, note), created);
+});
+
+void test('removing a note preserves unrelated notes', () => {
+  const current = data();
+  const removed = removeNote(current, 'first');
+
+  assert.deepEqual(removed.notes, [second]);
+  assert.equal(removeNote(current, 'missing'), current);
 });
 
 void test('taking note text creates a linked task without changing the note', () => {
