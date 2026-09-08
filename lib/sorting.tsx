@@ -46,19 +46,30 @@ export function cardDragListeners(
 }
 
 const cardCollision: CollisionDetection = (args) => {
-  const hits = pointerWithin(args);
+  const activeKind = args.active.data.current?.kind;
+  const droppableContainers = activeKind
+    ? args.droppableContainers.filter((container) => {
+        const kind = container.data.current?.kind;
+        if (activeKind === 'project') return kind === 'project';
+        if (activeKind === 'task')
+          return kind === 'task' || kind === 'task-zone';
+        return true;
+      })
+    : args.droppableContainers;
+  const scopedArgs = { ...args, droppableContainers };
+  const hits = pointerWithin(scopedArgs);
   const cards = hits.filter(
     ({ id }) =>
-      args.droppableContainers.find((container) => container.id === id)?.data
-        .current?.sortable,
+      droppableContainers.find((container) => container.id === id)?.data.current
+        ?.sortable,
   );
   if (cards.length) return cards;
   const zone = hits[0];
   if (!zone) return [];
-  const outer = args.droppableContainers.find(
+  const outer = droppableContainers.find(
     (container) => container.id === zone.id,
   )?.node.current;
-  const children = args.droppableContainers.filter(
+  const children = droppableContainers.filter(
     (container) =>
       !!container.data.current?.sortable &&
       !!outer &&
@@ -73,7 +84,7 @@ const cardCollision: CollisionDetection = (args) => {
   if (args.pointerCoordinates && args.pointerCoordinates.y > bottom)
     return [zone];
   return children.length
-    ? closestCenter({ ...args, droppableContainers: children })
+    ? closestCenter({ ...scopedArgs, droppableContainers: children })
     : hits;
 };
 
@@ -139,13 +150,18 @@ export function SortableItems({
 export function SortableDropZone({
   id,
   className,
+  kind,
   children,
 }: {
   id: string;
   className: string;
+  kind?: string;
   children: ReactNode;
 }) {
-  const { setNodeRef } = useDroppable({ id });
+  const { setNodeRef } = useDroppable({
+    id,
+    data: kind ? { kind } : undefined,
+  });
   return (
     <div ref={setNodeRef} className={className}>
       {children}

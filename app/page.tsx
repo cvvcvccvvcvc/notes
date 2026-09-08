@@ -73,6 +73,7 @@ import {
 import {
   appendBacklogTask,
   moveBacklogGroup as moveBacklogGroupInData,
+  moveBacklogGroupTo as moveBacklogGroupToInData,
   moveBacklogTask as moveBacklogTaskInData,
   moveBacklogTaskVertically as moveBacklogTaskVerticallyInData,
   moveScheduledTask,
@@ -404,6 +405,10 @@ export default function Home() {
 
   function moveBacklogGroup(id: string, direction: -1 | 1) {
     commit((current) => moveBacklogGroupInData(current, id, direction));
+  }
+
+  function moveBacklogGroupTo(sourceId: string, targetId: string) {
+    commit((current) => moveBacklogGroupToInData(current, sourceId, targetId));
   }
 
   function updateBacklogTask(
@@ -895,6 +900,7 @@ export default function Home() {
             setGroupColor={setBacklogGroupColor}
             removeGroup={removeBacklogGroup}
             moveGroup={moveBacklogGroup}
+            moveGroupTo={moveBacklogGroupTo}
             updateTask={updateBacklogTask}
             moveTask={moveBacklogTask}
             moveTaskVertically={moveBacklogTaskVertically}
