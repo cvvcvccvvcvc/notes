@@ -6,8 +6,8 @@ const dayKeySchema = z
   .string()
   .regex(/^\d{4}-(0[1-9]|1[0-2])-([0-2]\d|3[01])$/);
 
-export const taskColorSchema = z.enum(['blue', 'yellow', 'purple', 'rose']);
-export const noteColorSchema = z.enum(['teal', 'purple', 'white', 'red']);
+const taskColorSchema = z.enum(['blue', 'yellow', 'purple', 'rose']);
+const noteColorSchema = z.enum(['teal', 'purple', 'white', 'red']);
 export const noteAttachmentMimeTypeSchema = z.enum([
   'image/png',
   'image/jpeg',
@@ -17,12 +17,12 @@ export const noteAttachmentMimeTypeSchema = z.enum([
 export const NOTE_ATTACHMENT_MAX_BYTES = 12 * 1024 * 1024;
 export const NOTE_ATTACHMENT_MAX_COUNT = 100;
 
-export const intervalSchema = z.looseObject({
+const intervalSchema = z.looseObject({
   start: timestampSchema,
   end: timestampSchema.optional(),
 });
 
-export const plannedTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+const plannedTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 export const dayWindowSchema = z
   .object({
     start: plannedTimeSchema.optional(),
@@ -33,7 +33,7 @@ export const dayWindowSchema = z
     'Конец должен быть позже начала',
   );
 
-export const taskSchema = z.looseObject({
+const taskSchema = z.looseObject({
   id: idSchema,
   text: z.string().max(100_000),
   intervals: z.array(intervalSchema).max(10_000),
@@ -48,7 +48,7 @@ export const taskSchema = z.looseObject({
     .optional(),
 });
 
-export const historyItemSchema = z.looseObject({
+const historyItemSchema = z.looseObject({
   id: idSchema,
   taskId: idSchema,
   text: z.string().max(100_000),
@@ -57,14 +57,14 @@ export const historyItemSchema = z.looseObject({
   intervals: z.array(intervalSchema).max(10_000),
 });
 
-export const noteAttachmentSchema = z.looseObject({
+const noteAttachmentSchema = z.looseObject({
   id: idSchema,
   mimeType: noteAttachmentMimeTypeSchema,
   size: z.number().int().nonnegative().max(NOTE_ATTACHMENT_MAX_BYTES),
   createdAt: timestampSchema,
 });
 
-export const noteSchema = z.looseObject({
+const noteSchema = z.looseObject({
   id: idSchema,
   title: z.string().max(10_000),
   content: z.string().max(1_000_000),
@@ -76,12 +76,12 @@ export const noteSchema = z.looseObject({
     .optional(),
 });
 
-export const ruleSchema = z.looseObject({
+const ruleSchema = z.looseObject({
   id: idSchema,
   text: z.string().max(10_000),
 });
 
-export const reviewPeriodSchema = z.discriminatedUnion('kind', [
+const reviewPeriodSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('week'), key: dayKeySchema }),
   z.object({
     kind: z.literal('month'),
@@ -90,20 +90,20 @@ export const reviewPeriodSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('year'), key: z.string().regex(/^\d{4}$/) }),
 ]);
 
-export const goalSchema = z.looseObject({
+const goalSchema = z.looseObject({
   id: idSchema,
   period: reviewPeriodSchema,
   text: z.string().max(100_000),
 });
 
-export const reviewResultSchema = z.looseObject({
+const reviewResultSchema = z.looseObject({
   id: idSchema,
   text: z.string().max(100_000),
   included: z.boolean(),
   sourceHistoryItemId: idSchema.optional(),
 });
 
-export const periodReviewSchema = z.looseObject({
+const periodReviewSchema = z.looseObject({
   id: idSchema,
   period: reviewPeriodSchema,
   results: z.array(reviewResultSchema).max(100_000),
@@ -113,7 +113,7 @@ export const periodReviewSchema = z.looseObject({
   completedAt: timestampSchema.optional(),
 });
 
-export const taskGroupSchema = z.looseObject({
+const taskGroupSchema = z.looseObject({
   id: idSchema,
   title: z.string().max(10_000),
   content: z.string().max(1_000_000).optional(),
@@ -121,7 +121,7 @@ export const taskGroupSchema = z.looseObject({
   tasks: z.array(taskSchema).max(100_000),
 });
 
-export const monthTemplateScheduleSchema = z.discriminatedUnion('kind', [
+const monthTemplateScheduleSchema = z.discriminatedUnion('kind', [
   z.looseObject({
     kind: z.literal('weekly'),
     weekday: z.number().int().min(0).max(6),
@@ -137,14 +137,14 @@ export const monthTemplateScheduleSchema = z.discriminatedUnion('kind', [
   }),
 ]);
 
-export const monthTemplateRuleSchema = z.looseObject({
+const monthTemplateRuleSchema = z.looseObject({
   id: idSchema,
   text: z.string().max(100_000),
   color: taskColorSchema.optional(),
   schedule: monthTemplateScheduleSchema,
 });
 
-export const monthPlanningSchema = z.looseObject({
+const monthPlanningSchema = z.looseObject({
   rules: z.array(monthTemplateRuleSchema).max(10_000),
   createdMonths: z
     .array(z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/))
@@ -167,11 +167,9 @@ export const appDataSchema = z.looseObject({
   history: z.array(historyItemSchema).max(1_000_000),
 });
 
-export type Interval = z.infer<typeof intervalSchema>;
 export type TaskColor = z.infer<typeof taskColorSchema>;
 export type Task = z.infer<typeof taskSchema>;
 export type HistoryItem = z.infer<typeof historyItemSchema>;
-export type NoteColor = z.infer<typeof noteColorSchema>;
 export type NoteAttachmentMimeType = z.infer<
   typeof noteAttachmentMimeTypeSchema
 >;

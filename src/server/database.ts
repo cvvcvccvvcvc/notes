@@ -23,7 +23,7 @@ export function openDatabase(
   return database;
 }
 
-export function applyMigrations(
+function applyMigrations(
   database: NotesDatabase,
   migrationsDir = defaultMigrationsDir,
 ) {

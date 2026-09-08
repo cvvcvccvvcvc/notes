@@ -1,5 +1,5 @@
 import type { AppData } from '@/lib/data';
-import type { SyncEnvelope } from '@/lib/sync';
+import type { SyncEnvelope } from '@/lib/sync/types';
 
 const DATABASE = 'notes-prototype';
 const DATABASE_VERSION = 2;

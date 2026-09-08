@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-export function splitTaskText(text: string) {
+function splitTaskText(text: string) {
   const lineBreak = text.indexOf('\n');
   if (lineBreak < 0) return { title: text, description: '' };
   return {

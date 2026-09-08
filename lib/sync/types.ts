@@ -9,21 +9,19 @@ import type {
 export type { SyncPutRequest, SyncPutSuccess };
 
 /** Monotonic server revision. Clients compare it but never generate it. */
-export type SyncRevision = SyncSnapshot['revision'];
+type SyncRevision = SyncSnapshot['revision'];
 
 export type RemoteSnapshot = SyncSnapshot;
-
-export type SyncGetResponse = RemoteSnapshot;
 
 /** Body returned with HTTP 409 when baseRevision is no longer current. */
 export type SyncPutConflict = SyncConflict;
 
-export type SyncConflictState = {
+type SyncConflictState = {
   remote: RemoteSnapshot;
   conflicts: MergeConflict[];
 };
 
-export type SyncMeta = {
+type SyncMeta = {
   schemaVersion: 1;
   /** Revision represented by base. Null means this device has never synced. */
   baseRevision: SyncRevision | null;
@@ -55,7 +53,7 @@ export type SyncEntityKind =
   | 'historyItem'
   | 'monthTemplateRule';
 
-export type EntityConflict = {
+type EntityConflict = {
   kind: 'entity';
   entity: SyncEntityKind;
   entityId: string;
@@ -65,7 +63,7 @@ export type EntityConflict = {
   remote: unknown;
 };
 
-export type FieldConflict = {
+type FieldConflict = {
   kind: 'field';
   entity: SyncEntityKind;
   entityId: string;
@@ -86,7 +84,7 @@ export type OrderContainer =
   | { kind: 'history' }
   | { kind: 'monthTemplateRules' };
 
-export type OrderConflict = {
+type OrderConflict = {
   kind: 'order';
   container: OrderContainer;
   base: string[];

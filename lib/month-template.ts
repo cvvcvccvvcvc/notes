@@ -29,7 +29,7 @@ function planning(data: AppData): MonthPlanning {
   return data.monthPlanning ?? { rules: [], createdMonths: [] };
 }
 
-export function updateMonthTemplateRules(
+function updateMonthTemplateRules(
   data: AppData,
   change: (rules: MonthTemplateRule[]) => MonthTemplateRule[],
 ) {
@@ -111,7 +111,7 @@ export function nextMonthKey(data: AppData, today: string) {
   return dateKey(next).slice(0, 7);
 }
 
-export function matchingTemplateRules(rules: MonthTemplateRule[], date: Date) {
+function matchingTemplateRules(rules: MonthTemplateRule[], date: Date) {
   const key = dateKey(date);
   return rules.filter((rule) => {
     if (!rule.text.trim()) return false;
