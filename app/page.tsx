@@ -98,6 +98,14 @@ import {
 } from '@/hooks/use-synced-app-data';
 
 type View = 'today' | 'backlog' | 'notes' | 'templates' | 'reviews';
+const viewHashes = new Map<View, string>([
+  ['today', ''],
+  ['backlog', '#projects'],
+  ['notes', '#notes'],
+  ['templates', '#templates'],
+  ['reviews', '#reviews'],
+]);
+
 type UndoState = {
   message: string;
   restore: (current: AppData) => AppData;
@@ -107,6 +115,13 @@ type UndoState = {
 
 function uid() {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+}
+
+function viewFromHash(hash: string): View {
+  for (const [view, viewHash] of viewHashes) {
+    if (hash === viewHash) return view;
+  }
+  return 'today';
 }
 
 function isTextEditor(target: EventTarget | null) {
@@ -130,7 +145,9 @@ function persistenceLabel(saveState: LocalSaveState, syncState: SyncState) {
 }
 
 export default function Home() {
-  const [view, setView] = useState<View>('today');
+  const [view, setView] = useState<View>(() =>
+    viewFromHash(window.location.hash),
+  );
   const [now, setNow] = useState(() => Date.now());
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const [undo, setUndo] = useState<UndoState>(null);
@@ -146,6 +163,26 @@ export default function Home() {
     synchronize,
     resolveConflict,
   } = useSyncedAppData(todayKey);
+
+  function navigate(nextView: View) {
+    const nextHash = viewHashes.get(nextView) ?? '';
+    if (window.location.hash !== nextHash) {
+      const url = new URL(window.location.href);
+      url.hash = nextHash;
+      window.history.pushState(null, '', url);
+    }
+    setView(nextView);
+  }
+
+  useEffect(() => {
+    const restoreView = () => setView(viewFromHash(window.location.hash));
+    window.addEventListener('popstate', restoreView);
+    window.addEventListener('hashchange', restoreView);
+    return () => {
+      window.removeEventListener('popstate', restoreView);
+      window.removeEventListener('hashchange', restoreView);
+    };
+  }, []);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -770,21 +807,21 @@ export default function Home() {
       <NavButton
         active={view === 'today'}
         icon={<NotebookPen />}
-        onClick={() => setView('today')}
+        onClick={() => navigate('today')}
       >
         Расписание
       </NavButton>
       <NavButton
         active={view === 'backlog'}
         icon={<FolderKanban />}
-        onClick={() => setView('backlog')}
+        onClick={() => navigate('backlog')}
       >
         Проекты
       </NavButton>
       <NavButton
         active={view === 'notes'}
         icon={<FileText />}
-        onClick={() => setView('notes')}
+        onClick={() => navigate('notes')}
       >
         Заметки
       </NavButton>
@@ -802,7 +839,7 @@ export default function Home() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <button className="brand" onClick={() => setView('today')}>
+        <button className="brand" onClick={() => navigate('today')}>
           <span className="brand-full">notes</span>
           <span className="brand-compact">n</span>
         </button>
@@ -810,14 +847,14 @@ export default function Home() {
         <div className="sidebar-spacer" />
         <button
           className={`utility-button ${view === 'templates' ? 'active' : ''}`}
-          onClick={() => setView('templates')}
+          onClick={() => navigate('templates')}
         >
           <CalendarDays />
           <span>Шаблоны</span>
         </button>
         <button
           className={`utility-button reviews-nav-button ${view === 'reviews' ? 'active' : ''} ${reviewDebtCount ? 'has-debt' : ''}`}
-          onClick={() => setView('reviews')}
+          onClick={() => navigate('reviews')}
         >
           <History />
           <span>Итоги</span>
@@ -832,7 +869,7 @@ export default function Home() {
       </aside>
 
       <header className="mobile-header">
-        <button className="brand" onClick={() => setView('today')}>
+        <button className="brand" onClick={() => navigate('today')}>
           <span className="brand-full">notes</span>
         </button>
         <div className="mobile-tools">
@@ -844,14 +881,14 @@ export default function Home() {
           </button>
           <button
             className={view === 'templates' ? 'active' : ''}
-            onClick={() => setView('templates')}
+            onClick={() => navigate('templates')}
             aria-label="Шаблоны месяцев"
           >
             <CalendarDays />
           </button>
           <button
             className={`${view === 'reviews' ? 'active' : ''} ${reviewDebtCount ? 'has-debt' : ''}`}
-            onClick={() => setView('reviews')}
+            onClick={() => navigate('reviews')}
             aria-label={`Итоги${reviewDebtCount ? `: ожидает ${reviewDebtCount}` : ''}`}
           >
             <History />
@@ -881,7 +918,7 @@ export default function Home() {
             sendTaskToBacklog={sendTaskToBacklog}
             takeFutureTask={takeFutureTask}
             createMonth={createMonth}
-            openTemplates={() => setView('templates')}
+            openTemplates={() => navigate('templates')}
             rules={data.rules ?? []}
             addRule={createRule}
             updateRule={updateRule}
