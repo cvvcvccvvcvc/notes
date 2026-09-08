@@ -4,18 +4,22 @@ import {
   ChevronDown,
   ChevronUp,
   MoreHorizontal,
-  Pencil,
   Plus,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-import { MarkdownContent } from '@/components/markdown-content';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +36,11 @@ import { TaskTextEditor, TaskTextPreview } from '@/lib/task-text';
 
 const PROJECT_DND_PREFIX = 'backlog-project:';
 const projectDndId = (id: string) => `${PROJECT_DND_PREFIX}${id}`;
+const loadMarkdownEditor = () =>
+  import('@/components/markdown-editor').then((module) => ({
+    default: module.MarkdownEditor,
+  }));
+const MarkdownEditor = lazy(loadMarkdownEditor);
 
 function isTextEditor(target: EventTarget | null) {
   return (
@@ -139,7 +148,6 @@ export function BacklogView(props: BacklogProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [editingGroupKey, setEditingGroupKey] = useState<string | null>(null);
-  const [editingInfoKey, setEditingInfoKey] = useState<string | null>(null);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const entries = props.groups.flatMap((group) =>
     group.tasks.map((task) => ({ groupId: group.id, id: task.id })),
@@ -230,6 +238,7 @@ export function BacklogView(props: BacklogProps) {
   }
 
   function openProject(id: string) {
+    void loadMarkdownEditor();
     setSelectedGroupId(id);
     setSelectedId(null);
     setEditingId(null);
@@ -243,7 +252,6 @@ export function BacklogView(props: BacklogProps) {
   ) {
     const locationKey = `${location}:${group.id}`;
     const titleEditing = editingGroupKey === locationKey;
-    const infoEditing = editingInfoKey === locationKey;
     const contentVisible = location !== 'card' || openGroupId !== group.id;
 
     return (
@@ -348,10 +356,7 @@ export function BacklogView(props: BacklogProps) {
             {group.id !== UNSORTED_GROUP_ID && location === 'dialog' && (
               <ProjectInformation
                 group={group}
-                editing={infoEditing}
                 editorId={`project-info-input-${location}-${group.id}`}
-                onStartEditing={() => setEditingInfoKey(locationKey)}
-                onStopEditing={() => setEditingInfoKey(null)}
                 onChange={(content) => props.setGroupContent(group.id, content)}
               />
             )}
@@ -712,33 +717,16 @@ function ProjectMenu({
 
 function ProjectInformation({
   group,
-  editing,
   editorId,
-  onStartEditing,
-  onStopEditing,
   onChange,
 }: {
   group: TaskGroup;
-  editing: boolean;
   editorId: string;
-  onStartEditing: () => void;
-  onStopEditing: () => void;
   onChange: (content: string) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
 
-  if (!group.content?.trim() && !editing)
-    return (
-      <button
-        className="project-info-empty"
-        type="button"
-        onClick={onStartEditing}
-      >
-        Добавить информацию
-      </button>
-    );
-
-  if (!expanded && !editing)
+  if (!expanded)
     return (
       <button
         className="project-info-collapsed"
@@ -755,28 +743,18 @@ function ProjectInformation({
   return (
     <section className="project-info">
       <div className="project-info-card">
-        {editing ? (
-          <ProjectInfoEditor
-            id={editorId}
-            value={group.content ?? ''}
-            ariaLabel={`Информация о проекте ${group.title}`}
-            onBlur={onStopEditing}
-            onChange={onChange}
-          />
-        ) : (
-          <MarkdownContent>{group.content ?? ''}</MarkdownContent>
-        )}
+        <ProjectInfoEditor
+          id={editorId}
+          value={group.content ?? ''}
+          ariaLabel="Информация о проекте"
+          onChange={onChange}
+        />
       </div>
-      {!editing && (
-        <div className="project-info-actions">
-          <button type="button" onClick={onStartEditing}>
-            <Pencil /> Редактировать
-          </button>
-          <button type="button" onClick={() => setExpanded(false)}>
-            Скрыть <ChevronUp />
-          </button>
-        </div>
-      )}
+      <div className="project-info-actions">
+        <button type="button" onClick={() => setExpanded(false)}>
+          Скрыть <ChevronUp />
+        </button>
+      </div>
     </section>
   );
 }
@@ -795,35 +773,25 @@ function ProjectInfoEditor({
   id,
   value,
   ariaLabel,
-  onBlur,
   onChange,
 }: {
   id: string;
   value: string;
   ariaLabel: string;
-  onBlur: () => void;
   onChange: (content: string) => void;
 }) {
-  const editorRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    editorRef.current?.focus();
-  }, []);
-
   return (
-    <Textarea
-      ref={editorRef}
-      id={id}
-      className="project-info-input"
-      value={value}
-      placeholder="Информация о проекте"
-      aria-label={ariaLabel}
-      onBlur={onBlur}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') event.currentTarget.blur();
-      }}
-      onChange={(event) => onChange(event.target.value)}
-    />
+    <Suspense
+      fallback={<div className="markdown-editor-loading">Загрузка…</div>}
+    >
+      <MarkdownEditor
+        id={id}
+        value={value}
+        placeholder="Информация о проекте"
+        ariaLabel={ariaLabel}
+        onChange={onChange}
+      />
+    </Suspense>
   );
 }
 
