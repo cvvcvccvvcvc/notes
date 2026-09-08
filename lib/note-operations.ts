@@ -24,6 +24,13 @@ export function removeNote(data: AppData, id: string) {
   return { ...data, notes: data.notes.filter((note) => note.id !== id) };
 }
 
+export function restoreNote(data: AppData, note: Note, index: number) {
+  if (data.notes.some((candidate) => candidate.id === note.id)) return data;
+  const notes = [...data.notes];
+  notes.splice(Math.min(index, notes.length), 0, note);
+  return { ...data, notes };
+}
+
 export function moveNote(data: AppData, sourceId: string, targetId: string) {
   if (sourceId === targetId) return data;
   const from = data.notes.findIndex((note) => note.id === sourceId);

@@ -7,13 +7,14 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import type { Note } from '@/lib/data';
 import { NoteEditor } from '@/lib/note-editor';
 import { SortableList } from '@/lib/sorting';
-import { Plus, X } from 'lucide-react';
+import { Plus, Trash2, X } from 'lucide-react';
 
 export function NotesView({
   notes,
   openNote,
   openNoteById,
   closeNote,
+  deleteNote,
   updateNote,
   createNote,
   moveNote,
@@ -24,6 +25,7 @@ export function NotesView({
   openNote: Note | null;
   openNoteById: (id: string) => void;
   closeNote: (id: string) => void;
+  deleteNote: (id: string) => void;
   updateNote: (id: string, change: (note: Note) => Note) => void;
   createNote: () => void;
   moveNote: (sourceId: string, targetId: string) => void;
@@ -94,13 +96,23 @@ export function NotesView({
                   />
                 ))}
               </div>
-              <button
-                className="note-close"
-                aria-label="Закрыть заметку"
-                onClick={() => closeNote(openNote.id)}
-              >
-                <X />
-              </button>
+              <div className="note-dialog-controls">
+                <button
+                  className="note-delete"
+                  aria-label="Удалить заметку"
+                  title="Удалить заметку"
+                  onClick={() => deleteNote(openNote.id)}
+                >
+                  <Trash2 />
+                </button>
+                <button
+                  className="note-close"
+                  aria-label="Закрыть заметку"
+                  onClick={() => closeNote(openNote.id)}
+                >
+                  <X />
+                </button>
+              </div>
             </div>
             <input
               ref={noteTitleRef}

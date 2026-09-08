@@ -1497,7 +1497,13 @@ h1 {
   justify-content: space-between;
   align-items: center;
 }
-.note-close {
+.note-dialog-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.note-close,
+.note-delete {
   width: 40px;
   height: 40px;
   display: grid;
@@ -1508,10 +1514,15 @@ h1 {
   cursor: pointer;
   color: #4f665c;
 }
-.note-close:hover {
+.note-delete {
+  color: #8b3f3f;
+}
+.note-close:hover,
+.note-delete:hover {
   background: rgb(255 255 255 / 35%);
 }
-.note-close svg {
+.note-close svg,
+.note-delete svg {
   width: 19px;
 }
 .color-picker {

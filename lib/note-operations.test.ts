@@ -8,6 +8,7 @@ import {
   moveNote,
   prependNote,
   removeNote,
+  restoreNote,
   updateNote,
 } from './note-operations.ts';
 
@@ -57,5 +58,7 @@ void test('removing a note preserves unrelated notes', () => {
   const removed = removeNote(current, 'first');
 
   assert.deepEqual(removed.notes, [second]);
+  assert.deepEqual(restoreNote(removed, first, 0).notes, [first, second]);
+  assert.equal(restoreNote(current, first, 0), current);
   assert.equal(removeNote(current, 'missing'), current);
 });

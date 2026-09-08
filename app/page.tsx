@@ -45,6 +45,7 @@ import {
   moveNote as moveNoteInData,
   prependNote,
   removeNote as removeNoteFromData,
+  restoreNote,
   updateNote as updateNoteInData,
 } from '@/lib/note-operations';
 import {
@@ -575,7 +576,15 @@ export default function Home() {
         : null;
 
     if (note && !note.title.trim()) {
-      commit((data) => removeNoteFromData(data, id));
+      if (session?.initial.title.trim()) {
+        commitWithUndo(
+          'Заметка удалена',
+          (data) => removeNoteFromData(data, id),
+          (data) => restoreNote(data, session.initial, index),
+        );
+      } else {
+        commit((data) => removeNoteFromData(data, id));
+      }
     } else if (note && session && note.content !== session.initial.content) {
       const previousContent = session.initial.content;
       const savedContent = note.content;
@@ -592,6 +601,20 @@ export default function Home() {
     }
 
     noteEditSessionRef.current = null;
+    setOpenNoteId(null);
+  }
+
+  function deleteNote(id: string) {
+    const current = dataRef.current;
+    const index = current?.notes.findIndex((note) => note.id === id) ?? -1;
+    if (!current || index < 0) return;
+    const note = current.notes[index];
+    noteEditSessionRef.current = null;
+    commitWithUndo(
+      'Заметка удалена',
+      (data) => removeNoteFromData(data, id),
+      (data) => restoreNote(data, note, index),
+    );
     setOpenNoteId(null);
   }
 
@@ -884,6 +907,7 @@ export default function Home() {
             openNote={openNote}
             openNoteById={openNoteById}
             closeNote={closeNote}
+            deleteNote={deleteNote}
             updateNote={updateNote}
             createNote={createNote}
             moveNote={moveNote}
