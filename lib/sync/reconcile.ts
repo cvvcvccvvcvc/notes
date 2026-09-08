@@ -1,4 +1,5 @@
 import type { AppData } from '../data';
+import { canonicalJson } from '../../src/shared/canonical-json';
 import { mergeAppData } from './merge';
 import type { MergeConflict, RemoteSnapshot, SyncEnvelope } from './types';
 
@@ -9,7 +10,7 @@ export type RemoteReconciliation =
   | { kind: 'conflict'; remote: RemoteSnapshot; conflicts: MergeConflict[] };
 
 export function sameAppData(left: AppData, right: AppData) {
-  return JSON.stringify(left) === JSON.stringify(right);
+  return canonicalJson(left) === canonicalJson(right);
 }
 
 function remoteEnvelope(

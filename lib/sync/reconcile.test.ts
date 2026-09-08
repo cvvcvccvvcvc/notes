@@ -7,6 +7,7 @@ import type { AppData } from '../data.ts';
 import {
   reconcileRemoteSnapshot,
   reconcileRevisionConflict,
+  sameAppData,
 } from './reconcile.ts';
 import type { SyncEnvelope } from './types.ts';
 
@@ -75,6 +76,32 @@ void test('a fresh dirty device does not overwrite an existing server', () => {
     unchanged,
   );
   assert.equal(result.kind, 'conflict');
+});
+
+void test('JSON key order does not turn equal states into a conflict', () => {
+  const local = {
+    ...data('same'),
+    schedule: {
+      '2026-09-05': [{ id: 'task', text: 'same', intervals: [] }],
+      '2026-09-06': [],
+    },
+  };
+  const remote = {
+    ...local,
+    schedule: {
+      '2026-09-06': [],
+      '2026-09-05': [{ intervals: [], text: 'same', id: 'task' }],
+    },
+  };
+
+  assert.equal(sameAppData(local, remote), true);
+  const result = reconcileRemoteSnapshot(
+    envelope({ current: local, dirty: true }),
+    { revision: 4, data: remote },
+    unchanged,
+  );
+  assert.equal(result.kind, 'persist');
+  if (result.kind === 'persist') assert.equal(result.needsSync, false);
 });
 
 void test('an unchanged revision uploads only dirty local data', () => {

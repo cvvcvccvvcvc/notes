@@ -1,35 +1,22 @@
 import type { AppData } from '../data';
+import type {
+  SyncConflict,
+  SyncPutRequest,
+  SyncPutSuccess,
+  SyncSnapshot,
+} from '../../src/shared/sync-schema';
+
+export type { SyncPutRequest, SyncPutSuccess };
 
 /** Monotonic server revision. Clients compare it but never generate it. */
-export type SyncRevision = number;
+export type SyncRevision = SyncSnapshot['revision'];
 
-export type RemoteSnapshot = {
-  revision: SyncRevision;
-  data: AppData | null;
-};
+export type RemoteSnapshot = SyncSnapshot;
 
 export type SyncGetResponse = RemoteSnapshot;
 
-export type SyncPutRequest = {
-  requestId: string;
-  baseRevision: SyncRevision;
-  data: AppData;
-};
-
-export type SyncPutSuccess = {
-  ok: true;
-  revision: SyncRevision;
-};
-
 /** Body returned with HTTP 409 when baseRevision is no longer current. */
-export type SyncPutConflict = {
-  ok: false;
-  error: {
-    code: 'REVISION_CONFLICT' | 'REQUEST_ID_REUSED';
-    message: string;
-  };
-  remote: RemoteSnapshot;
-};
+export type SyncPutConflict = SyncConflict;
 
 export type SyncConflictState = {
   remote: RemoteSnapshot;

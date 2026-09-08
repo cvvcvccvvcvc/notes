@@ -70,6 +70,22 @@ void describe('SyncRepository', () => {
     assert.equal(repository.get('owner').revision, 1);
   });
 
+  void it('recognizes a replay when JSON object keys arrive in another order', () => {
+    const request = putRequest(0, requestId, firstData);
+    repository.put('owner', request);
+    const reordered = {
+      data: { history: [], notes: [], backlog: [], schedule: {}, version: 2 },
+      baseRevision: 0,
+      requestId,
+    } satisfies SyncPutRequest;
+
+    const replay = repository.put('owner', reordered);
+
+    assert.equal(replay.replayed, true);
+    assert.equal(replay.statusCode, 200);
+    assert.equal(repository.get('owner').revision, 1);
+  });
+
   void it('rejects reuse of a request id for a different payload', () => {
     repository.put('owner', putRequest(0, requestId, firstData));
     const different = { ...firstData, notes: [note('different')] };
