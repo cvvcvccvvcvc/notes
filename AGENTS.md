@@ -14,9 +14,10 @@ Vocabulary. Не коммитьте секреты, ключи, cookie и реа
 
 - Сначала локальная запись в IndexedDB, затем необязательная синхронизация;
   отсутствие сети не блокирует работу.
-- ID дела сохраняется при переносах между расписанием и «Делами».
-- В полночь незавершённые дела прошедшего дня переходят в «Дела», а открытый
-  интервал завершается границей суток. Они не удаляются и не попадают в историю.
+- ID дела сохраняется при переносах между расписанием и проектами.
+- В полночь незавершённые дела прошедшего дня возвращаются в прежний проект,
+  если он известен, иначе в «Не разобрано»; открытый интервал завершается
+  границей суток. Дела не удаляются и не попадают в историю.
 - Завершение создаёт историю; удаление без истории не должно её создавать.
 - Серверная запись только по optimistic revision/CAS. Silent last-write-wins
   запрещён: конфликт сохраняет обе версии и требует явного разрешения.
@@ -27,18 +28,21 @@ Vocabulary. Не коммитьте секреты, ключи, cookie и реа
 
 | Задача | Сначала читать | Владеющий код |
 | --- | --- | --- |
-| Поведение расписания, дел, заметок, целей и итогов | [docs/product.md](docs/product.md) | `lib/task-operations.ts`, `lib/note-operations.ts`, `lib/review-operations.ts`, `features/tasks`, `features/notes`, `features/reviews`, `lib/data.ts` |
+| Расписание, проекты и дела | [docs/product.md](docs/product.md) | `features/tasks`, `lib/task-operations.ts`, `lib/day-timeline.ts`, `lib/task-text.tsx` |
+| Правила и шаблон месяцев | [docs/product.md](docs/product.md) | `features/rules`, `features/templates`, `lib/rule-operations.ts`, `lib/month-template.ts` |
+| Заметки и изображения | [docs/product.md](docs/product.md) | `features/notes`, `lib/note-operations.ts`, `lib/note-attachments.ts`, `lib/note-editor.tsx` |
+| Цели, итоги и история | [docs/product.md](docs/product.md) | `features/reviews`, `lib/review-operations.ts` |
 | Локальные данные, rollover, совместимость | [docs/architecture.md](docs/architecture.md) | `src/shared/data-schema.ts`, `lib/storage.ts`, `lib/initial-data.ts`, `lib/migrations.ts`, `lib/rollover.ts` |
-| Drag-and-drop и горячие клавиши | [docs/product.md](docs/product.md) | `features/tasks`, `features/notes`, `features/templates`, `lib/sorting.tsx`, `lib/note-editor.tsx` |
+| Общие редакторы, drag-and-drop и горячие клавиши | [docs/architecture.md](docs/architecture.md) | `lib/sorting.tsx`, `lib/task-text.tsx`, `lib/note-editor.tsx`, `components/markdown-editor.tsx`, затем владеющий `features/*` |
 | Offline shell | [docs/architecture.md](docs/architecture.md) | `public/service-worker.js` |
 | Sync и auth | [docs/architecture.md](docs/architecture.md) | `hooks/use-synced-app-data.ts`, `lib/sync/reconcile.ts`, `lib/sync/merge.ts`, `src/server`, `src/shared/sync-schema.ts` |
 | Deploy, backup, rollback | [docs/operations.md](docs/operations.md) | только проверенные deploy-файлы репозитория |
 
 ## Проверка
 
-Запустите `npm run format`, `npm run lint`, `npm run typecheck`, `npm test`,
-`npm run build` и проверьте затронутый сценарий пропорционально риску. Локальный
-preview сохраняется как вспомогательный инструмент, но по умолчанию не требуется:
+Выбирайте минимальные проверки пропорционально риску; полный локальный gate —
+`npm run verify`, он совпадает с CI. `npm run format` применяет форматирование,
+но не заменяет gate. Локальный preview остаётся вспомогательным инструментом:
 запускайте его только по явному запросу. Для данных и sync отдельно проверьте
 перезапуск вкладки, работу без сети, восстановление соединения и CAS-конфликт.
 
