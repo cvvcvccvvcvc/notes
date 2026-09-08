@@ -5,6 +5,7 @@ import test from 'node:test';
 
 import type { AppData, Note } from './data.ts';
 import {
+  isEmptyNote,
   moveNote,
   prependNote,
   removeNote,
@@ -30,6 +31,16 @@ function data(): AppData {
     history: [],
   };
 }
+
+void test('a note is empty only when its title and content are blank', () => {
+  assert.equal(isEmptyNote({ ...first, title: '', content: '' }), true);
+  assert.equal(isEmptyNote({ ...first, title: '  ', content: '\n' }), true);
+  assert.equal(isEmptyNote({ ...first, title: '', content: 'Текст' }), false);
+  assert.equal(
+    isEmptyNote({ ...first, title: 'Название', content: '' }),
+    false,
+  );
+});
 
 void test('note updates and moves preserve unrelated notes', () => {
   const updated = updateNote(data(), 'second', (note) => ({

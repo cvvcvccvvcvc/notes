@@ -1,5 +1,9 @@
 import type { AppData, Note } from './data';
 
+export function isEmptyNote(note: Note) {
+  return !note.title.trim() && !note.content.trim();
+}
+
 export function updateNote(
   data: AppData,
   id: string,

@@ -42,6 +42,7 @@ import {
   updateMonthTemplateRule as updateMonthTemplateRuleInData,
 } from '@/lib/month-template';
 import {
+  isEmptyNote,
   moveNote as moveNoteInData,
   prependNote,
   removeNote as removeNoteFromData,
@@ -575,8 +576,8 @@ export default function Home() {
         ? noteEditSessionRef.current
         : null;
 
-    if (note && !note.title.trim()) {
-      if (session?.initial.title.trim()) {
+    if (note && isEmptyNote(note)) {
+      if (session && !isEmptyNote(session.initial)) {
         commitWithUndo(
           'Заметка удалена',
           (data) => removeNoteFromData(data, id),
