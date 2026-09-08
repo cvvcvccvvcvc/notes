@@ -977,11 +977,18 @@ h1 {
   letter-spacing: -0.02em;
 }
 .backlog-group-title {
-  cursor: text;
+  cursor: default;
 }
-.backlog-group-title:hover,
-.backlog-group-title:focus {
+.backlog-group .backlog-group-title:not([data-editing]) {
+  pointer-events: none;
+}
+.project-dialog .backlog-group-title:not([data-editing]) {
+  pointer-events: auto;
+}
+.backlog-group-title[data-editing],
+.backlog-group-title[data-editing]:focus {
   background: #eceee9;
+  cursor: text;
 }
 .project-open {
   flex: 0 0 auto;
@@ -1009,43 +1016,14 @@ h1 {
 }
 .project-info {
   position: relative;
-  min-height: 32px;
-  margin: 9px 0 0;
-}
-.project-info summary {
-  position: absolute;
-  z-index: 2;
-  top: 8px;
-  right: 42px;
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  color: #747c77;
-  cursor: pointer;
-  list-style: none;
-}
-.project-info summary::-webkit-details-marker {
-  display: none;
-}
-.project-info summary:hover {
-  background: rgb(42 55 48 / 8%);
-  color: #303632;
-}
-.project-info summary svg {
-  width: 15px;
-  transition: transform 140ms ease;
-}
-.project-info[open] summary svg {
-  transform: rotate(90deg);
+  margin: 22px 0 0;
 }
 .project-info-card {
   position: relative;
   width: 100%;
-  min-height: 78px;
+  min-height: 110px;
   margin: 0;
-  padding: 16px 78px 16px 16px;
+  padding: 18px;
   border: 1px solid rgb(42 55 48 / 12%);
   border-radius: 15px;
   background: rgb(255 255 255 / 62%);
@@ -1053,9 +1031,9 @@ h1 {
 }
 .project-info-input {
   width: 100%;
-  min-height: 120px;
+  min-height: 180px;
   margin: 0;
-  padding: 0 44px 0 0;
+  padding: 0;
   resize: vertical;
   border: 0;
   border-radius: 0;
@@ -1068,27 +1046,70 @@ h1 {
   border-color: transparent;
   box-shadow: none;
 }
-.project-info-edit {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
+.project-info-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.project-info-actions button {
+  min-height: 34px;
+  padding: 0 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 0;
-  border-radius: 50%;
+  border-radius: 8px;
   background: transparent;
   color: #68716c;
   cursor: pointer;
+  font-size: 13px;
 }
-.project-info-edit:hover,
-.project-info-edit:focus-visible {
+.project-info-actions button:hover,
+.project-info-actions button:focus-visible {
   background: rgb(42 55 48 / 8%);
   color: #303632;
 }
-.project-info-edit svg {
-  width: 17px;
+.project-info-actions svg {
+  width: 14px;
+}
+.project-info-collapsed {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 18px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border: 1px solid rgb(42 55 48 / 11%);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 46%);
+  color: #656e69;
+  cursor: pointer;
+  text-align: left;
+}
+.project-info-collapsed:hover {
+  border-color: rgb(42 55 48 / 19%);
+  background: rgb(255 255 255 / 67%);
+}
+.project-info-collapsed > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-info-collapsed strong {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #4f5a54;
+  font-size: 13px;
+  font-weight: 570;
+}
+.project-info-collapsed svg {
+  width: 14px;
 }
 .project-info-empty {
   min-height: 34px;
@@ -1103,6 +1124,19 @@ h1 {
 }
 .project-info-empty:hover {
   color: #303632;
+}
+.project-info-preview {
+  margin: 11px 2px 0;
+  padding: 10px 2px 1px;
+  overflow: hidden;
+  border-top: 1px solid rgb(42 55 48 / 10%);
+  color: #707873;
+  font-size: 13px;
+  line-height: 1.42;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  pointer-events: none;
 }
 .markdown-content {
   color: #252c28;
@@ -1275,9 +1309,10 @@ h1 {
   margin-top: 16px;
 }
 .project-dialog {
-  width: min(1180px, calc(100vw - 48px));
-  max-width: 1180px !important;
-  max-height: calc(100svh - 48px);
+  width: min(1440px, calc(100vw - 32px));
+  max-width: 1440px !important;
+  height: calc(100svh - 32px);
+  max-height: calc(100svh - 32px);
   display: block;
   overflow: auto;
   padding: 24px;
@@ -2511,8 +2546,9 @@ h1 {
     grid-row: 1 / span 2;
   }
   .project-dialog {
-    width: calc(100vw - 24px);
-    max-height: calc(100svh - 24px);
+    width: calc(100vw - 12px);
+    height: calc(100svh - 12px);
+    max-height: calc(100svh - 12px);
     padding: 16px;
   }
   .today-section {

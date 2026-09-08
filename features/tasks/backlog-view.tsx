@@ -1,8 +1,8 @@
 import { cardDragListeners, isCardSurface } from '@/lib/sorting';
 import {
   ArrowUpToLine,
-  ChevronRight,
-  Maximize2,
+  ChevronDown,
+  ChevronUp,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -254,6 +254,7 @@ export function BacklogView(props: BacklogProps) {
             title={group.title}
             readOnly={group.id === UNSORTED_GROUP_ID}
             editing={titleEditing}
+            allowDoubleClick={location === 'dialog'}
             onStartEditing={() => {
               setSelectedGroupId(group.id);
               setEditingGroupKey(locationKey);
@@ -261,17 +262,6 @@ export function BacklogView(props: BacklogProps) {
             onStopEditing={() => setEditingGroupKey(null)}
             onChange={(title) => props.renameGroup(group.id, title)}
           />
-          {group.id !== UNSORTED_GROUP_ID && location === 'card' && (
-            <button
-              className="project-open"
-              type="button"
-              aria-label={`Открыть проект ${group.title}`}
-              title="Открыть проект"
-              onClick={() => openProject(group.id)}
-            >
-              <Maximize2 />
-            </button>
-          )}
           {location === 'dialog' && (
             <button
               className="project-open"
@@ -346,14 +336,16 @@ export function BacklogView(props: BacklogProps) {
                 ))}
               </SortableItems>
             </SortableDropZone>
-            <Button
-              className="project-add-task"
-              variant="ghost"
-              onClick={() => addTask(group.id)}
-            >
-              <Plus /> Новое дело
-            </Button>
-            {group.id !== UNSORTED_GROUP_ID && (
+            {location !== 'card' && (
+              <Button
+                className="project-add-task"
+                variant="ghost"
+                onClick={() => addTask(group.id)}
+              >
+                <Plus /> Новое дело
+              </Button>
+            )}
+            {group.id !== UNSORTED_GROUP_ID && location === 'dialog' && (
               <ProjectInformation
                 group={group}
                 editing={infoEditing}
@@ -363,6 +355,13 @@ export function BacklogView(props: BacklogProps) {
                 onChange={(content) => props.setGroupContent(group.id, content)}
               />
             )}
+            {group.id !== UNSORTED_GROUP_ID &&
+              location === 'card' &&
+              group.content?.trim() && (
+                <p className="project-info-preview">
+                  {projectInfoPreview(group.content)}
+                </p>
+              )}
           </>
         )}
       </>
@@ -416,6 +415,11 @@ export function BacklogView(props: BacklogProps) {
                   setEditingId(null);
                 }}
                 onOpen={() => openProject(group.id)}
+                onEditTitle={() => {
+                  setSelectedGroupId(group.id);
+                  setEditingGroupKey(`card:${group.id}`);
+                }}
+                onAddTask={() => addTask(group.id)}
                 onMove={(direction) => moveGroup(group.id, direction)}
               >
                 {renderProject(
@@ -448,7 +452,9 @@ export function BacklogView(props: BacklogProps) {
               className={`project-dialog ${openGroup.color ? `group-color-${openGroup.color}` : ''}`}
               showCloseButton={false}
               finalFocus={() =>
-                document.getElementById(`backlog-group-${openGroup.id}`)
+                document
+                  .getElementById(`backlog-group-${openGroup.id}`)
+                  ?.querySelector<HTMLElement>('[data-project-select]') ?? null
               }
             >
               <DialogTitle className="sr-only">
@@ -474,6 +480,8 @@ function SortableProject({
   selected,
   onSelect,
   onOpen,
+  onEditTitle,
+  onAddTask,
   onMove,
   children,
 }: {
@@ -481,6 +489,8 @@ function SortableProject({
   selected: boolean;
   onSelect: () => void;
   onOpen: () => void;
+  onEditTitle: () => void;
+  onAddTask: () => void;
   onMove: (direction: -1 | 1) => void;
   children: ReactNode;
 }) {
@@ -495,6 +505,12 @@ function SortableProject({
     id: projectDndId(group.id),
     data: { kind: 'project' },
   });
+  const draggedRef = useRef(false);
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (isDragging) draggedRef.current = true;
+  }, [isDragging]);
 
   return (
     <section
@@ -510,11 +526,48 @@ function SortableProject({
         data-project-select
         {...attributes}
         {...listeners}
-        aria-label={`Выбрать и переместить проект ${group.title}`}
-        onClick={onSelect}
-        onDoubleClick={onOpen}
+        aria-label={`Открыть или переместить проект ${group.title}`}
+        aria-keyshortcuts="Enter Shift+Enter Meta+ArrowUp Meta+ArrowDown"
+        onPointerDownCapture={(event) => {
+          draggedRef.current = false;
+          pointerStartRef.current = { x: event.clientX, y: event.clientY };
+        }}
+        onClick={(event) => {
+          const start = pointerStartRef.current;
+          pointerStartRef.current = null;
+          const moved =
+            start !== null &&
+            Math.hypot(event.clientX - start.x, event.clientY - start.y) >= 6;
+          if (draggedRef.current || moved) {
+            draggedRef.current = false;
+            return;
+          }
+          onOpen();
+        }}
         onFocus={onSelect}
         onKeyDown={(event) => {
+          if (
+            !event.nativeEvent.isComposing &&
+            event.shiftKey &&
+            !event.metaKey &&
+            !event.altKey &&
+            event.key === 'Enter'
+          ) {
+            event.preventDefault();
+            if (!event.repeat) onAddTask();
+            return;
+          }
+          if (
+            !event.nativeEvent.isComposing &&
+            !event.shiftKey &&
+            !event.metaKey &&
+            !event.altKey &&
+            event.key === 'Enter'
+          ) {
+            event.preventDefault();
+            if (!event.repeat) onEditTitle();
+            return;
+          }
           if (
             !event.metaKey ||
             event.altKey ||
@@ -541,6 +594,7 @@ function ProjectTitle({
   title,
   readOnly,
   editing,
+  allowDoubleClick,
   onStartEditing,
   onStopEditing,
   onChange,
@@ -549,6 +603,7 @@ function ProjectTitle({
   title: string;
   readOnly: boolean;
   editing: boolean;
+  allowDoubleClick: boolean;
   onStartEditing: () => void;
   onStopEditing: () => void;
   onChange: (title: string) => void;
@@ -568,16 +623,27 @@ function ProjectTitle({
       className="backlog-group-title"
       value={title}
       readOnly={readOnly || !editing}
+      tabIndex={allowDoubleClick || editing ? 0 : -1}
       aria-label="Название проекта"
-      onClick={() => {
-        if (!readOnly && !editing) onStartEditing();
+      data-editing={editing || undefined}
+      onDoubleClick={() => {
+        if (!readOnly && !editing && allowDoubleClick) onStartEditing();
       }}
       onBlur={onStopEditing}
       onChange={(event) => onChange(event.target.value)}
       onKeyDown={(event) => {
+        if (!readOnly && !editing && event.key === 'Enter') {
+          event.preventDefault();
+          event.stopPropagation();
+          onStartEditing();
+          return;
+        }
+        if (!editing) return;
         event.stopPropagation();
-        if (event.key === 'Enter' || event.key === 'Escape')
+        if (event.key === 'Enter' || event.key === 'Escape') {
+          event.preventDefault();
           event.currentTarget.blur();
+        }
       }}
     />
   );
@@ -659,6 +725,8 @@ function ProjectInformation({
   onStopEditing: () => void;
   onChange: (content: string) => void;
 }) {
+  const [expanded, setExpanded] = useState(true);
+
   if (!group.content?.trim() && !editing)
     return (
       <button
@@ -670,12 +738,22 @@ function ProjectInformation({
       </button>
     );
 
+  if (!expanded && !editing)
+    return (
+      <button
+        className="project-info-collapsed"
+        type="button"
+        onClick={() => setExpanded(true)}
+      >
+        <span>{projectInfoPreview(group.content ?? '')}</span>
+        <strong>
+          Показать <ChevronDown />
+        </strong>
+      </button>
+    );
+
   return (
-    <details className="project-info" open>
-      <summary aria-label="Скрыть или показать информацию">
-        <ChevronRight />
-        <span className="sr-only">Скрыть или показать информацию</span>
-      </summary>
+    <section className="project-info">
       <div className="project-info-card">
         {editing ? (
           <ProjectInfoEditor
@@ -686,21 +764,31 @@ function ProjectInformation({
             onChange={onChange}
           />
         ) : (
-          <>
-            <MarkdownContent>{group.content ?? ''}</MarkdownContent>
-            <button
-              className="project-info-edit"
-              type="button"
-              aria-label="Редактировать информацию"
-              onClick={onStartEditing}
-            >
-              <Pencil />
-            </button>
-          </>
+          <MarkdownContent>{group.content ?? ''}</MarkdownContent>
         )}
       </div>
-    </details>
+      {!editing && (
+        <div className="project-info-actions">
+          <button type="button" onClick={onStartEditing}>
+            <Pencil /> Редактировать
+          </button>
+          <button type="button" onClick={() => setExpanded(false)}>
+            Скрыть <ChevronUp />
+          </button>
+        </div>
+      )}
+    </section>
   );
+}
+
+function projectInfoPreview(content: string) {
+  const plain = content
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/(^|\s)[#>*_`~-]+(?=\S)/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return plain.match(/^.*?[.!?…](?=\s|$)/)?.[0] ?? plain;
 }
 
 function ProjectInfoEditor({
