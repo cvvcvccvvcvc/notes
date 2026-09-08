@@ -324,21 +324,38 @@ function NoteImage({
   useEffect(() => {
     let active = true;
     let objectUrl: string | null = null;
-    void loadNoteAttachment(attachment.id)
-      .then((blob) => {
-        if (!active) return;
-        if (!blob) {
-          setMissing(true);
-          return;
-        }
-        objectUrl = URL.createObjectURL(blob);
-        setImage({ blob, url: objectUrl });
-      })
-      .catch(() => {
-        if (active) setMissing(true);
-      });
+    let attempt = 0;
+    let loaded = false;
+
+    const load = () => {
+      const currentAttempt = ++attempt;
+      setMissing(false);
+      void loadNoteAttachment(attachment.id)
+        .then((blob) => {
+          if (!active || currentAttempt !== attempt) return;
+          if (!blob) {
+            setMissing(true);
+            return;
+          }
+          if (objectUrl) URL.revokeObjectURL(objectUrl);
+          objectUrl = URL.createObjectURL(blob);
+          loaded = true;
+          setImage({ blob, url: objectUrl });
+        })
+        .catch(() => {
+          if (active && currentAttempt === attempt) setMissing(true);
+        });
+    };
+    const retryOnline = () => {
+      if (!loaded) load();
+    };
+
+    load();
+    window.addEventListener('online', retryOnline);
     return () => {
       active = false;
+      attempt += 1;
+      window.removeEventListener('online', retryOnline);
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [attachment.id]);
