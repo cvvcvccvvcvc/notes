@@ -3,6 +3,8 @@
 node_modules
 dist
 coverage
+.local-preview
+var
 work
 outputs
 npm-debug.log*

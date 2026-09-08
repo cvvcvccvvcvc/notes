@@ -7,6 +7,6 @@ notes.135-106-167-202.sslip.io {
     Referrer-Policy no-referrer
     X-Frame-Options DENY
     Permissions-Policy "camera=(), microphone=(), geolocation=()"
-    Content-Security-Policy "default-src 'self'; base-uri 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; manifest-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+    Content-Security-Policy "default-src 'self'; base-uri 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data: blob:; manifest-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
   }
 }

@@ -54,6 +54,15 @@ if [[ "$(sqlite3 "$snapshot_path" 'PRAGMA integrity_check;')" != "ok" ]]; then
 fi
 
 restic backup --quiet --tag life-notes "$snapshot_path"
+
+restore_directory="$(mktemp -d)"
+restic restore latest --quiet --tag life-notes --target "$restore_directory"
+readonly restored_database="${restore_directory}${snapshot_path}"
+if [[ "$(sqlite3 "$restored_database" 'PRAGMA integrity_check;')" != "ok" ]]; then
+  echo "Restored SQLite backup integrity check failed" >&2
+  exit 1
+fi
+
 restic forget \
   --quiet \
   --tag life-notes \
@@ -63,14 +72,6 @@ restic forget \
   --keep-yearly 3 \
   --prune
 restic check --quiet
-
-restore_directory="$(mktemp -d)"
-restic restore latest --quiet --tag life-notes --target "$restore_directory"
-readonly restored_database="${restore_directory}${snapshot_path}"
-if [[ "$(sqlite3 "$restored_database" 'PRAGMA integrity_check;')" != "ok" ]]; then
-  echo "Restored SQLite backup integrity check failed" >&2
-  exit 1
-fi
 
 readonly revision="$(sqlite3 "$restored_database" 'SELECT MAX(revision) FROM owner_state;')"
 echo "Life Notes backup uploaded and restored successfully (revision ${revision:-unknown})"
