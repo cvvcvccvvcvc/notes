@@ -1028,7 +1028,6 @@ h1 {
   border-radius: 15px;
   background: rgb(255 255 255 / 62%);
   box-shadow: 0 1px 3px rgb(27 39 32 / 6%);
-  overflow: hidden;
 }
 .markdown-editor {
   width: 100%;
@@ -1072,7 +1071,9 @@ h1 {
 .markdown-editor .cm-content ::selection {
   background: #c7e5da !important;
 }
-.markdown-editor .tok-link {
+.markdown-editor .tok-link,
+.markdown-editor .tok-url,
+.markdown-editor .cm-bare-link {
   color: #39755a;
   text-decoration: underline;
   text-decoration-thickness: 1px;
@@ -1101,6 +1102,24 @@ h1 {
 }
 .markdown-editor .tok-meta {
   color: #75807a;
+}
+.cm-tooltip.cm-link-tooltip {
+  padding: 7px 10px;
+  border: 1px solid #b9d8cc;
+  border-radius: 9px;
+  background: #f7fffc;
+  color: #176b54;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgb(25 61 46 / 16%);
+}
+.cm-tooltip.cm-link-tooltip:hover,
+.cm-tooltip.cm-link-tooltip:focus-visible {
+  border-color: #78b29e;
+  background: #eaf8f2;
+  outline: 0;
 }
 .project-info-actions {
   margin-top: 8px;
