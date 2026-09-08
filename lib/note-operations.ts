@@ -1,7 +1,11 @@
 import type { AppData, Note } from './data';
 
 export function isEmptyNote(note: Note) {
-  return !note.title.trim() && !note.content.trim();
+  return (
+    !note.title.trim() &&
+    !note.content.trim() &&
+    (note.attachments?.length ?? 0) === 0
+  );
 }
 
 export function updateNote(

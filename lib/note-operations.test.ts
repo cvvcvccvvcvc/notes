@@ -32,10 +32,26 @@ function data(): AppData {
   };
 }
 
-void test('a note is empty only when its title and content are blank', () => {
+void test('a note is empty only without title, content and images', () => {
   assert.equal(isEmptyNote({ ...first, title: '', content: '' }), true);
   assert.equal(isEmptyNote({ ...first, title: '  ', content: '\n' }), true);
   assert.equal(isEmptyNote({ ...first, title: '', content: 'Текст' }), false);
+  assert.equal(
+    isEmptyNote({
+      ...first,
+      title: '',
+      content: '',
+      attachments: [
+        {
+          id: 'image',
+          mimeType: 'image/png',
+          size: 4,
+          createdAt: 1,
+        },
+      ],
+    }),
+    false,
+  );
   assert.equal(
     isEmptyNote({ ...first, title: 'Название', content: '' }),
     false,

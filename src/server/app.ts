@@ -8,9 +8,14 @@ import Fastify, {
   type FastifyRequest,
 } from 'fastify';
 import { z } from 'zod';
+import {
+  NOTE_ATTACHMENT_MAX_BYTES,
+  noteAttachmentMimeTypeSchema,
+} from '../shared/data-schema.js';
 import { syncPutSchema } from '../shared/sync-schema.js';
 import type { ServerConfig } from './config.js';
 import { openDatabase, type NotesDatabase } from './database.js';
+import { NoteAttachmentRepository } from './note-attachment-repository.js';
 import { validatePasswordHash, verifyPassword } from './password.js';
 import {
   createSessionToken,
@@ -28,6 +33,9 @@ declare module 'fastify' {
 const loginSchema = z
   .object({ password: z.string().min(1).max(1_024) })
   .strict();
+const noteAttachmentParamsSchema = z.object({
+  attachmentId: z.uuid(),
+});
 
 const LOGIN_CSS = `
 :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #f5f5f1; color: #20231f; }
@@ -66,6 +74,7 @@ export async function createApp({
   });
   const database = suppliedDatabase ?? openDatabase(config.databasePath);
   const repository = new SyncRepository(database);
+  const attachmentRepository = new NoteAttachmentRepository(database);
   app.decorateRequest('ownerId', null);
 
   if (!suppliedDatabase)
@@ -84,6 +93,11 @@ export async function createApp({
       );
       done(null, { password: values.get('password') ?? '' });
     },
+  );
+  app.addContentTypeParser(
+    /^image\/(?:png|jpeg|webp|gif)$/i,
+    { parseAs: 'buffer' },
+    (_request, body, done) => done(null, body),
   );
 
   app.addHook('onRequest', async (request, reply) => {
@@ -237,6 +251,73 @@ export async function createApp({
         });
       const result = repository.put(request.ownerId!, parsed.data);
       return reply.code(result.statusCode).send(result.body);
+    },
+  );
+
+  app.get(
+    '/api/note-attachments/:attachmentId',
+    { preHandler: requireSession },
+    async (request, reply) => {
+      const parsed = noteAttachmentParamsSchema.safeParse(request.params);
+      if (!parsed.success)
+        return reply.code(400).send({
+          error: {
+            code: 'INVALID_REQUEST',
+            message: 'Attachment id is invalid',
+          },
+        });
+      const attachment = attachmentRepository.get(
+        request.ownerId!,
+        parsed.data.attachmentId,
+      );
+      if (!attachment)
+        return reply.code(404).send({
+          error: { code: 'NOT_FOUND', message: 'Attachment not found' },
+        });
+      return reply.type(attachment.mimeType).send(attachment.data);
+    },
+  );
+
+  app.put(
+    '/api/note-attachments/:attachmentId',
+    { preHandler: requireSession, bodyLimit: NOTE_ATTACHMENT_MAX_BYTES },
+    async (request, reply) => {
+      const params = noteAttachmentParamsSchema.safeParse(request.params);
+      const mimeType = noteAttachmentMimeTypeSchema.safeParse(
+        request.headers['content-type']?.split(';', 1)[0].toLowerCase(),
+      );
+      if (
+        !params.success ||
+        !mimeType.success ||
+        !Buffer.isBuffer(request.body)
+      )
+        return reply.code(400).send({
+          error: {
+            code: 'INVALID_REQUEST',
+            message: 'Attachment must be a supported image',
+          },
+        });
+      if (request.body.byteLength === 0)
+        return reply.code(400).send({
+          error: {
+            code: 'INVALID_REQUEST',
+            message: 'Attachment must not be empty',
+          },
+        });
+      const result = attachmentRepository.put(
+        request.ownerId!,
+        params.data.attachmentId,
+        mimeType.data,
+        request.body,
+      );
+      if (result === 'conflict')
+        return reply.code(409).send({
+          error: {
+            code: 'ATTACHMENT_CONFLICT',
+            message: 'Attachment id is already used',
+          },
+        });
+      return reply.code(result === 'created' ? 201 : 200).send({ ok: true });
     },
   );
 

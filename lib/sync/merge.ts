@@ -76,7 +76,13 @@ const REVIEW_FIELDS = [
   'createdAt',
   'completedAt',
 ] as const;
-const NOTE_FIELDS = ['title', 'content', 'color', 'pinned'] as const;
+const NOTE_FIELDS = [
+  'title',
+  'content',
+  'color',
+  'pinned',
+  'attachments',
+] as const;
 const HISTORY_FIELDS = [
   'taskId',
   'text',

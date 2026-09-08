@@ -8,6 +8,14 @@ const dayKeySchema = z
 
 export const taskColorSchema = z.enum(['blue', 'yellow', 'purple', 'rose']);
 export const noteColorSchema = z.enum(['teal', 'purple', 'white', 'red']);
+export const noteAttachmentMimeTypeSchema = z.enum([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+]);
+export const NOTE_ATTACHMENT_MAX_BYTES = 12 * 1024 * 1024;
+export const NOTE_ATTACHMENT_MAX_COUNT = 100;
 
 export const intervalSchema = z.looseObject({
   start: timestampSchema,
@@ -49,12 +57,23 @@ export const historyItemSchema = z.looseObject({
   intervals: z.array(intervalSchema).max(10_000),
 });
 
+export const noteAttachmentSchema = z.looseObject({
+  id: idSchema,
+  mimeType: noteAttachmentMimeTypeSchema,
+  size: z.number().int().nonnegative().max(NOTE_ATTACHMENT_MAX_BYTES),
+  createdAt: timestampSchema,
+});
+
 export const noteSchema = z.looseObject({
   id: idSchema,
   title: z.string().max(10_000),
   content: z.string().max(1_000_000),
   color: noteColorSchema,
   pinned: z.boolean().optional(),
+  attachments: z
+    .array(noteAttachmentSchema)
+    .max(NOTE_ATTACHMENT_MAX_COUNT)
+    .optional(),
 });
 
 export const ruleSchema = z.looseObject({
@@ -153,6 +172,10 @@ export type TaskColor = z.infer<typeof taskColorSchema>;
 export type Task = z.infer<typeof taskSchema>;
 export type HistoryItem = z.infer<typeof historyItemSchema>;
 export type NoteColor = z.infer<typeof noteColorSchema>;
+export type NoteAttachmentMimeType = z.infer<
+  typeof noteAttachmentMimeTypeSchema
+>;
+export type NoteAttachment = z.infer<typeof noteAttachmentSchema>;
 export type Note = z.infer<typeof noteSchema>;
 export type Rule = z.infer<typeof ruleSchema>;
 export type ReviewPeriod = z.infer<typeof reviewPeriodSchema>;

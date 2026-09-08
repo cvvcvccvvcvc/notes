@@ -8,6 +8,8 @@ export type {
   MonthTemplateRule,
   MonthTemplateSchedule,
   Note,
+  NoteAttachment,
+  NoteAttachmentMimeType,
   NoteColor,
   PeriodReview,
   ReviewPeriod,

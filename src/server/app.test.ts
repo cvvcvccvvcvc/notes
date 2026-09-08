@@ -83,6 +83,55 @@ void describe('sync HTTP boundary', () => {
     assert.deepEqual(saved.json(), { ok: true, revision: 1 });
   });
 
+  void it('stores note images behind the owner session', async () => {
+    const attachmentId = '19c60c85-27dc-4921-b45c-b81a96b41dc4';
+    const url = `/api/note-attachments/${attachmentId}`;
+    const image = Buffer.from([137, 80, 78, 71]);
+
+    assert.equal((await app.inject({ url })).statusCode, 401);
+    const cookie = cookieFrom(await login());
+    assert.equal(
+      (
+        await app.inject({
+          method: 'PUT',
+          url,
+          headers: { cookie, 'content-type': 'image/png' },
+          payload: image,
+        })
+      ).statusCode,
+      403,
+    );
+
+    const created = await app.inject({
+      method: 'PUT',
+      url,
+      headers: { cookie, origin, 'content-type': 'image/png' },
+      payload: image,
+    });
+    assert.equal(created.statusCode, 201);
+
+    const loaded = await app.inject({ url, headers: { cookie } });
+    assert.equal(loaded.statusCode, 200);
+    assert.equal(loaded.headers['content-type'], 'image/png');
+    assert.deepEqual(loaded.rawPayload, image);
+
+    const repeated = await app.inject({
+      method: 'PUT',
+      url,
+      headers: { cookie, origin, 'content-type': 'image/png' },
+      payload: image,
+    });
+    assert.equal(repeated.statusCode, 200);
+
+    const collision = await app.inject({
+      method: 'PUT',
+      url,
+      headers: { cookie, origin, 'content-type': 'image/png' },
+      payload: Buffer.from([1]),
+    });
+    assert.equal(collision.statusCode, 409);
+  });
+
   function login() {
     return app.inject({
       method: 'POST',
