@@ -87,6 +87,17 @@ export function useSyncedAppData(today: string) {
     }
   }, []);
 
+  const ensureLatestLocalSave = useCallback(async () => {
+    try {
+      await waitForLocalSave();
+    } catch {
+      const current = envelopeRef.current;
+      if (!current) throw new Error('Local save failed');
+      await persist(current);
+      await waitForLocalSave();
+    }
+  }, [persist, waitForLocalSave]);
+
   const setConflict = useCallback(
     async (
       envelope: SyncEnvelope,
@@ -176,7 +187,7 @@ export function useSyncedAppData(today: string) {
   const syncOnce = useCallback(async () => {
     // A previous local write may have completed while a newer one is still
     // queued. Never upload the newer in-memory snapshot before it is durable.
-    await waitForLocalSave();
+    await ensureLatestLocalSave();
     const initial = envelopeRef.current;
     if (!initial || initial.sync.conflict) {
       if (initial?.sync.conflict && mountedRef.current)
@@ -200,7 +211,7 @@ export function useSyncedAppData(today: string) {
     if (decision.kind === 'upload')
       await upload(current, decision.baseRevision);
     else await applyReconciliation(decision);
-  }, [applyReconciliation, upload, waitForLocalSave]);
+  }, [applyReconciliation, ensureLatestLocalSave, upload]);
 
   /* oxlint-disable react/react-compiler -- serialized callback intentionally depends on syncOnce */
   const synchronize = useCallback(async () => {

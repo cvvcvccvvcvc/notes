@@ -13,7 +13,7 @@ let writeQueue = Promise.resolve();
 
 function openDatabase() {
   if (databasePromise) return databasePromise;
-  databasePromise = new Promise((resolve, reject) => {
+  const opening = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DATABASE, DATABASE_VERSION);
     request.onupgradeneeded = () => {
       if (!request.result.objectStoreNames.contains(STORE))
@@ -22,12 +22,24 @@ function openDatabase() {
         request.result.createObjectStore(ATTACHMENT_STORE);
     };
     request.onsuccess = () => {
-      request.result.onversionchange = () => request.result.close();
-      resolve(request.result);
+      const database = request.result;
+      const forgetClosedDatabase = () => {
+        if (databasePromise === opening) databasePromise = null;
+      };
+      database.onversionchange = () => {
+        forgetClosedDatabase();
+        database.close();
+      };
+      database.addEventListener('close', forgetClosedDatabase);
+      resolve(database);
     };
-    request.onerror = () => reject(request.error);
+    request.onerror = () => {
+      if (databasePromise === opening) databasePromise = null;
+      reject(request.error);
+    };
   });
-  return databasePromise;
+  databasePromise = opening;
+  return opening;
 }
 
 function readKey<T>(database: IDBDatabase, key: string) {
