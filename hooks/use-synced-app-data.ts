@@ -50,6 +50,7 @@ export function useSyncedAppData(today: string) {
   const [data, setData] = useState<AppData | null>(null);
   const [saveState, setSaveState] = useState<LocalSaveState>('loading');
   const [syncState, setSyncState] = useState<SyncState>('idle');
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const dataRef = useRef<AppData | null>(null);
   const envelopeRef = useRef<SyncEnvelope | null>(null);
   const todayRef = useRef(today);
@@ -287,7 +288,7 @@ export function useSyncedAppData(today: string) {
         syncTimerRef.current = null;
       }
     };
-  }, [persist, synchronize]);
+  }, [loadAttempt, persist, synchronize]);
 
   useEffect(() => {
     todayRef.current = today;
@@ -328,6 +329,12 @@ export function useSyncedAppData(today: string) {
     [persist, scheduleSynchronize],
   );
 
+  const retryLocalLoad = useCallback(() => {
+    if (dataRef.current) return;
+    setSaveState('loading');
+    setLoadAttempt((attempt) => attempt + 1);
+  }, []);
+
   const resolveConflict = useCallback(
     (choice: 'local' | 'remote') => {
       const current = envelopeRef.current;
@@ -363,6 +370,7 @@ export function useSyncedAppData(today: string) {
     saveState,
     syncState,
     commit,
+    retryLocalLoad,
     synchronize,
     resolveConflict,
   };

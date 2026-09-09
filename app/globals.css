@@ -104,6 +104,13 @@ body {
   place-items: center;
   color: #6d746f;
 }
+
+.loading-error {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  text-align: center;
+}
 .app-shell {
   min-height: 100svh;
 }

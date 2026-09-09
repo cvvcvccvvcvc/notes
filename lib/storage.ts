@@ -9,7 +9,15 @@ const ENVELOPE_KEY = 'sync-envelope';
 const LEGACY_DATA_KEY = 'main';
 
 let databasePromise: Promise<IDBDatabase> | null = null;
-let writeQueue = Promise.resolve();
+let writingEnvelope = false;
+let queuedEnvelope:
+  | {
+      snapshot: SyncEnvelope;
+      promise: Promise<void>;
+      resolve: () => void;
+      reject: (reason: unknown) => void;
+    }
+  | undefined;
 
 function openDatabase() {
   if (databasePromise) return databasePromise;
@@ -83,11 +91,41 @@ function writeEnvelope(envelope: SyncEnvelope) {
   );
 }
 
+async function drainEnvelopeWrites() {
+  if (writingEnvelope) return;
+  writingEnvelope = true;
+  try {
+    while (queuedEnvelope) {
+      const queued = queuedEnvelope;
+      queuedEnvelope = undefined;
+      try {
+        await writeEnvelope(queued.snapshot);
+        queued.resolve();
+      } catch (error) {
+        queued.reject(error);
+      }
+    }
+  } finally {
+    writingEnvelope = false;
+  }
+}
+
 export function saveEnvelope(envelope: SyncEnvelope) {
   const snapshot = structuredClone(envelope);
-  const write = writeQueue.then(() => writeEnvelope(snapshot));
-  writeQueue = write.catch(() => undefined);
-  return write;
+  if (queuedEnvelope) {
+    queuedEnvelope.snapshot = snapshot;
+    return queuedEnvelope.promise;
+  }
+
+  let resolve!: () => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<void>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  queuedEnvelope = { snapshot, promise, resolve, reject };
+  void drainEnvelopeWrites();
+  return promise;
 }
 
 export type StoredNoteAttachment = {

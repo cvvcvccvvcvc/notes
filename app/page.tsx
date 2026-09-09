@@ -161,6 +161,7 @@ export default function Home() {
     saveState,
     syncState,
     commit,
+    retryLocalLoad,
     synchronize,
     resolveConflict,
   } = useSyncedAppData(todayKey);
@@ -798,7 +799,18 @@ export default function Home() {
   }
 
   if (!data)
-    return <main className="loading-screen">Открываю локальные записи…</main>;
+    return saveState === 'error' ? (
+      <main className="loading-screen">
+        <div className="loading-error">
+          <p>Не удалось открыть локальные записи.</p>
+          <Button variant="outline" onClick={retryLocalLoad}>
+            Повторить
+          </Button>
+        </div>
+      </main>
+    ) : (
+      <main className="loading-screen">Открываю локальные записи…</main>
+    );
 
   const openNote = data.notes.find((note) => note.id === openNoteId) ?? null;
   const reviewDebtCount = dueReviewPeriods(data, todayKey).length;
