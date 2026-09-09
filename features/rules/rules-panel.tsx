@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -31,6 +31,7 @@ export function RulesPanel({
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [mobileExpanded, setMobileExpanded] = useState(false);
 
   useEffect(() => {
     function clearSelection(event: PointerEvent) {
@@ -125,39 +126,59 @@ export function RulesPanel({
         }
       }}
     >
-      <h2>Правила</h2>
-      <SortableItems items={rules.map((rule) => sortableId(rule.id))}>
-        <div className="rules-list">
-          {rules.map((rule) => (
-            <SortableRule
-              key={rule.id}
-              rule={rule}
-              selected={selectedId === rule.id}
-              editing={editingId === rule.id}
-              onSelect={() => {
-                setSelectedId(rule.id);
-                setEditingId(null);
-              }}
-              onEdit={() => edit(rule.id)}
-              onStopEditing={() => setEditingId(null)}
-              onChange={(text) => updateRule(rule.id, text)}
-              onKeyDown={(event) => handleShortcut(event, rule.id)}
-            />
-          ))}
-        </div>
-      </SortableItems>
       <button
         type="button"
-        className="add-rule"
+        className="rules-mobile-summary"
+        aria-expanded={mobileExpanded}
+        aria-controls="rules-mobile-content"
         onClick={() => {
-          const id = addRule();
-          setSelectedId(id);
-          setEditingId(id);
-          focusRule(id, true);
+          setMobileExpanded((expanded) => !expanded);
+          setSelectedId(null);
+          setEditingId(null);
         }}
       >
-        <Plus /> Добавить правило
+        <span>Правила</span>
+        <small>{rules.length}</small>
+        <ChevronDown />
       </button>
+      <h2>Правила</h2>
+      <div
+        id="rules-mobile-content"
+        className={`rules-content ${mobileExpanded ? 'mobile-expanded' : ''}`}
+      >
+        <SortableItems items={rules.map((rule) => sortableId(rule.id))}>
+          <div className="rules-list">
+            {rules.map((rule) => (
+              <SortableRule
+                key={rule.id}
+                rule={rule}
+                selected={selectedId === rule.id}
+                editing={editingId === rule.id}
+                onSelect={() => {
+                  setSelectedId(rule.id);
+                  setEditingId(null);
+                }}
+                onEdit={() => edit(rule.id)}
+                onStopEditing={() => setEditingId(null)}
+                onChange={(text) => updateRule(rule.id, text)}
+                onKeyDown={(event) => handleShortcut(event, rule.id)}
+              />
+            ))}
+          </div>
+        </SortableItems>
+        <button
+          type="button"
+          className="add-rule"
+          onClick={() => {
+            const id = addRule();
+            setSelectedId(id);
+            setEditingId(id);
+            focusRule(id, true);
+          }}
+        >
+          <Plus /> Добавить правило
+        </button>
+      </div>
     </aside>
   );
 }

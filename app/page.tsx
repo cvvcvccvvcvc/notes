@@ -98,10 +98,11 @@ import {
   type LocalSaveState,
   type SyncState,
 } from '@/hooks/use-synced-app-data';
+import { mobileLayoutMatches } from '@/hooks/use-mobile-layout';
 
 type View = 'today' | 'backlog' | 'notes' | 'templates' | 'reviews';
 const viewHashes = new Map<View, string>([
-  ['today', ''],
+  ['today', '#schedule'],
   ['backlog', '#projects'],
   ['notes', '#notes'],
   ['templates', '#templates'],
@@ -126,6 +127,14 @@ function viewFromHash(hash: string): View {
   return 'today';
 }
 
+function viewFromLocation(): View {
+  return window.location.hash
+    ? viewFromHash(window.location.hash)
+    : mobileLayoutMatches()
+      ? 'notes'
+      : 'today';
+}
+
 function isTextEditor(target: EventTarget | null) {
   return (
     target instanceof HTMLElement &&
@@ -147,9 +156,7 @@ function persistenceLabel(saveState: LocalSaveState, syncState: SyncState) {
 }
 
 export default function Home() {
-  const [view, setView] = useState<View>(() =>
-    viewFromHash(window.location.hash),
-  );
+  const [view, setView] = useState<View>(viewFromLocation);
   const [now, setNow] = useState(() => Date.now());
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const [undo, setUndo] = useState<UndoState>(null);
@@ -178,7 +185,14 @@ export default function Home() {
   }
 
   useEffect(() => {
-    const restoreView = () => setView(viewFromHash(window.location.hash));
+    if (window.location.hash || view !== 'notes') return;
+    const url = new URL(window.location.href);
+    url.hash = viewHashes.get('notes')!;
+    window.history.replaceState(null, '', url);
+  }, [view]);
+
+  useEffect(() => {
+    const restoreView = () => setView(viewFromLocation());
     window.addEventListener('popstate', restoreView);
     window.addEventListener('hashchange', restoreView);
     return () => {

@@ -31,8 +31,14 @@ import {
 import { TaskColorMenu } from '@/features/tasks/task-color-menu';
 import { UNSORTED_GROUP_ID } from '@/lib/backlog';
 import type { Task, TaskColor, TaskGroup } from '@/lib/data';
+import { useMobileLayout } from '@/hooks/use-mobile-layout';
 import { SortableDropZone, SortableItems, SortableRoot } from '@/lib/sorting';
-import { hasTaskTitle, TaskTextEditor, TaskTextPreview } from '@/lib/task-text';
+import {
+  hasTaskTitle,
+  splitTaskText,
+  TaskTextEditor,
+  TaskTextPreview,
+} from '@/lib/task-text';
 
 const PROJECT_DND_PREFIX = 'backlog-project:';
 const projectDndId = (id: string) => `${PROJECT_DND_PREFIX}${id}`;
@@ -149,6 +155,7 @@ export function BacklogView(props: BacklogProps) {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [editingGroupKey, setEditingGroupKey] = useState<string | null>(null);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+  const mobileLayout = useMobileLayout();
   const entries = props.groups.flatMap((group) =>
     group.tasks.map((task) => ({ groupId: group.id, id: task.id })),
   );
@@ -369,6 +376,7 @@ export function BacklogView(props: BacklogProps) {
               )}
           </>
         )}
+        {location !== 'dialog' && <MobileProjectPreview group={group} />}
       </>
     );
   }
@@ -402,6 +410,12 @@ export function BacklogView(props: BacklogProps) {
               props.groups.findIndex((group) => group.id === unsorted.id),
               'unsorted',
             )}
+            <button
+              type="button"
+              className="backlog-unsorted-open"
+              aria-label="Открыть проект Не разобрано"
+              onClick={() => openProject(unsorted.id)}
+            />
           </section>
         )}
         <SortableItems
@@ -413,6 +427,7 @@ export function BacklogView(props: BacklogProps) {
               <SortableProject
                 key={group.id}
                 group={group}
+                dragDisabled={mobileLayout}
                 selected={selectedGroupId === group.id}
                 onSelect={() => {
                   setSelectedGroupId(group.id);
@@ -482,6 +497,7 @@ export function BacklogView(props: BacklogProps) {
 
 function SortableProject({
   group,
+  dragDisabled,
   selected,
   onSelect,
   onOpen,
@@ -491,6 +507,7 @@ function SortableProject({
   children,
 }: {
   group: TaskGroup;
+  dragDisabled: boolean;
   selected: boolean;
   onSelect: () => void;
   onOpen: () => void;
@@ -508,6 +525,7 @@ function SortableProject({
     isDragging,
   } = useSortable({
     id: projectDndId(group.id),
+    disabled: dragDisabled,
     data: { kind: 'project' },
   });
   const draggedRef = useRef(false);
@@ -531,8 +549,16 @@ function SortableProject({
         data-project-select
         {...attributes}
         {...listeners}
-        aria-label={`Открыть или переместить проект ${group.title}`}
-        aria-keyshortcuts="Enter Shift+Enter Meta+ArrowUp Meta+ArrowDown"
+        aria-label={
+          dragDisabled
+            ? `Открыть проект ${group.title}`
+            : `Открыть или переместить проект ${group.title}`
+        }
+        aria-keyshortcuts={
+          dragDisabled
+            ? 'Enter'
+            : 'Enter Shift+Enter Meta+ArrowUp Meta+ArrowDown'
+        }
         onPointerDownCapture={(event) => {
           draggedRef.current = false;
           pointerStartRef.current = { x: event.clientX, y: event.clientY };
@@ -551,6 +577,19 @@ function SortableProject({
         }}
         onFocus={onSelect}
         onKeyDown={(event) => {
+          if (
+            dragDisabled &&
+            !event.nativeEvent.isComposing &&
+            !event.metaKey &&
+            !event.altKey &&
+            !event.shiftKey &&
+            event.key === 'Enter'
+          ) {
+            event.preventDefault();
+            if (!event.repeat) onOpen();
+            return;
+          }
+          if (dragDisabled) return;
           if (
             !event.nativeEvent.isComposing &&
             event.shiftKey &&
@@ -591,6 +630,27 @@ function SortableProject({
       />
       {children}
     </section>
+  );
+}
+
+function MobileProjectPreview({ group }: { group: TaskGroup }) {
+  const visibleTasks = group.tasks.slice(0, 3);
+
+  return (
+    <div className="project-card-mobile-preview" aria-hidden="true">
+      {visibleTasks.length ? (
+        visibleTasks.map((task) => (
+          <span className="project-card-mobile-task" key={task.id}>
+            {splitTaskText(task.text).title || 'Без названия'}
+          </span>
+        ))
+      ) : (
+        <span className="project-card-mobile-empty">Нет дел</span>
+      )}
+      {group.tasks.length > visibleTasks.length && (
+        <small>Ещё {group.tasks.length - visibleTasks.length}</small>
+      )}
+    </div>
   );
 }
 

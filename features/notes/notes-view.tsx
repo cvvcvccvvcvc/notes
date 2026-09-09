@@ -14,6 +14,7 @@ import {
 import { NoteEditor } from '@/lib/note-editor';
 import { SortableList } from '@/lib/sorting';
 import { NOTE_ATTACHMENT_MAX_COUNT } from '@/src/shared/data-schema';
+import { useMobileLayout } from '@/hooks/use-mobile-layout';
 import { Copy, ImageOff, Plus, Trash2, X } from 'lucide-react';
 
 export function NotesView({
@@ -45,6 +46,7 @@ export function NotesView({
 }) {
   const noteContentRef = useRef<HTMLTextAreaElement>(null);
   const noteTitleRef = useRef<HTMLInputElement>(null);
+  const mobileLayout = useMobileLayout();
   const [attachmentMessage, setAttachmentMessage] = useState<{
     noteId: string;
     text: string;
@@ -134,6 +136,7 @@ export function NotesView({
             <SortableNote
               key={note.id}
               note={note}
+              dragDisabled={mobileLayout}
               onOpen={() => {
                 setAttachmentMessage(null);
                 openNoteById(note.id);
@@ -269,7 +272,15 @@ export function NotesView({
   );
 }
 
-function SortableNote({ note, onOpen }: { note: Note; onOpen: () => void }) {
+function SortableNote({
+  note,
+  dragDisabled,
+  onOpen,
+}: {
+  note: Note;
+  dragDisabled: boolean;
+  onOpen: () => void;
+}) {
   const {
     setNodeRef,
     attributes,
@@ -277,7 +288,7 @@ function SortableNote({ note, onOpen }: { note: Note; onOpen: () => void }) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: note.id });
+  } = useSortable({ id: note.id, disabled: dragDisabled });
   return (
     <button
       ref={setNodeRef}
