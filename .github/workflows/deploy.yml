@@ -36,9 +36,6 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
-    env:
-      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -58,13 +55,16 @@ jobs:
           fi
           printf 'DEPLOY_HOST=%s\nAPP_DOMAIN=%s\n' "$DEPLOY_HOST" "$APP_DOMAIN" >> "$GITHUB_ENV"
 
-      - name: Report missing deployment secrets
-        if: env.DEPLOY_SSH_KEY == '' || env.DEPLOY_KNOWN_HOSTS == ''
-        run: echo "Verification passed; deployment is skipped until production secrets are configured."
-
       - name: Configure SSH
-        if: env.DEPLOY_SSH_KEY != '' && env.DEPLOY_KNOWN_HOSTS != ''
+        id: ssh
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
+          if [[ -z "$DEPLOY_SSH_KEY" || -z "$DEPLOY_KNOWN_HOSTS" ]]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           install -m 700 -d "$HOME/.ssh"
           printf '%s\n' "$DEPLOY_SSH_KEY" | tr -d '\r' > "$RUNNER_TEMP/life_notes_deploy_key"
           chmod 600 "$RUNNER_TEMP/life_notes_deploy_key"
@@ -78,9 +78,14 @@ jobs:
             echo "::error title=Invalid DEPLOY_KNOWN_HOSTS::Replace the secret with ssh-keyscan output for $DEPLOY_HOST."
             exit 1
           fi
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      - name: Report missing deployment secrets
+        if: steps.ssh.outputs.configured != 'true'
+        run: echo "Verification passed; deployment is skipped until production secrets are configured."
 
       - name: Deploy exact production revision
-        if: env.DEPLOY_SSH_KEY != '' && env.DEPLOY_KNOWN_HOSTS != ''
+        if: steps.ssh.outputs.configured == 'true'
         run: |
           ssh -i "$RUNNER_TEMP/life_notes_deploy_key" \
             -o BatchMode=yes \
