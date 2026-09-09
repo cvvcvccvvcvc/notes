@@ -39,8 +39,14 @@ void describe('sync HTTP boundary', () => {
     assert.equal(allowed.statusCode, 200);
     const setCookie = allowed.headers['set-cookie'];
     assert.equal(typeof setCookie, 'string');
-    if (typeof setCookie === 'string')
+    if (typeof setCookie === 'string') {
       assert.match(setCookie, /notes_session=/);
+      assert.match(setCookie, /Max-Age=7776000/);
+      assert.match(setCookie, /Expires=/);
+      assert.match(setCookie, /HttpOnly/);
+      assert.match(setCookie, /Secure/);
+      assert.match(setCookie, /SameSite=Lax/);
+    }
   });
 
   void it('accepts the rate-limited HTML login form without Origin', async () => {

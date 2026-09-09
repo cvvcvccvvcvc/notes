@@ -134,17 +134,20 @@ export async function createApp({
 
   const authenticate = async (password: string, reply: FastifyReply) => {
     if (!(await verifyPassword(password, config.passwordHash))) return false;
+    const now = Date.now();
     const token = createSessionToken(
       config.ownerId,
       config.sessionSecret,
       config.sessionMaxAgeSeconds,
+      now,
     );
     reply.setCookie(SESSION_COOKIE_NAME, token, {
       path: '/',
       httpOnly: true,
       secure: config.secureCookie,
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: config.sessionMaxAgeSeconds,
+      expires: new Date(now + config.sessionMaxAgeSeconds * 1_000),
     });
     return true;
   };
@@ -228,7 +231,7 @@ export async function createApp({
       path: '/',
       httpOnly: true,
       secure: config.secureCookie,
-      sameSite: 'strict',
+      sameSite: 'lax',
     });
     return { authenticated: false };
   });
