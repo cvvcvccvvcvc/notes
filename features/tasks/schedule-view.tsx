@@ -802,7 +802,7 @@ function TaskRow({
       }}
     >
       <InlineTime
-        className="timeline-time"
+        className={`timeline-time ${!task.plannedStart && !timeEditing ? 'unset-time' : ''}`}
         value={task.plannedStart}
         label="Плановое начало"
         placeholder=""
@@ -854,6 +854,7 @@ function TaskRow({
       </div>
       <div className="task-actions">
         <Button
+          className="timer-button"
           variant={state === 'running' ? 'secondary' : 'outline'}
           title={`${timerLabel} · ⌥↵`}
           disabled={!hasName}
@@ -884,6 +885,26 @@ function TaskRow({
             <MoreHorizontal />
           </DropdownMenuTrigger>
           <DropdownMenuContent className="task-menu" align="end" sideOffset={8}>
+            <DropdownMenuItem
+              className="mobile-task-menu-action"
+              disabled={!hasName}
+              onClick={() => {
+                onSelect();
+                runTimer(day, task.id);
+              }}
+            >
+              <TimerIcon />
+              {timerLabel}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="mobile-task-menu-action"
+              disabled={!hasName}
+              onClick={onActivate}
+            >
+              <Check />
+              Завершить
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="mobile-task-menu-separator" />
             <DropdownMenuItem onClick={onAddBelow}>
               <Plus />
               Создать ниже
