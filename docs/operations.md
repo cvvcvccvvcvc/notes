@@ -62,6 +62,8 @@ Workflow использует GitHub environment `production` и два environm
 
 Если secrets отсутствуют, CI остаётся рабочим, но deploy явно пропускается.
 Environment допускает deploy только из ветки `main`.
+Значения обоих secrets доступны только шагу настройки SSH; checkout, чтение
+production-конфигурации и запуск удалённого deploy не получают их в окружении.
 Ключ Notes не переиспользуется для Vocabulary и хранится только в GitHub и на
 доверенном recovery-устройстве. Публичная топология находится в
 `deploy/production.env`.
