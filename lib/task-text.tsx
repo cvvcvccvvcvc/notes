@@ -1,12 +1,16 @@
 import { useEffect, useRef } from 'react';
 
-function splitTaskText(text: string) {
+export function splitTaskText(text: string) {
   const lineBreak = text.indexOf('\n');
   if (lineBreak < 0) return { title: text, description: '' };
   return {
     title: text.slice(0, lineBreak),
     description: text.slice(lineBreak + 1),
   };
+}
+
+export function hasTaskTitle(text: string) {
+  return splitTaskText(text).title.trim().length > 0;
 }
 
 function resize(element: HTMLTextAreaElement | null) {

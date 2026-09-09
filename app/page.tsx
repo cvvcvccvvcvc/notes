@@ -91,6 +91,7 @@ import {
   updateScheduledTask,
   updateScheduledTasks,
 } from '@/lib/task-operations';
+import { hasTaskTitle } from '@/lib/task-text';
 import {
   useSyncedAppData,
   type LocalSaveState,
@@ -329,7 +330,7 @@ export default function Home() {
     const index = tasks.findIndex((item) => item.id === id);
     const task = tasks[index];
     if (!task) return;
-    if (!task.text.trim()) {
+    if (!hasTaskTitle(task.text)) {
       commit((current) => removeScheduledTask(current, day, id));
       return;
     }
@@ -489,7 +490,7 @@ export default function Home() {
     const index = group?.tasks.findIndex((task) => task.id === id) ?? -1;
     const task = group?.tasks[index];
     if (!task || index < 0) return;
-    if (!task.text.trim()) {
+    if (!hasTaskTitle(task.text)) {
       commit((current) => removeBacklogTaskFromData(current, groupId, id));
       return;
     }

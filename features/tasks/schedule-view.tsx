@@ -37,7 +37,7 @@ import {
 } from '@/lib/date-time';
 import { monthTemplateTaskCount, nextMonthKey } from '@/lib/month-template';
 import { SortableDropZone, SortableItems, SortableRoot } from '@/lib/sorting';
-import { TaskTextEditor, TaskTextPreview } from '@/lib/task-text';
+import { hasTaskTitle, TaskTextEditor, TaskTextPreview } from '@/lib/task-text';
 import { taskDuration, taskState } from '@/lib/task-operations';
 import { RulesPanel } from '@/features/rules/rules-panel';
 import type { Rule } from '@/lib/data';
@@ -335,7 +335,7 @@ export function ScheduleView(props: ScheduleProps) {
       onSelect: () => markSelected(id),
       onEdit: () => editTask(day, id),
       onStopEditing: (refocus = false) => {
-        if (!task?.text.trim()) {
+        if (!task || !hasTaskTitle(task.text)) {
           selectAfterRemoval(day, id);
           props.discardTask(day, id);
           return;
@@ -598,7 +598,7 @@ function FutureTaskRow({
   task: Task;
   day: string;
 } & TaskInteractions) {
-  const hasName = Boolean(task.text.trim());
+  const hasName = hasTaskTitle(task.text);
   const { setNodeRef, listeners, transform, transition, isDragging } =
     useSortable({ id: task.id, disabled: !hasName });
   function handleShortcut(event: React.KeyboardEvent<HTMLElement>) {
@@ -759,7 +759,7 @@ function TaskRow({
   day: string;
   warning?: string;
 } & TaskInteractions) {
-  const hasName = Boolean(task.text.trim());
+  const hasName = hasTaskTitle(task.text);
   const state = taskState(task);
   const timerLabel =
     state === 'idle' ? 'Начать' : state === 'running' ? 'Пауза' : 'Продолжить';

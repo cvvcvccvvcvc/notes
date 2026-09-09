@@ -32,7 +32,7 @@ import { TaskColorMenu } from '@/features/tasks/task-color-menu';
 import { UNSORTED_GROUP_ID } from '@/lib/backlog';
 import type { Task, TaskColor, TaskGroup } from '@/lib/data';
 import { SortableDropZone, SortableItems, SortableRoot } from '@/lib/sorting';
-import { TaskTextEditor, TaskTextPreview } from '@/lib/task-text';
+import { hasTaskTitle, TaskTextEditor, TaskTextPreview } from '@/lib/task-text';
 
 const PROJECT_DND_PREFIX = 'backlog-project:';
 const projectDndId = (id: string) => `${PROJECT_DND_PREFIX}${id}`;
@@ -309,7 +309,7 @@ export function BacklogView(props: BacklogProps) {
                       setEditingId(task.id);
                     }}
                     onStopEditing={(refocus = false) => {
-                      if (!task.text.trim()) {
+                      if (!hasTaskTitle(task.text)) {
                         selectAfterRemoval(task.id);
                         props.discardTask(group.id, task.id);
                         return;
@@ -824,7 +824,7 @@ function BacklogTaskRow({
   onTake: () => void;
   onDiscard: () => void;
 }) {
-  const hasName = Boolean(task.text.trim());
+  const hasName = hasTaskTitle(task.text);
   const { setNodeRef, listeners, transform, transition, isDragging } =
     useSortable({
       id: task.id,
