@@ -91,6 +91,21 @@ const HISTORY_FIELDS = [
   'intervals',
 ] as const;
 const MONTH_TEMPLATE_RULE_FIELDS = ['text', 'color', 'schedule'] as const;
+const APP_DATA_FIELDS = [
+  'version',
+  'appliedImports',
+  'schedule',
+  'dayWindows',
+  'backlog',
+  'rules',
+  'reviewTrackingStartedOn',
+  'goals',
+  'reviews',
+  'monthPlanning',
+  'notes',
+  'history',
+] as const;
+const MONTH_PLANNING_FIELDS = ['rules', 'createdMonths'] as const;
 
 export function mergeAppData(input: {
   base: AppData;
@@ -109,6 +124,25 @@ export function mergeAppData(input: {
   const local = indexData(input.local);
   const remote = indexData(input.remote);
   const conflicts: MergeConflict[] = [];
+
+  const appDataExtras = mergeUnknownFields(
+    'appData',
+    'root',
+    APP_DATA_FIELDS,
+    input.base,
+    input.local,
+    input.remote,
+    conflicts,
+  );
+  const monthPlanningExtras = mergeUnknownFields(
+    'monthPlanning',
+    'monthPlanning',
+    MONTH_PLANNING_FIELDS,
+    input.base.monthPlanning ?? {},
+    input.local.monthPlanning ?? {},
+    input.remote.monthPlanning ?? {},
+    conflicts,
+  );
 
   const windowRecords = (data: AppData) =>
     new Map(
@@ -306,6 +340,7 @@ export function mergeAppData(input: {
     const group = groups.get(id)!;
     const key = locationKey({ kind: 'backlog', groupId: id });
     return {
+      ...cloneValue(group),
       id,
       title: group.title,
       content: group.content,
@@ -318,6 +353,7 @@ export function mergeAppData(input: {
   });
 
   const data: AppData = {
+    ...appDataExtras,
     version: Math.max(
       input.base.version,
       input.local.version,
@@ -344,6 +380,7 @@ export function mergeAppData(input: {
       cloneValue(reviews.get(id)!),
     ) as PeriodReview[],
     monthPlanning: {
+      ...monthPlanningExtras,
       rules: monthTemplateRuleOrder.map((id) =>
         cloneValue(monthTemplateRules.get(id)!),
       ) as MonthTemplateRule[],
@@ -477,7 +514,9 @@ function indexData(data: AppData): IndexedData {
   }
 
   for (const group of data.backlog ?? []) {
+    const { tasks: _tasks, ...groupFields } = group;
     groups.set(group.id, {
+      ...cloneValue(groupFields),
       id: group.id,
       title: group.title,
       content: group.content,
@@ -532,6 +571,7 @@ function indexData(data: AppData): IndexedData {
 
 function taskRecord(task: Task, location: TaskLocation): TaskRecord {
   return {
+    ...cloneValue(task),
     id: task.id,
     text: task.text,
     intervals: cloneValue(task.intervals),
@@ -544,21 +584,11 @@ function taskRecord(task: Task, location: TaskLocation): TaskRecord {
 }
 
 function taskFromRecord(record: TaskRecord): Task {
-  return {
-    id: record.id,
-    text: record.text,
-    ...(record.plannedStart === undefined
-      ? {}
-      : { plannedStart: record.plannedStart }),
-    intervals: cloneValue(record.intervals),
-    ...(record.color === undefined ? {} : { color: record.color }),
-    ...(record.backlogGroupId === undefined
-      ? {}
-      : { backlogGroupId: record.backlogGroupId }),
-    ...(record.source === undefined
-      ? {}
-      : { source: cloneValue(record.source) }),
-  };
+  return Object.fromEntries(
+    Object.entries(record)
+      .filter(([key, value]) => key !== 'location' && value !== undefined)
+      .map(([key, value]) => [key, cloneValue(value)]),
+  ) as Task;
 }
 
 function mergeEntityMaps<T extends Entity>(
@@ -615,7 +645,12 @@ function mergeEntityMaps<T extends Entity>(
     }
 
     const value: Entity = { id };
-    for (const field of fields) {
+    const mergedFields = new Set(fields);
+    for (const record of [baseValue, localValue, remoteValue])
+      Object.keys(record).forEach((field) => {
+        if (field !== 'id') mergedFields.add(field);
+      });
+    for (const field of mergedFields) {
       const mergedField = mergeField(
         baseValue[field],
         localValue[field],
@@ -638,6 +673,40 @@ function mergeEntityMaps<T extends Entity>(
   }
 
   return merged;
+}
+
+function mergeUnknownFields(
+  entity: SyncEntityKind,
+  entityId: string,
+  knownFields: readonly string[],
+  base: Record<string, unknown>,
+  local: Record<string, unknown>,
+  remote: Record<string, unknown>,
+  conflicts: MergeConflict[],
+) {
+  const known = new Set(knownFields);
+  const fields = new Set(
+    [base, local, remote].flatMap((value) => Object.keys(value)),
+  );
+  const result: Record<string, unknown> = {};
+  for (const field of fields) {
+    if (known.has(field)) continue;
+    const merged = mergeField(base[field], local[field], remote[field]);
+    if (merged.ok) {
+      if (merged.value !== undefined) result[field] = cloneValue(merged.value);
+      continue;
+    }
+    conflicts.push({
+      kind: 'field',
+      entity,
+      entityId,
+      field,
+      base: cloneValue(base[field]),
+      local: cloneValue(local[field]),
+      remote: cloneValue(remote[field]),
+    });
+  }
+  return result;
 }
 
 function mergeField(

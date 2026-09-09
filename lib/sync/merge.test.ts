@@ -48,6 +48,94 @@ void test('merges independent fields of the same task', () => {
   );
 });
 
+void test('preserves fields introduced by a newer data version', () => {
+  const baseTask = { ...task('a', 'Base'), futureTaskField: 'base' };
+  const baseGroup = {
+    id: 'general',
+    title: 'Без группы',
+    tasks: [],
+    futureGroupField: 'base',
+  };
+  const base = {
+    ...data({
+      schedule: { '2026-09-05': [baseTask] },
+      backlog: [baseGroup],
+      monthPlanning: {
+        rules: [],
+        createdMonths: [],
+        futurePlanningField: 'base',
+      },
+    }),
+    futureRootField: 'base',
+  } as AppData;
+  const local = structuredClone(base);
+  local.schedule['2026-09-05'][0].text = 'Local text';
+  local.backlog![0].title = 'Local title';
+  const remote = structuredClone(base) as AppData & {
+    futureRootField: string;
+  };
+  remote.futureRootField = 'remote';
+  (
+    remote.schedule['2026-09-05'][0] as Task & {
+      futureTaskField: string;
+    }
+  ).futureTaskField = 'remote';
+  (remote.backlog![0] as typeof baseGroup).futureGroupField = 'remote';
+  (
+    remote.monthPlanning! as AppData['monthPlanning'] & {
+      futurePlanningField: string;
+    }
+  ).futurePlanningField = 'remote';
+
+  const result = merged(mergeAppData({ base, local, remote })) as AppData & {
+    futureRootField: string;
+  };
+
+  assert.equal(result.futureRootField, 'remote');
+  assert.equal(result.schedule['2026-09-05'][0].text, 'Local text');
+  assert.equal(
+    (
+      result.schedule['2026-09-05'][0] as Task & {
+        futureTaskField: string;
+      }
+    ).futureTaskField,
+    'remote',
+  );
+  assert.equal(result.backlog![0].title, 'Local title');
+  assert.equal(
+    (result.backlog![0] as typeof baseGroup).futureGroupField,
+    'remote',
+  );
+  assert.equal(
+    (
+      result.monthPlanning! as AppData['monthPlanning'] & {
+        futurePlanningField: string;
+      }
+    ).futurePlanningField,
+    'remote',
+  );
+});
+
+void test('reports divergent edits to a field from a newer data version', () => {
+  const base = { ...data(), futureRootField: 'base' } as AppData;
+  const local = { ...base, futureRootField: 'local' } as AppData;
+  const remote = { ...base, futureRootField: 'remote' } as AppData;
+
+  const result = mergeAppData({ base, local, remote });
+
+  assert.equal(result.ok, false);
+  if (!result.ok)
+    assert.deepEqual(result.conflicts[0], {
+      kind: 'field',
+      entity: 'appData',
+      entityId: 'root',
+      field: 'futureRootField',
+      base: 'base',
+      local: 'local',
+      remote: 'remote',
+    });
+});
+
 void test('merges independent task-group fields', () => {
   const base = data();
   const local = data({

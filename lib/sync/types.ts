@@ -43,6 +43,8 @@ export type TaskLocation =
   | { kind: 'backlog'; groupId: string };
 
 export type SyncEntityKind =
+  | 'appData'
+  | 'monthPlanning'
   | 'task'
   | 'dayWindow'
   | 'taskGroup'
