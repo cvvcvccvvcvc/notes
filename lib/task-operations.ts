@@ -37,7 +37,15 @@ export function toggleScheduledTaskTimer(
   return updateScheduledTask(data, day, id, (task) =>
     taskState(task) === 'running'
       ? pauseTaskAt(task, stamp)
-      : { ...task, intervals: [...task.intervals, { start: stamp }] },
+      : {
+          ...task,
+          intervals: [
+            ...task.intervals,
+            {
+              start: Math.max(stamp, task.intervals.at(-1)?.end ?? stamp),
+            },
+          ],
+        },
   );
 }
 

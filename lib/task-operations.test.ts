@@ -49,6 +49,21 @@ void describe('schedule task operations', () => {
     ]);
   });
 
+  void it('keeps intervals ordered if the system clock moves backwards', () => {
+    const current = data({
+      schedule: {
+        '2026-09-05': [task('one', { intervals: [{ start: 100, end: 250 }] })],
+      },
+    });
+
+    const resumed = toggleScheduledTaskTimer(current, '2026-09-05', 'one', 200);
+
+    assert.deepEqual(resumed.schedule['2026-09-05'][0].intervals, [
+      { start: 100, end: 250 },
+      { start: 250 },
+    ]);
+  });
+
   void it('finishes into history while plain removal creates no history', () => {
     const running = task('one', {
       text: 'Работа',

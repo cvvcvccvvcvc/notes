@@ -1,4 +1,5 @@
 /** Client-facing path for the persisted model owned by the shared schema. */
+export { ENTITY_ID_MAX_LENGTH } from '../src/shared/data-schema';
 export type {
   AppData,
   Goal,

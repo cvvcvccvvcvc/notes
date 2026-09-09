@@ -1,10 +1,24 @@
 import { z } from 'zod';
 
-const idSchema = z.string().min(1).max(160);
+export const ENTITY_ID_MAX_LENGTH = 160;
+
+const idSchema = z.string().min(1).max(ENTITY_ID_MAX_LENGTH);
 const timestampSchema = z.number().int().nonnegative();
-const dayKeySchema = z
-  .string()
-  .regex(/^\d{4}-(0[1-9]|1[0-2])-([0-2]\d|3[01])$/);
+const DAY_KEY = /^(\d{4})-(0[1-9]|1[0-2])-([0-2]\d|3[01])$/;
+
+function isDayKey(value: string) {
+  const match = DAY_KEY.exec(value);
+  if (!match) return false;
+  const [, year, month, day] = match.map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+const dayKeySchema = z.string().refine(isDayKey, 'Некорректная дата');
 
 const taskColorSchema = z.enum(['blue', 'yellow', 'purple', 'rose']);
 const noteColorSchema = z.enum(['teal', 'purple', 'white', 'red']);
@@ -22,6 +36,46 @@ const intervalSchema = z.looseObject({
   end: timestampSchema.optional(),
 });
 
+const intervalsSchema = z
+  .array(intervalSchema)
+  .max(10_000)
+  .superRefine((intervals, context) => {
+    intervals.forEach((interval, index) => {
+      if (interval.end !== undefined && interval.end < interval.start)
+        context.addIssue({
+          code: 'custom',
+          path: [index, 'end'],
+          message: 'Конец интервала не может быть раньше начала',
+        });
+      if (interval.end === undefined && index !== intervals.length - 1)
+        context.addIssue({
+          code: 'custom',
+          path: [index, 'end'],
+          message: 'Открытым может быть только последний интервал',
+        });
+      const previousEnd = intervals[index - 1]?.end;
+      if (previousEnd !== undefined && interval.start < previousEnd)
+        context.addIssue({
+          code: 'custom',
+          path: [index, 'start'],
+          message: 'Интервалы должны идти по порядку',
+        });
+    });
+  });
+
+const completedIntervalsSchema = intervalsSchema.superRefine(
+  (intervals, context) => {
+    intervals.forEach((interval, index) => {
+      if (interval.end === undefined)
+        context.addIssue({
+          code: 'custom',
+          path: [index, 'end'],
+          message: 'Завершённый интервал должен иметь конец',
+        });
+    });
+  },
+);
+
 const plannedTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 export const dayWindowSchema = z
   .object({
@@ -36,7 +90,7 @@ export const dayWindowSchema = z
 const taskSchema = z.looseObject({
   id: idSchema,
   text: z.string().max(100_000),
-  intervals: z.array(intervalSchema).max(10_000),
+  intervals: intervalsSchema,
   color: taskColorSchema.optional(),
   backlogGroupId: idSchema.optional(),
   plannedStart: plannedTimeSchema.optional(),
@@ -54,7 +108,7 @@ const historyItemSchema = z.looseObject({
   text: z.string().max(100_000),
   finishedAt: timestampSchema,
   finishedDay: dayKeySchema.optional(),
-  intervals: z.array(intervalSchema).max(10_000),
+  intervals: completedIntervalsSchema,
 });
 
 const noteAttachmentSchema = z.looseObject({
@@ -155,7 +209,7 @@ export const appDataSchema = z.looseObject({
   version: z.number().int().positive(),
   /** Historical ids of one-time imports applied by older releases. */
   appliedImports: z.array(z.string().max(500)).max(10_000).optional(),
-  schedule: z.record(z.string(), z.array(taskSchema).max(100_000)),
+  schedule: z.record(dayKeySchema, z.array(taskSchema).max(100_000)),
   backlog: z.array(taskGroupSchema).max(10_000).optional(),
   monthPlanning: monthPlanningSchema.optional(),
   dayWindows: z.record(z.string(), dayWindowSchema).optional(),

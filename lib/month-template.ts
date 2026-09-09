@@ -5,10 +5,34 @@ import type {
   MonthTemplateSchedule,
   Task,
 } from './data';
+import { ENTITY_ID_MAX_LENGTH } from './data';
 import { dateKey } from './date-time';
 
 const MONTH_KEY = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DAY_KEY = /^\d{4}-(0[1-9]|1[0-2])-([0-2]\d|3[01])$/;
+
+function stableRuleIdSuffix(value: string) {
+  let first = 0x811c9dc5;
+  let second = 0x9e3779b9;
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    first = Math.imul(first ^ code, 0x01000193);
+    second = Math.imul(second ^ code, 0x85ebca6b);
+  }
+  return [first, second]
+    .map((part) => (part >>> 0).toString(16).padStart(8, '0'))
+    .join('');
+}
+
+function monthTemplateTaskId(ruleId: string, day: string) {
+  const full = `month-template:${ruleId}:${day}`;
+  if (full.length <= ENTITY_ID_MAX_LENGTH) return full;
+  const suffix = `:${stableRuleIdSuffix(ruleId)}:${day}`;
+  return `month-template:${ruleId.slice(
+    0,
+    ENTITY_ID_MAX_LENGTH - 'month-template:'.length - suffix.length,
+  )}${suffix}`;
+}
 
 function parseMonth(month: string) {
   if (!MONTH_KEY.test(month)) throw new Error(`Invalid month key: ${month}`);
@@ -150,7 +174,7 @@ export function createMonthFromTemplate(data: AppData, month: string) {
     const existingIds = new Set(existing.map((task) => task.id));
     const generated: Task[] = matchingTemplateRules(currentPlanning.rules, date)
       .map((rule) => ({
-        id: `month-template:${rule.id}:${day}`,
+        id: monthTemplateTaskId(rule.id, day),
         text: rule.text.trim(),
         intervals: [],
         ...(rule.color ? { color: rule.color } : {}),
