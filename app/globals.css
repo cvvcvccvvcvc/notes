@@ -1581,13 +1581,15 @@ h1 {
 .note-editor.white {
   background: #fffefb;
 }
-.note-card h2 {
+.note-card-title {
+  display: block;
   margin: 0 0 14px;
   font-size: 21px;
   line-height: 1.2;
   letter-spacing: -0.02em;
 }
-.note-card p {
+.note-card-content {
+  display: block;
   margin: 0;
   white-space: pre-wrap;
   max-height: 250px;

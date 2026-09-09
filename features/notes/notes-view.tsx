@@ -299,8 +299,8 @@ function SortableNote({ note, onOpen }: { note: Note; onOpen: () => void }) {
         />
       )}
       <span className="note-card-body">
-        <h2>{note.title}</h2>
-        <p>{note.content}</p>
+        <span className="note-card-title">{note.title}</span>
+        <span className="note-card-content">{note.content}</span>
       </span>
     </button>
   );
