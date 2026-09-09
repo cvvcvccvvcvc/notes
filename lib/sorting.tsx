@@ -158,12 +158,15 @@ export function SortableDropZone({
   kind?: string;
   children: ReactNode;
 }) {
-  const { setNodeRef } = useDroppable({
+  const { setNodeRef, isOver } = useDroppable({
     id,
     data: kind ? { kind } : undefined,
   });
   return (
-    <div ref={setNodeRef} className={className}>
+    <div
+      ref={setNodeRef}
+      className={`${className}${isOver ? ' drop-over' : ''}`}
+    >
       {children}
     </div>
   );
