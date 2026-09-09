@@ -322,40 +322,57 @@ function NoteImage({
   const [missing, setMissing] = useState(false);
 
   useEffect(() => {
+    const retryDelays = [1_000, 3_000, 10_000];
     let active = true;
     let objectUrl: string | null = null;
+    let retryTimer: number | null = null;
+    let retryIndex = 0;
     let attempt = 0;
     let loaded = false;
 
     const load = () => {
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
+      retryTimer = null;
       const currentAttempt = ++attempt;
-      setMissing(false);
       void loadNoteAttachment(attachment.id)
         .then((blob) => {
           if (!active || currentAttempt !== attempt) return;
           if (!blob) {
             setMissing(true);
+            const delay = retryDelays[retryIndex++];
+            if (delay !== undefined && navigator.onLine)
+              retryTimer = window.setTimeout(load, delay);
             return;
           }
           if (objectUrl) URL.revokeObjectURL(objectUrl);
           objectUrl = URL.createObjectURL(blob);
           loaded = true;
+          setMissing(false);
           setImage({ blob, url: objectUrl });
         })
         .catch(() => {
-          if (active && currentAttempt === attempt) setMissing(true);
+          if (!active || currentAttempt !== attempt) return;
+          setMissing(true);
+          const delay = retryDelays[retryIndex++];
+          if (delay !== undefined && navigator.onLine)
+            retryTimer = window.setTimeout(load, delay);
         });
     };
-    const retryOnline = () => {
-      if (!loaded) load();
+    const retryWhenAvailable = () => {
+      if (loaded) return;
+      retryIndex = 0;
+      load();
     };
 
     load();
-    window.addEventListener('online', retryOnline);
+    window.addEventListener('online', retryWhenAvailable);
+    window.addEventListener('focus', retryWhenAvailable);
     return () => {
       active = false;
       attempt += 1;
-      window.removeEventListener('online', retryOnline);
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
+      window.removeEventListener('online', retryWhenAvailable);
+      window.removeEventListener('focus', retryWhenAvailable);
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [attachment.id]);

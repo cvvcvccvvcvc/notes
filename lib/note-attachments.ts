@@ -15,6 +15,7 @@ const MIME_TYPES = new Set<NoteAttachmentMimeType>([
   'image/webp',
   'image/gif',
 ]);
+const attachmentLoads = new Map<string, Promise<Blob | null>>();
 
 function isSupportedMimeType(value: string): value is NoteAttachmentMimeType {
   return MIME_TYPES.has(value as NoteAttachmentMimeType);
@@ -67,13 +68,21 @@ export async function savePastedNoteAttachment(
   return { id, mimeType, size: blob.size, createdAt: Date.now() };
 }
 
-export async function loadNoteAttachment(id: string) {
-  const local = await loadStoredNoteAttachment(id);
-  if (local) {
-    if (!local.uploaded) void upload(id, local.blob).catch(() => undefined);
-    return local.blob;
-  }
-  return download(id);
+export function loadNoteAttachment(id: string) {
+  const existing = attachmentLoads.get(id);
+  if (existing) return existing;
+
+  const load = loadStoredNoteAttachment(id)
+    .then((local) => {
+      if (!local) return download(id);
+      if (!local.uploaded) void upload(id, local.blob).catch(() => undefined);
+      return local.blob;
+    })
+    .finally(() => {
+      if (attachmentLoads.get(id) === load) attachmentLoads.delete(id);
+    });
+  attachmentLoads.set(id, load);
+  return load;
 }
 
 export async function synchronizeNoteAttachments(ids: readonly string[]) {
