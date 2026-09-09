@@ -14,6 +14,7 @@ import {
   removeBacklogTask,
   removeBacklogGroup,
   removeScheduledTask,
+  restoreBacklogGroup,
   sendScheduledTaskToBacklog,
   toggleScheduledTaskTimer,
 } from './task-operations';
@@ -225,6 +226,59 @@ void describe('backlog task operations', () => {
     assert.deepEqual(result.backlog?.[0].tasks, [
       { ...one, backlogGroupId: UNSORTED_GROUP_ID },
     ]);
+  });
+
+  void it('restores a removed project at its position without duplicating moved tasks', () => {
+    const one = task('one', { backlogGroupId: 'study' });
+    const two = task('two', { backlogGroupId: 'study' });
+    const current = data({
+      backlog: [
+        { id: UNSORTED_GROUP_ID, title: 'Не разобрано', tasks: [] },
+        {
+          id: 'study',
+          title: 'Учёба',
+          content: 'Контекст',
+          tasks: [one, two],
+        },
+        { id: 'later', title: 'Позже', tasks: [] },
+      ],
+    });
+    const removed = removeBacklogGroup(current, 'study');
+    const edited = {
+      ...removed,
+      schedule: {
+        '2026-09-05': [{ ...two, backlogGroupId: 'study' }],
+      },
+      backlog: removed.backlog!.map((group) =>
+        group.id === UNSORTED_GROUP_ID
+          ? {
+              ...group,
+              tasks: group.tasks
+                .filter((task) => task.id !== 'two')
+                .map((task) => ({
+                  ...task,
+                  text: 'Отредактировано после удаления',
+                })),
+            }
+          : group,
+      ),
+    };
+
+    const restored = restoreBacklogGroup(edited, current.backlog![1], 1);
+
+    assert.deepEqual(
+      restored.backlog?.map((group) => group.id),
+      [UNSORTED_GROUP_ID, 'study', 'later'],
+    );
+    assert.equal(restored.backlog?.[1].content, 'Контекст');
+    assert.deepEqual(restored.backlog?.[1].tasks, [
+      {
+        ...one,
+        text: 'Отредактировано после удаления',
+        backlogGroupId: 'study',
+      },
+    ]);
+    assert.equal(restored.schedule['2026-09-05'][0].id, 'two');
   });
 });
 

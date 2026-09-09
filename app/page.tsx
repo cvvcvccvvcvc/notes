@@ -82,6 +82,7 @@ import {
   removeBacklogTask as removeBacklogTaskFromData,
   removeBacklogGroup as removeBacklogGroupFromData,
   removeScheduledTask,
+  restoreBacklogGroup,
   restoreScheduledTask,
   sendScheduledTaskToBacklog,
   takeBacklogTask as takeBacklogTaskFromData,
@@ -447,7 +448,15 @@ export default function Home() {
 
   function removeBacklogGroup(id: string) {
     if (id === UNSORTED_GROUP_ID) return;
-    commit((current) => removeBacklogGroupFromData(current, id));
+    const groups = dataRef.current?.backlog ?? [];
+    const index = groups.findIndex((group) => group.id === id);
+    const group = groups[index];
+    if (!group) return;
+    commitWithUndo(
+      'Проект удалён',
+      (current) => removeBacklogGroupFromData(current, id),
+      (current) => restoreBacklogGroup(current, group, index),
+    );
   }
 
   function moveBacklogGroup(id: string, direction: -1 | 1) {

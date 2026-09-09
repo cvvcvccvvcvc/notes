@@ -285,6 +285,51 @@ export function removeBacklogGroup(data: AppData, id: string) {
   };
 }
 
+export function restoreBacklogGroup(
+  data: AppData,
+  removed: TaskGroup,
+  index: number,
+) {
+  const groups = data.backlog ?? [];
+  if (groups.some((group) => group.id === removed.id)) return data;
+
+  const removedTaskIds = new Set(removed.tasks.map((task) => task.id));
+  const locatedElsewhere = new Set([
+    ...Object.values(data.schedule).flatMap((tasks) =>
+      tasks.map((task) => task.id),
+    ),
+    ...groups
+      .filter((group) => group.id !== UNSORTED_GROUP_ID)
+      .flatMap((group) => group.tasks.map((task) => task.id)),
+  ]);
+  const unsortedTasks =
+    groups.find((group) => group.id === UNSORTED_GROUP_ID)?.tasks ?? [];
+  const currentUnsorted = new Map(
+    unsortedTasks
+      .filter((task) => removedTaskIds.has(task.id))
+      .map((task) => [task.id, task]),
+  );
+  const restoredTasks = removed.tasks.flatMap((task) => {
+    const current = currentUnsorted.get(task.id);
+    if (current) return [{ ...current, backlogGroupId: removed.id }];
+    if (locatedElsewhere.has(task.id)) return [];
+    return [{ ...task, backlogGroupId: removed.id }];
+  });
+  const next = groups.map((group) =>
+    group.id === UNSORTED_GROUP_ID
+      ? {
+          ...group,
+          tasks: group.tasks.filter((task) => !removedTaskIds.has(task.id)),
+        }
+      : group,
+  );
+  next.splice(Math.min(Math.max(index, 0), next.length), 0, {
+    ...removed,
+    tasks: restoredTasks,
+  });
+  return { ...data, backlog: next };
+}
+
 export function moveBacklogGroup(data: AppData, id: string, direction: -1 | 1) {
   if (id === UNSORTED_GROUP_ID) return data;
   const groups = data.backlog ?? [];
