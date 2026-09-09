@@ -127,6 +127,7 @@ function markdownDecorations(view: EditorView) {
         parsedUrls.push({ from: node.from, to: node.to });
       if (
         concealedNodes.has(node.name) &&
+        !(node.name === 'URL' && node.matchContext(['Autolink'])) &&
         !activeLines.some(
           (line) => node.from <= line.to && node.to >= line.from,
         )
