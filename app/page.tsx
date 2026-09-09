@@ -208,8 +208,16 @@ export default function Home() {
       window.location.reload();
     };
     navigator.serviceWorker.addEventListener('controllerchange', applyUpdate);
+    const entryScript = document.querySelector<HTMLScriptElement>(
+      'script[type="module"][src*="/assets/"]',
+    )?.src;
+    const build = entryScript
+      ? new URL(entryScript).pathname.split('/').at(-1)
+      : 'app';
     navigator.serviceWorker
-      .register('/service-worker.js')
+      .register(
+        `/service-worker.js?build=${encodeURIComponent(build ?? 'app')}`,
+      )
       .catch(() => undefined);
     return () =>
       navigator.serviceWorker.removeEventListener(

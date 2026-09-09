@@ -1,8 +1,19 @@
-const CACHE = 'notes-prototype-v9';
+const CACHE_PREFIX = 'notes-prototype-';
+const build = new URL(self.location.href).searchParams.get('build') || 'local';
+const CACHE = `${CACHE_PREFIX}${build.replace(/[^a-zA-Z0-9._-]/g, '-')}`;
 const SHELL = ['/', '/manifest.webmanifest', '/favicon.svg'];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
+  event.waitUntil(
+    fetch('/offline-assets.json', { cache: 'no-store' })
+      .then((response) => {
+        if (!response.ok) throw new Error('Offline asset manifest unavailable');
+        return response.json();
+      })
+      .then((assets) =>
+        caches.open(CACHE).then((cache) => cache.addAll([...SHELL, ...assets])),
+      ),
+  );
   self.skipWaiting();
 });
 
@@ -12,7 +23,9 @@ self.addEventListener('activate', (event) => {
       .keys()
       .then((keys) =>
         Promise.all(
-          keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)),
+          keys
+            .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE)
+            .map((key) => caches.delete(key)),
         ),
       )
       .then(() => self.clients.claim()),
