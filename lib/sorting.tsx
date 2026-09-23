@@ -59,7 +59,12 @@ export function useTaskSwipe(
     onTouchMoveCapture: (event: React.TouchEvent<HTMLElement>) => {
       const origin = start.current;
       const touch = event.touches[0];
-      if (!origin || !touch || disabled) return;
+      if (disabled) {
+        start.current = null;
+        clearFeedback();
+        return;
+      }
+      if (!origin || !touch) return;
       const dx = touch.clientX - origin.x;
       const dy = touch.clientY - origin.y;
       if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) {
