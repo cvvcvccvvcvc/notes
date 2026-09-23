@@ -347,8 +347,7 @@ h1 {
 }
 .today-section {
   grid-area: today;
-  min-height: calc(100svh - 120px);
-  padding: 0 0 68px;
+  padding: 0 0 20px;
   display: flex;
   flex-direction: column;
 }
@@ -738,6 +737,15 @@ h1 {
 }
 .month-heading::-webkit-details-marker {
   display: none;
+}
+.future-toggle-open {
+  display: none;
+}
+.schedule-month[open] .future-toggle-closed {
+  display: none;
+}
+.schedule-month[open] .future-toggle-open {
+  display: inline;
 }
 .schedule-month {
   margin-bottom: 24px;
@@ -2696,8 +2704,7 @@ h1 {
     padding: 16px;
   }
   .today-section {
-    min-height: calc(100svh - 130px - env(safe-area-inset-top));
-    padding: 0 0 50px;
+    padding: 0 0 16px;
   }
   .rules-panel {
     position: static;

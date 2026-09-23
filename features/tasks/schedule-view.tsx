@@ -37,7 +37,12 @@ import {
 } from '@/lib/date-time';
 import { monthTemplateTaskCount, nextMonthKey } from '@/lib/month-template';
 import { SortableDropZone, SortableItems, SortableRoot } from '@/lib/sorting';
-import { hasTaskTitle, TaskTextEditor, TaskTextPreview } from '@/lib/task-text';
+import {
+  hasTaskTitle,
+  leadingTaskTime,
+  TaskTextEditor,
+  TaskTextPreview,
+} from '@/lib/task-text';
 import { taskDuration, taskState } from '@/lib/task-operations';
 import { RulesPanel } from '@/features/rules/rules-panel';
 import type { Rule } from '@/lib/data';
@@ -506,15 +511,23 @@ export function ScheduleView(props: ScheduleProps) {
 
         <section className="future-section">
           {Object.entries(futureMonths).map(([month, dates]) => (
-            <details
-              className="schedule-month"
-              key={month}
-              data-month={month}
-              open={month === todayKey.slice(0, 7)}
-            >
+            <details className="schedule-month" key={month} data-month={month}>
               <summary className="month-heading">
-                <span>{ruMonth.format(dates[0])}</span>
-                <span>{dates[0].getFullYear()}</span>
+                {month === todayKey.slice(0, 7) ? (
+                  <>
+                    <span className="future-toggle-closed">
+                      Показать следующие дни
+                    </span>
+                    <span className="future-toggle-open">
+                      Скрыть следующие дни
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span>{ruMonth.format(dates[0])}</span>
+                    <span>{dates[0].getFullYear()}</span>
+                  </>
+                )}
               </summary>
               {dates.map((date) => {
                 const day = dateKey(date);
@@ -666,10 +679,14 @@ function FutureTaskRow({
             onDiscard={onDiscard}
             onShortcut={handleShortcut}
             onChange={(text) =>
-              updateTask(day, task.id, (current) => ({
-                ...current,
-                text,
-              }))
+              updateTask(day, task.id, (current) => {
+                const parsed = leadingTaskTime(text);
+                return {
+                  ...current,
+                  text: parsed?.text ?? text,
+                  plannedStart: parsed?.plannedStart ?? current.plannedStart,
+                };
+              })
             }
           />
         ) : (
@@ -828,10 +845,14 @@ function TaskRow({
             onDiscard={onDiscard}
             onShortcut={handleShortcut}
             onChange={(text) =>
-              updateTask(day, task.id, (current) => ({
-                ...current,
-                text,
-              }))
+              updateTask(day, task.id, (current) => {
+                const parsed = leadingTaskTime(text);
+                return {
+                  ...current,
+                  text: parsed?.text ?? text,
+                  plannedStart: parsed?.plannedStart ?? current.plannedStart,
+                };
+              })
             }
           />
         ) : (

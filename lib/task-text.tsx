@@ -13,6 +13,17 @@ export function hasTaskTitle(text: string) {
   return splitTaskText(text).title.trim().length > 0;
 }
 
+export function leadingTaskTime(text: string) {
+  const match =
+    /^([01]\d|2[0-3]):([0-5]\d)(?:[ \t]*[-–—][ \t]*|[ \t]+(?=\S))/.exec(text);
+  return match
+    ? {
+        plannedStart: `${match[1]}:${match[2]}`,
+        text: text.slice(match[0].length),
+      }
+    : null;
+}
+
 function resize(element: HTMLTextAreaElement | null) {
   if (!element) return;
   element.style.height = '0px';
