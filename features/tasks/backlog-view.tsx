@@ -39,6 +39,7 @@ import {
 } from '@/lib/task-text';
 
 const PROJECT_DND_PREFIX = 'backlog-project:';
+const PROJECT_PREVIEW_TASK_LIMIT = 2;
 const projectDndId = (id: string) => `${PROJECT_DND_PREFIX}${id}`;
 const loadMarkdownEditor = () =>
   import('@/components/markdown-editor').then((module) => ({
@@ -183,6 +184,16 @@ export function BacklogView(props: BacklogProps) {
     const index = entries.findIndex((entry) => entry.id === id);
     const target = entries[index + direction];
     if (!target) return;
+    const targetGroup = props.groups.find(
+      (group) => group.id === target.groupId,
+    );
+    if (
+      targetGroup &&
+      targetGroup.tasks.findIndex((task) => task.id === target.id) >=
+        PROJECT_PREVIEW_TASK_LIMIT &&
+      openGroupId !== target.groupId
+    )
+      openProject(target.groupId);
     select(target.id);
     focusBacklogTask(target.id);
   }
@@ -241,6 +252,7 @@ export function BacklogView(props: BacklogProps) {
 
   function addTask(groupId: string) {
     const id = props.addTask(groupId);
+    setOpenGroupId(groupId);
     setSelectedGroupId(null);
     setSelectedId(id);
     setEditingId(id);
@@ -268,6 +280,11 @@ export function BacklogView(props: BacklogProps) {
     const locationKey = `${location}:${group.id}`;
     const titleEditing = editingGroupKey === locationKey;
     const contentVisible = location !== 'card' || openGroupId !== group.id;
+    const visibleTasks =
+      location === 'card'
+        ? group.tasks.slice(0, PROJECT_PREVIEW_TASK_LIMIT)
+        : group.tasks;
+    const hiddenTaskCount = group.tasks.length - visibleTasks.length;
 
     return (
       <>
@@ -310,8 +327,8 @@ export function BacklogView(props: BacklogProps) {
               className="backlog-list"
               kind="task-zone"
             >
-              <SortableItems items={group.tasks.map((task) => task.id)}>
-                {group.tasks.map((task, index) => (
+              <SortableItems items={visibleTasks.map((task) => task.id)}>
+                {visibleTasks.map((task, index) => (
                   <BacklogTaskRow
                     key={task.id}
                     task={task}
@@ -336,6 +353,13 @@ export function BacklogView(props: BacklogProps) {
                     }
                     onMove={(direction) => {
                       props.moveTaskVertically(group.id, task.id, direction);
+                      if (
+                        location === 'card' &&
+                        direction === 1 &&
+                        index === PROJECT_PREVIEW_TASK_LIMIT - 1 &&
+                        group.tasks.length > PROJECT_PREVIEW_TASK_LIMIT
+                      )
+                        openProject(group.id);
                       focusBacklogTask(task.id);
                     }}
                     canMoveUp={index > 0 || groupIndex > 0}
@@ -362,6 +386,16 @@ export function BacklogView(props: BacklogProps) {
                 ))}
               </SortableItems>
             </SortableDropZone>
+            {location === 'card' && hiddenTaskCount > 0 && (
+              <button
+                type="button"
+                className="project-more-tasks"
+                aria-label={`Открыть проект ${group.title}; скрыто дел: ${hiddenTaskCount}`}
+                onClick={() => openProject(group.id)}
+              >
+                Ещё {hiddenTaskCount}
+              </button>
+            )}
             {location !== 'card' && (
               <Button
                 className="project-add-task"
@@ -628,7 +662,7 @@ function SortableProject({
 }
 
 function MobileProjectPreview({ group }: { group: TaskGroup }) {
-  const visibleTasks = group.tasks.slice(0, 3);
+  const visibleTasks = group.tasks.slice(0, PROJECT_PREVIEW_TASK_LIMIT);
 
   return (
     <div className="project-card-mobile-preview" aria-hidden="true">

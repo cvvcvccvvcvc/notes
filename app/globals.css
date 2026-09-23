@@ -1278,6 +1278,21 @@ h1 {
 .backlog-list.drop-over {
   background: rgb(218 239 231 / 35%);
 }
+.project-more-tasks {
+  margin: 7px 0 0;
+  padding: 3px 2px;
+  border: 0;
+  background: transparent;
+  color: #64766b;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.project-more-tasks:hover,
+.project-more-tasks:focus-visible {
+  color: #236e5b;
+  text-decoration: underline;
+}
 .backlog-task {
   position: relative;
   min-height: 46px;
@@ -2630,6 +2645,7 @@ h1 {
     cursor: pointer;
   }
   .backlog-group > .backlog-list,
+  .backlog-group > .project-more-tasks,
   .backlog-group > .project-info-preview,
   .backlog-group .project-menu-button {
     display: none;
