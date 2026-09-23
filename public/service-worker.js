@@ -1,7 +1,7 @@
 const CACHE_PREFIX = 'notes-prototype-';
 const build = new URL(self.location.href).searchParams.get('build') || 'local';
 const CACHE = `${CACHE_PREFIX}${build.replace(/[^a-zA-Z0-9._-]/g, '-')}`;
-const SHELL = ['/', '/manifest.webmanifest', '/favicon.svg'];
+const SHELL = ['/', '/manifest.webmanifest', '/apple-touch-icon.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

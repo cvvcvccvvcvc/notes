@@ -52,7 +52,7 @@ button { margin-top: 12px; border: 0; background: #2d866f; color: #fff; font-wei
 `;
 
 function loginPage(invalid = false) {
-  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f5f5f1"><title>Вход — Notes</title><link rel="stylesheet" href="/login.css"></head><body><main><h1>Notes</h1><p>Личное расписание и заметки</p>${invalid ? '<div class="error">Неверный пароль</div>' : ''}<form method="post" action="/login"><label for="password">Пароль</label><input id="password" name="password" type="password" autocomplete="current-password" autofocus required><button type="submit">Войти</button></form></main></body></html>`;
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f5f5f1"><title>Вход — Notes</title><link rel="icon" type="image/png" href="/apple-touch-icon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="stylesheet" href="/login.css"></head><body><main><h1>Notes</h1><p>Личное расписание и заметки</p>${invalid ? '<div class="error">Неверный пароль</div>' : ''}<form method="post" action="/login"><label for="password">Пароль</label><input id="password" name="password" type="password" autocomplete="current-password" autofocus required><button type="submit">Войти</button></form></main></body></html>`;
 }
 
 type CreateAppOptions = {
@@ -157,6 +157,7 @@ export async function createApp({
     if (
       pathname === '/login' ||
       pathname === '/login.css' ||
+      pathname === '/apple-touch-icon.png' ||
       pathname === '/healthz' ||
       pathname === '/api/auth/login' ||
       pathname === '/api/auth/session' ||
