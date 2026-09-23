@@ -17,7 +17,7 @@ import {
   rectSortingStrategy,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { useRef, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 
 export function useTaskSwipe(
   onRight: () => void,
@@ -26,26 +26,98 @@ export function useTaskSwipe(
 ) {
   const start = useRef<{ x: number; y: number; time: number } | null>(null);
   const suppressClick = useRef(false);
+  const surface = useRef<HTMLElement | null>(null);
+  const animation = useRef<number | null>(null);
+
+  function clearFeedback() {
+    const card = surface.current;
+    if (!card) return;
+    card.style.translate = '';
+    card.style.opacity = '';
+    card.style.transition = '';
+    card.style.removeProperty('--swipe-progress');
+    delete card.dataset.swipeAction;
+    surface.current = null;
+  }
+
+  useEffect(
+    () => () => {
+      if (animation.current !== null) window.clearTimeout(animation.current);
+    },
+    [],
+  );
+
   return {
     onTouchStartCapture: (event: React.TouchEvent<HTMLElement>) => {
+      if (animation.current !== null) return;
       const touch = event.touches[0];
       start.current =
         !disabled && touch && isCardSurface(event.target)
           ? { x: touch.clientX, y: touch.clientY, time: Date.now() }
           : null;
     },
+    onTouchMoveCapture: (event: React.TouchEvent<HTMLElement>) => {
+      const origin = start.current;
+      const touch = event.touches[0];
+      if (!origin || !touch || disabled) return;
+      const dx = touch.clientX - origin.x;
+      const dy = touch.clientY - origin.y;
+      if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) {
+        start.current = null;
+        clearFeedback();
+        return;
+      }
+      if (Date.now() - origin.time > 550 || Math.abs(dx) < 10) return;
+      const card = event.currentTarget;
+      surface.current = card;
+      card.dataset.swipeAction = dx > 0 ? 'finish' : 'remove';
+      card.style.transition = 'none';
+      card.style.translate = `${Math.max(-100, Math.min(100, dx * 0.7))}px 0`;
+      card.style.setProperty(
+        '--swipe-progress',
+        String(Math.min(1, Math.abs(dx) / 72)),
+      );
+    },
     onTouchEndCapture: (event: React.TouchEvent<HTMLElement>) => {
+      if (animation.current !== null) return;
       const origin = start.current;
       start.current = null;
       const touch = event.changedTouches[0];
-      if (!origin || !touch || disabled || Date.now() - origin.time > 550)
+      if (!origin || !touch || disabled) {
+        clearFeedback();
         return;
+      }
       const dx = touch.clientX - origin.x;
       const dy = touch.clientY - origin.y;
-      if (Math.abs(dx) < 72 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-      suppressClick.current = true;
-      if (dx > 0) onRight();
-      else onLeft();
+      const horizontal = Math.abs(dx) > Math.abs(dy) * 1.5;
+      if (horizontal && Math.abs(dx) > 12) suppressClick.current = true;
+      const card = surface.current ?? event.currentTarget;
+      surface.current = card;
+      card.dataset.swipeAction = dx > 0 ? 'finish' : 'remove';
+      card.style.transition = 'translate 180ms ease, opacity 180ms ease';
+      if (Date.now() - origin.time > 550 || Math.abs(dx) < 72 || !horizontal) {
+        card.style.translate = '0 0';
+        card.style.setProperty('--swipe-progress', '0');
+        animation.current = window.setTimeout(() => {
+          animation.current = null;
+          clearFeedback();
+        }, 180);
+        return;
+      }
+      card.style.setProperty('--swipe-progress', '1');
+      card.style.translate = `${dx > 0 ? card.offsetWidth : -card.offsetWidth}px 0`;
+      card.style.opacity = '0';
+      animation.current = window.setTimeout(() => {
+        animation.current = null;
+        if (dx > 0) onRight();
+        else onLeft();
+        clearFeedback();
+      }, 180);
+    },
+    onTouchCancelCapture: () => {
+      if (animation.current !== null) return;
+      start.current = null;
+      clearFeedback();
     },
     onClickCapture: (event: React.MouseEvent<HTMLElement>) => {
       if (!suppressClick.current) return;

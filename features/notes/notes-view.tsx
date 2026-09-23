@@ -184,7 +184,7 @@ export function NotesView({
       </SortableList>
       {mobileLayout && (
         <button
-          className="notes-mobile-add"
+          className={`notes-mobile-add ${undo?.visible ? 'above-undo' : ''}`}
           type="button"
           aria-label="Новая заметка"
           onClick={createNote}

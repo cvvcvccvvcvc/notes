@@ -2991,6 +2991,9 @@ h1 {
     box-shadow: 0 6px 18px rgb(20 70 50 / 18%);
     backdrop-filter: blur(10px);
   }
+  .notes-mobile-add.above-undo {
+    bottom: calc(150px + env(safe-area-inset-bottom));
+  }
   .notes-mobile-add svg {
     width: 25px;
   }
@@ -3296,6 +3299,31 @@ h1 {
 [data-task-card].dragging,
 [data-task-card].dragging [data-task-focus] {
   cursor: grabbing;
+}
+[data-task-card][data-swipe-action]::after {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border-radius: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  pointer-events: none;
+  opacity: var(--swipe-progress, 0);
+}
+[data-task-card][data-swipe-action='finish']::after {
+  content: '✓ Завершить';
+  justify-content: flex-start;
+  color: #195f3e;
+  background: rgb(195 238 209 / 86%);
+}
+[data-task-card][data-swipe-action='remove']::after {
+  content: 'Удалить ×';
+  justify-content: flex-end;
+  color: #972f35;
+  background: rgb(250 211 215 / 88%);
 }
 [data-task-focus] {
   user-select: none;
