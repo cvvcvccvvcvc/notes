@@ -2763,6 +2763,7 @@ h1 {
   }
   .rules-panel {
     position: relative;
+    top: auto;
     max-height: none;
     margin-top: 0;
     padding: 0;
