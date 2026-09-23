@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import type { AppData, Task } from './data';
-import { UNSORTED_GROUP_ID } from './backlog';
 import {
   appendBacklogTask,
   finishScheduledTask,
@@ -25,12 +24,9 @@ function task(id: string, overrides: Partial<Task> = {}): Task {
 
 function data(overrides: Partial<AppData> = {}): AppData {
   return {
-    version: 2,
+    version: 7,
     schedule: {},
-    backlog: [
-      { id: UNSORTED_GROUP_ID, title: 'Не разобрано', tasks: [] },
-      { id: 'study', title: 'Учёба', tasks: [] },
-    ],
+    backlog: [{ id: 'study', title: 'Учёба', tasks: [] }],
     notes: [],
     history: [],
     ...overrides,
@@ -108,7 +104,7 @@ void describe('schedule task operations', () => {
     assert.deepEqual(result.schedule['2026-09-07'], []);
   });
 
-  void it('falls back to the unsorted group instead of losing a task whose old group was deleted', () => {
+  void it('sends a task only to the chosen existing project', () => {
     const running = task('one', {
       backlogGroupId: 'deleted-group',
       intervals: [{ start: 100 }],
@@ -120,16 +116,27 @@ void describe('schedule task operations', () => {
       '2026-09-05',
       running.id,
       250,
+      'study',
     );
 
     assert.deepEqual(result.schedule['2026-09-05'], []);
     assert.deepEqual(result.backlog?.[0].tasks, [
       {
         ...running,
-        backlogGroupId: UNSORTED_GROUP_ID,
+        backlogGroupId: 'study',
         intervals: [{ start: 100, end: 250 }],
       },
     ]);
+    assert.equal(
+      sendScheduledTaskToBacklog(
+        current,
+        '2026-09-05',
+        running.id,
+        250,
+        'missing',
+      ),
+      current,
+    );
   });
 
   void it('pauses a running task when it leaves today for tomorrow', () => {
@@ -157,7 +164,7 @@ void describe('backlog task operations', () => {
     const current = data();
     const created = appendBacklogTask(current, 'study', task('new'));
 
-    assert.deepEqual(created.backlog?.[1].tasks, [
+    assert.deepEqual(created.backlog?.[0].tasks, [
       task('new', { backlogGroupId: 'study' }),
     ]);
     assert.equal(appendBacklogTask(created, 'study', task('new')), created);
@@ -168,21 +175,17 @@ void describe('backlog task operations', () => {
     const one = task('one', { backlogGroupId: 'study' });
     const two = task('two', { backlogGroupId: 'study' });
     const current = data({
-      backlog: [
-        { id: UNSORTED_GROUP_ID, title: 'Не разобрано', tasks: [] },
-        { id: 'study', title: 'Учёба', tasks: [one, two] },
-      ],
+      backlog: [{ id: 'study', title: 'Учёба', tasks: [one, two] }],
     });
 
     const result = removeBacklogTask(current, 'study', 'one');
-    assert.deepEqual(result.backlog?.[1].tasks, [two]);
+    assert.deepEqual(result.backlog?.[0].tasks, [two]);
     assert.deepEqual(result.history, []);
   });
 
   void it('does not remove a task when a drop target group is stale', () => {
     const current = data({
       backlog: [
-        { id: UNSORTED_GROUP_ID, title: 'Не разобрано', tasks: [] },
         {
           id: 'study',
           title: 'Учёба',
@@ -205,7 +208,6 @@ void describe('backlog task operations', () => {
     const one = task('one', { backlogGroupId: 'study' });
     const current = data({
       backlog: [
-        { id: UNSORTED_GROUP_ID, title: 'Не разобрано', tasks: [] },
         { id: 'study', title: 'Учёба', tasks: [one] },
         { id: 'later', title: 'Позже', tasks: [task('two')] },
       ],
@@ -213,93 +215,84 @@ void describe('backlog task operations', () => {
 
     const result = moveBacklogTaskVertically(current, 'study', 'one', 1);
 
-    assert.deepEqual(result.backlog?.[1].tasks, []);
+    assert.deepEqual(result.backlog?.[0].tasks, []);
     assert.deepEqual(
-      result.backlog?.[2].tasks.map((item) => item.id),
+      result.backlog?.[1].tasks.map((item) => item.id),
       ['one', 'two'],
     );
-    assert.equal(result.backlog?.[2].tasks[0].backlogGroupId, 'later');
+    assert.equal(result.backlog?.[1].tasks[0].backlogGroupId, 'later');
   });
 
-  void it('moves a removed group contents into the unsorted group', () => {
+  void it('moves a removed project contents into today without losing identity', () => {
     const one = task('one', { backlogGroupId: 'study' });
     const current = data({
-      backlog: [
-        { id: UNSORTED_GROUP_ID, title: 'Не разобрано', tasks: [] },
-        { id: 'study', title: 'Учёба', tasks: [one] },
-      ],
+      schedule: { '2026-09-05': [task('planned')] },
+      backlog: [{ id: 'study', title: 'Учёба', tasks: [one] }],
     });
 
-    const result = removeBacklogGroup(current, 'study');
+    const result = removeBacklogGroup(current, 'study', '2026-09-05');
 
+    assert.deepEqual(result.backlog, []);
     assert.deepEqual(
-      result.backlog?.map((group) => group.id),
-      [UNSORTED_GROUP_ID],
+      result.schedule['2026-09-05'].map((task) => task.id),
+      ['planned', 'one'],
     );
-    assert.deepEqual(result.backlog?.[0].tasks, [
-      { ...one, backlogGroupId: UNSORTED_GROUP_ID },
-    ]);
+    assert.equal(result.schedule['2026-09-05'][1].backlogGroupId, undefined);
+    assert.deepEqual(result.history, []);
   });
 
   void it('restores a removed project at its position without duplicating moved tasks', () => {
     const one = task('one', { backlogGroupId: 'study' });
     const two = task('two', { backlogGroupId: 'study' });
+    const three = task('three', { backlogGroupId: 'study' });
     const current = data({
       backlog: [
-        { id: UNSORTED_GROUP_ID, title: 'Не разобрано', tasks: [] },
         {
           id: 'study',
           title: 'Учёба',
           content: 'Контекст',
-          tasks: [one, two],
+          tasks: [one, two, three],
         },
         { id: 'later', title: 'Позже', tasks: [] },
       ],
     });
-    const removed = removeBacklogGroup(current, 'study');
+    const removed = removeBacklogGroup(current, 'study', '2026-09-05');
     const edited = {
       ...removed,
       schedule: {
-        '2026-09-05': [{ ...two, backlogGroupId: 'study' }],
+        '2026-09-05': [{ ...one, text: 'Отредактировано после удаления' }],
+        '2026-09-06': [two],
       },
-      backlog: removed.backlog!.map((group) =>
-        group.id === UNSORTED_GROUP_ID
-          ? {
-              ...group,
-              tasks: group.tasks
-                .filter((task) => task.id !== 'two')
-                .map((task) => ({
-                  ...task,
-                  text: 'Отредактировано после удаления',
-                })),
-            }
-          : group,
-      ),
     };
 
-    const restored = restoreBacklogGroup(edited, current.backlog![1], 1);
+    const restored = restoreBacklogGroup(
+      edited,
+      current.backlog![0],
+      0,
+      '2026-09-05',
+    );
 
     assert.deepEqual(
       restored.backlog?.map((group) => group.id),
-      [UNSORTED_GROUP_ID, 'study', 'later'],
+      ['study', 'later'],
     );
-    assert.equal(restored.backlog?.[1].content, 'Контекст');
-    assert.deepEqual(restored.backlog?.[1].tasks, [
+    assert.equal(restored.backlog?.[0].content, 'Контекст');
+    assert.deepEqual(restored.backlog?.[0].tasks, [
       {
         ...one,
         text: 'Отредактировано после удаления',
         backlogGroupId: 'study',
       },
     ]);
-    assert.equal(restored.schedule['2026-09-05'][0].id, 'two');
+    assert.deepEqual(restored.schedule['2026-09-05'], []);
+    assert.equal(restored.schedule['2026-09-06'][0].id, 'two');
   });
 });
 
 void describe('project operations', () => {
-  void it('moves projects without moving the fixed unsorted group', () => {
+  void it('moves projects through the full list', () => {
     const current = data({
       backlog: [
-        { id: UNSORTED_GROUP_ID, title: 'Не разобрано', tasks: [] },
         { id: 'study', title: 'Учёба', tasks: [] },
         { id: 'work', title: 'Работа', tasks: [] },
       ],
@@ -308,16 +301,14 @@ void describe('project operations', () => {
     const moved = moveBacklogGroup(current, 'work', -1);
     assert.deepEqual(
       moved.backlog?.map((group) => group.id),
-      [UNSORTED_GROUP_ID, 'work', 'study'],
+      ['work', 'study'],
     );
     assert.equal(moveBacklogGroup(moved, 'work', -1), moved);
-    assert.equal(moveBacklogGroup(current, UNSORTED_GROUP_ID, 1), current);
   });
 
   void it('places a dragged project at another project', () => {
     const current = data({
       backlog: [
-        { id: UNSORTED_GROUP_ID, title: 'Не разобрано', tasks: [] },
         { id: 'one', title: 'Один', tasks: [] },
         { id: 'two', title: 'Два', tasks: [] },
         { id: 'three', title: 'Три', tasks: [] },
@@ -328,11 +319,8 @@ void describe('project operations', () => {
       moveBacklogGroupTo(current, 'one', 'three').backlog?.map(
         (group) => group.id,
       ),
-      [UNSORTED_GROUP_ID, 'two', 'three', 'one'],
+      ['two', 'three', 'one'],
     );
-    assert.equal(
-      moveBacklogGroupTo(current, 'one', UNSORTED_GROUP_ID),
-      current,
-    );
+    assert.equal(moveBacklogGroupTo(current, 'one', 'missing'), current);
   });
 });

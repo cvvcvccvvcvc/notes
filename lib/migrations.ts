@@ -3,7 +3,6 @@ import { UNSORTED_GROUP_ID } from './backlog';
 import { createInitialRules } from './rule-operations';
 
 const seedGroups: TaskGroup[] = [
-  { id: UNSORTED_GROUP_ID, title: 'Не разобрано', tasks: [] },
   {
     id: 'backlog-study',
     title: 'Учёба',
@@ -87,34 +86,57 @@ function migratedNotes(notes: Note[]) {
   return [...additions, ...withoutImportant];
 }
 
-/** Upgrade persisted data without applying date-dependent product behavior. */
-export function migrateAppData(data: AppData): AppData {
+function withoutDeletedGroup(task: Task): Task {
+  if (task.backlogGroupId !== UNSORTED_GROUP_ID) return task;
+  const { backlogGroupId: _deleted, ...remaining } = task;
+  return remaining;
+}
+
+/** Upgrade persisted data; legacy unsorted tasks enter the current day once. */
+export function migrateAppData(data: AppData, today: string): AppData {
   const needsBacklog = !data.backlog;
   const needsMonthPlanning = !data.monthPlanning;
   const needsRules = !data.rules;
   const needsGoals = !data.goals;
   const needsReviews = !data.reviews;
   const sourceGroups = data.backlog ?? seedGroups;
-  const missingUnsorted = !sourceGroups.some(
+  const legacyGroup = sourceGroups.find(
     (group) => group.id === UNSORTED_GROUP_ID,
   );
-  const staleTaskLocations = sourceGroups.some((group) =>
+  const remainingGroups = sourceGroups.filter(
+    (group) => group.id !== UNSORTED_GROUP_ID,
+  );
+  const staleTaskLocations = remainingGroups.some((group) =>
     group.tasks.some((task) => task.backlogGroupId !== group.id),
   );
+  const staleScheduledLocations = Object.values(data.schedule).some((tasks) =>
+    tasks.some((task) => task.backlogGroupId === UNSORTED_GROUP_ID),
+  );
   let groups: TaskGroup[] = sourceGroups;
-  if (needsBacklog || missingUnsorted || staleTaskLocations)
-    groups = sourceGroups.map((group) => ({
+  if (needsBacklog || legacyGroup || staleTaskLocations)
+    groups = remainingGroups.map((group) => ({
       ...group,
       tasks: group.tasks.map((task) => ({
         ...task,
         backlogGroupId: group.id,
       })),
     }));
-  if (missingUnsorted)
-    groups = [
-      { id: UNSORTED_GROUP_ID, title: 'Не разобрано', tasks: [] },
-      ...groups,
-    ];
+  let schedule = data.schedule;
+  if (staleScheduledLocations || legacyGroup?.tasks.length) {
+    schedule = staleScheduledLocations
+      ? Object.fromEntries(
+          Object.entries(data.schedule).map(([day, tasks]) => [
+            day,
+            tasks.map(withoutDeletedGroup),
+          ]),
+        )
+      : { ...data.schedule };
+    if (legacyGroup?.tasks.length)
+      schedule[today] = [
+        ...(schedule[today] ?? []),
+        ...legacyGroup.tasks.map(withoutDeletedGroup),
+      ];
+  }
 
   if (
     !needsBacklog &&
@@ -122,14 +144,16 @@ export function migrateAppData(data: AppData): AppData {
     !needsRules &&
     !needsGoals &&
     !needsReviews &&
-    !missingUnsorted &&
+    !legacyGroup &&
     !staleTaskLocations &&
-    data.version >= 6
+    !staleScheduledLocations &&
+    data.version >= 7
   )
     return data;
   return {
     ...data,
-    version: Math.max(data.version, 6),
+    version: Math.max(data.version, 7),
+    schedule,
     backlog: groups,
     monthPlanning:
       data.monthPlanning ??

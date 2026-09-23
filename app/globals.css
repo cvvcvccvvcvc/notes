@@ -955,13 +955,6 @@ h1 {
   align-items: start;
   gap: 16px;
 }
-.backlog-unsorted {
-  margin-bottom: 22px;
-  padding: 14px;
-  border: 1px solid #dfe3de;
-  border-radius: 14px;
-  background: #f1f4f0;
-}
 .backlog-group {
   position: relative;
   min-width: 0;
@@ -1002,7 +995,6 @@ h1 {
 .project-select-surface:active {
   cursor: grabbing;
 }
-.backlog-unsorted-open,
 .project-card-mobile-preview {
   display: none;
 }
@@ -1330,17 +1322,14 @@ h1 {
 .backlog-group .backlog-take span {
   display: none;
 }
-.backlog-unsorted .backlog-task,
 .project-dialog .backlog-task {
   grid-template-columns: minmax(0, 1fr) auto 40px;
 }
-.backlog-unsorted .backlog-take,
 .project-dialog .backlog-take {
   width: auto;
   gap: 5px;
   padding: 0 11px;
 }
-.backlog-unsorted .backlog-take span,
 .project-dialog .backlog-take span {
   display: inline;
 }
@@ -2632,37 +2621,18 @@ h1 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
-  .backlog-unsorted,
   .backlog-group {
     padding: 10px;
     border-radius: 12px;
-  }
-  .backlog-unsorted {
-    position: relative;
-    min-height: 72px;
-    margin-bottom: 10px;
   }
   .backlog-group {
     min-height: 116px;
     cursor: pointer;
   }
-  .backlog-unsorted > .backlog-list,
-  .backlog-unsorted > .project-add-task,
-  .backlog-unsorted .project-menu-button,
   .backlog-group > .backlog-list,
   .backlog-group > .project-info-preview,
   .backlog-group .project-menu-button {
     display: none;
-  }
-  .backlog-unsorted-open {
-    position: absolute;
-    z-index: 4;
-    inset: 0;
-    width: 100%;
-    display: block;
-    border: 0;
-    border-radius: inherit;
-    background: transparent;
   }
   .project-card-mobile-preview {
     display: grid;

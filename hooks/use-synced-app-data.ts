@@ -35,7 +35,7 @@ export type SyncState =
 
 function normalize(data: AppData, today: string) {
   return startReviewTracking(
-    rolloverPastTasks(migrateAppData(data), today),
+    rolloverPastTasks(migrateAppData(data, today), today),
     today,
   );
 }

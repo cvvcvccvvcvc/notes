@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { AppData } from './data';
-import { UNSORTED_GROUP_ID } from './backlog';
 import { rolloverPastTasks } from './rollover';
 
 void test('rollover preserves a task and closes its running interval at midnight', () => {
@@ -17,7 +16,7 @@ void test('rollover preserves a task and closes its running interval at midnight
         },
       ],
     },
-    backlog: [{ id: UNSORTED_GROUP_ID, title: 'Не разобрано', tasks: [] }],
+    backlog: [],
     notes: [],
     history: [],
   };
@@ -25,11 +24,33 @@ void test('rollover preserves a task and closes its running interval at midnight
   const result = rolloverPastTasks(data, '2026-09-05');
 
   assert.deepEqual(result.schedule['2026-09-04'], []);
-  assert.equal(result.backlog?.[0].tasks[0].id, 'task-1');
+  assert.equal(result.schedule['2026-09-05'][0].id, 'task-1');
   assert.equal(
-    result.backlog?.[0].tasks[0].intervals[0].end,
+    result.schedule['2026-09-05'][0].intervals[0].end,
     new Date('2026-09-05T00:00:00').getTime(),
   );
   assert.deepEqual(result.history, []);
+  assert.equal(rolloverPastTasks(result, '2026-09-05'), result);
+});
+
+void test('missed days keep their order before tasks already planned for today', () => {
+  const data: AppData = {
+    version: 7,
+    schedule: {
+      '2026-09-03': [{ id: 'early', text: 'Раннее', intervals: [] }],
+      '2026-09-04': [{ id: 'late', text: 'Позднее', intervals: [] }],
+      '2026-09-05': [{ id: 'planned', text: 'Сегодня', intervals: [] }],
+    },
+    backlog: [],
+    notes: [],
+    history: [],
+  };
+  const result = rolloverPastTasks(data, '2026-09-05');
+  assert.deepEqual(
+    result.schedule['2026-09-05'].map((task) => task.id),
+    ['early', 'late', 'planned'],
+  );
+  assert.deepEqual(result.schedule['2026-09-03'], []);
+  assert.deepEqual(result.schedule['2026-09-04'], []);
   assert.equal(rolloverPastTasks(result, '2026-09-05'), result);
 });

@@ -29,7 +29,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { TaskColorMenu } from '@/features/tasks/task-color-menu';
-import { UNSORTED_GROUP_ID } from '@/lib/backlog';
 import type { Task, TaskColor, TaskGroup } from '@/lib/data';
 import { SortableDropZone, SortableItems, SortableRoot } from '@/lib/sorting';
 import {
@@ -171,10 +170,7 @@ export function BacklogView(props: BacklogProps) {
       }
     }
   }, [editingId, props]);
-  const unsorted = props.groups.find((group) => group.id === UNSORTED_GROUP_ID);
-  const projects = props.groups.filter(
-    (group) => group.id !== UNSORTED_GROUP_ID,
-  );
+  const projects = props.groups;
   const openGroup = props.groups.find((group) => group.id === openGroupId);
 
   function select(id: string) {
@@ -267,7 +263,7 @@ export function BacklogView(props: BacklogProps) {
   function renderProject(
     group: TaskGroup,
     groupIndex: number,
-    location: 'unsorted' | 'card' | 'dialog',
+    location: 'card' | 'dialog',
   ) {
     const locationKey = `${location}:${group.id}`;
     const titleEditing = editingGroupKey === locationKey;
@@ -279,7 +275,6 @@ export function BacklogView(props: BacklogProps) {
           <ProjectTitle
             id={`backlog-group-title-${location}-${group.id}`}
             title={group.title}
-            readOnly={group.id === UNSORTED_GROUP_ID}
             editing={titleEditing}
             allowDoubleClick={location === 'dialog'}
             onStartEditing={() => {
@@ -376,20 +371,18 @@ export function BacklogView(props: BacklogProps) {
                 <Plus /> Новое дело
               </Button>
             )}
-            {group.id !== UNSORTED_GROUP_ID && location === 'dialog' && (
+            {location === 'dialog' && (
               <ProjectInformation
                 group={group}
                 editorId={`project-info-input-${location}-${group.id}`}
                 onChange={(content) => props.setGroupContent(group.id, content)}
               />
             )}
-            {group.id !== UNSORTED_GROUP_ID &&
-              location === 'card' &&
-              group.content?.trim() && (
-                <p className="project-info-preview">
-                  {projectInfoPreview(group.content)}
-                </p>
-              )}
+            {location === 'card' && group.content?.trim() && (
+              <p className="project-info-preview">
+                {projectInfoPreview(group.content)}
+              </p>
+            )}
           </>
         )}
         {location !== 'dialog' && <MobileProjectPreview group={group} />}
@@ -419,21 +412,6 @@ export function BacklogView(props: BacklogProps) {
         <h1>Проекты</h1>
       </div>
       <SortableRoot onDrop={dropItem}>
-        {unsorted && (
-          <section className="backlog-unsorted">
-            {renderProject(
-              unsorted,
-              props.groups.findIndex((group) => group.id === unsorted.id),
-              'unsorted',
-            )}
-            <button
-              type="button"
-              className="backlog-unsorted-open"
-              aria-label="Открыть проект Не разобрано"
-              onClick={() => openProject(unsorted.id)}
-            />
-          </section>
-        )}
         <SortableItems
           items={projects.map((group) => projectDndId(group.id))}
           grid
@@ -673,7 +651,6 @@ function MobileProjectPreview({ group }: { group: TaskGroup }) {
 function ProjectTitle({
   id,
   title,
-  readOnly,
   editing,
   allowDoubleClick,
   onStartEditing,
@@ -682,7 +659,6 @@ function ProjectTitle({
 }: {
   id: string;
   title: string;
-  readOnly: boolean;
   editing: boolean;
   allowDoubleClick: boolean;
   onStartEditing: () => void;
@@ -703,17 +679,17 @@ function ProjectTitle({
       id={id}
       className="backlog-group-title"
       value={title}
-      readOnly={readOnly || !editing}
+      readOnly={!editing}
       tabIndex={allowDoubleClick || editing ? 0 : -1}
       aria-label="Название проекта"
       data-editing={editing || undefined}
       onDoubleClick={() => {
-        if (!readOnly && !editing && allowDoubleClick) onStartEditing();
+        if (!editing && allowDoubleClick) onStartEditing();
       }}
       onBlur={onStopEditing}
       onChange={(event) => onChange(event.target.value)}
       onKeyDown={(event) => {
-        if (!readOnly && !editing && event.key === 'Enter') {
+        if (!editing && event.key === 'Enter') {
           event.preventDefault();
           event.stopPropagation();
           onStartEditing();
@@ -754,38 +730,30 @@ function ProjectMenu({
         <MoreHorizontal />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {group.id !== UNSORTED_GROUP_ID && (
-          <>
-            <DropdownMenuItem
-              disabled={groupIndex <= 1}
-              onClick={() => onMove(-1)}
-            >
-              Переместить раньше
-              <DropdownMenuShortcut>⌘↑</DropdownMenuShortcut>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={groupIndex === groupCount - 1}
-              onClick={() => onMove(1)}
-            >
-              Переместить позже
-              <DropdownMenuShortcut>⌘↓</DropdownMenuShortcut>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-          </>
-        )}
+        <DropdownMenuItem
+          disabled={groupIndex === 0}
+          onClick={() => onMove(-1)}
+        >
+          Переместить раньше
+          <DropdownMenuShortcut>⌘↑</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={groupIndex === groupCount - 1}
+          onClick={() => onMove(1)}
+        >
+          Переместить позже
+          <DropdownMenuShortcut>⌘↓</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <TaskColorMenu
           label="Цвет проекта"
           color={group.color}
           onChange={onSetColor}
         />
-        {group.id !== UNSORTED_GROUP_ID && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onClick={onRemove}>
-              Удалить проект → Не разобрано
-            </DropdownMenuItem>
-          </>
-        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem variant="destructive" onClick={onRemove}>
+          Удалить проект → дела в Сегодня
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

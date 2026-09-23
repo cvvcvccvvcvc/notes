@@ -1,5 +1,4 @@
 import type { AppData, Task, TaskGroup } from './data';
-import { UNSORTED_GROUP_ID } from './backlog';
 
 export type TaskState = 'idle' | 'running' | 'paused';
 
@@ -226,29 +225,20 @@ export function moveScheduledTaskToDay(
   };
 }
 
-function backlogTarget(groups: TaskGroup[], preferred?: string) {
-  if (preferred && groups.some((group) => group.id === preferred))
-    return preferred;
-  return groups.some((group) => group.id === UNSORTED_GROUP_ID)
-    ? UNSORTED_GROUP_ID
-    : null;
-}
-
 export function sendScheduledTaskToBacklog(
   data: AppData,
   day: string,
   id: string,
   now: number,
+  targetGroupId: string,
 ) {
   const groups = data.backlog ?? [];
   const source = data.schedule[day] ?? [];
   const task = source.find((candidate) => candidate.id === id);
-  if (!task) return data;
-  const groupId = backlogTarget(groups, task.backlogGroupId);
-  if (!groupId) return data;
+  if (!task || !groups.some((group) => group.id === targetGroupId)) return data;
   const moved = {
     ...pauseTaskAt(task, now),
-    backlogGroupId: groupId,
+    backlogGroupId: targetGroupId,
   };
   return {
     ...data,
@@ -257,37 +247,30 @@ export function sendScheduledTaskToBacklog(
       [day]: source.filter((candidate) => candidate.id !== id),
     },
     backlog: groups.map((group) =>
-      group.id === groupId
+      group.id === targetGroupId
         ? { ...group, tasks: [...group.tasks, moved] }
         : group,
     ),
   };
 }
 
-export function removeBacklogGroup(data: AppData, id: string) {
-  if (id === UNSORTED_GROUP_ID) return data;
+export function removeBacklogGroup(data: AppData, id: string, today: string) {
   const groups = data.backlog ?? [];
   const removed = groups.find((group) => group.id === id);
-  const unsorted = groups.find((group) => group.id === UNSORTED_GROUP_ID);
-  if (!removed || !unsorted) return data;
+  if (!removed) return data;
   return {
     ...data,
-    backlog: groups
-      .filter((group) => group.id !== id)
-      .map((group) =>
-        group.id === UNSORTED_GROUP_ID
-          ? {
-              ...group,
-              tasks: [
-                ...group.tasks,
-                ...removed.tasks.map((task) => ({
-                  ...task,
-                  backlogGroupId: UNSORTED_GROUP_ID,
-                })),
-              ],
-            }
-          : group,
-      ),
+    backlog: groups.filter((group) => group.id !== id),
+    schedule: {
+      ...data.schedule,
+      [today]: [
+        ...(data.schedule[today] ?? []),
+        ...removed.tasks.map((task) => {
+          const { backlogGroupId: _deleted, ...remaining } = task;
+          return remaining;
+        }),
+      ],
+    },
   };
 }
 
@@ -295,59 +278,43 @@ export function restoreBacklogGroup(
   data: AppData,
   removed: TaskGroup,
   index: number,
+  today: string,
 ) {
   const groups = data.backlog ?? [];
   if (groups.some((group) => group.id === removed.id)) return data;
 
   const removedTaskIds = new Set(removed.tasks.map((task) => task.id));
-  const locatedElsewhere = new Set([
-    ...Object.values(data.schedule).flatMap((tasks) =>
-      tasks.map((task) => task.id),
-    ),
-    ...groups
-      .filter((group) => group.id !== UNSORTED_GROUP_ID)
-      .flatMap((group) => group.tasks.map((task) => task.id)),
-  ]);
-  const unsortedTasks =
-    groups.find((group) => group.id === UNSORTED_GROUP_ID)?.tasks ?? [];
-  const currentUnsorted = new Map(
-    unsortedTasks
+  const currentToday = new Map(
+    (data.schedule[today] ?? [])
       .filter((task) => removedTaskIds.has(task.id))
       .map((task) => [task.id, task]),
   );
   const restoredTasks = removed.tasks.flatMap((task) => {
-    const current = currentUnsorted.get(task.id);
-    if (current) return [{ ...current, backlogGroupId: removed.id }];
-    if (locatedElsewhere.has(task.id)) return [];
-    return [{ ...task, backlogGroupId: removed.id }];
+    const current = currentToday.get(task.id);
+    return current ? [{ ...current, backlogGroupId: removed.id }] : [];
   });
-  const next = groups.map((group) =>
-    group.id === UNSORTED_GROUP_ID
-      ? {
-          ...group,
-          tasks: group.tasks.filter((task) => !removedTaskIds.has(task.id)),
-        }
-      : group,
-  );
+  const next = [...groups];
   next.splice(Math.min(Math.max(index, 0), next.length), 0, {
     ...removed,
     tasks: restoredTasks,
   });
-  return { ...data, backlog: next };
+  return {
+    ...data,
+    backlog: next,
+    schedule: {
+      ...data.schedule,
+      [today]: (data.schedule[today] ?? []).filter(
+        (task) => !currentToday.has(task.id),
+      ),
+    },
+  };
 }
 
 export function moveBacklogGroup(data: AppData, id: string, direction: -1 | 1) {
-  if (id === UNSORTED_GROUP_ID) return data;
   const groups = data.backlog ?? [];
   const from = groups.findIndex((group) => group.id === id);
   const to = from + direction;
-  if (
-    from < 0 ||
-    to < 0 ||
-    to >= groups.length ||
-    groups[to].id === UNSORTED_GROUP_ID
-  )
-    return data;
+  if (from < 0 || to < 0 || to >= groups.length) return data;
   const backlog = [...groups];
   [backlog[from], backlog[to]] = [backlog[to], backlog[from]];
   return { ...data, backlog };
@@ -358,12 +325,7 @@ export function moveBacklogGroupTo(
   sourceId: string,
   targetId: string,
 ) {
-  if (
-    sourceId === targetId ||
-    sourceId === UNSORTED_GROUP_ID ||
-    targetId === UNSORTED_GROUP_ID
-  )
-    return data;
+  if (sourceId === targetId) return data;
   const groups = data.backlog ?? [];
   const from = groups.findIndex((group) => group.id === sourceId);
   const to = groups.findIndex((group) => group.id === targetId);

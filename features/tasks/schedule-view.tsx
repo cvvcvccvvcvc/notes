@@ -22,10 +22,13 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { TaskColorMenu } from '@/features/tasks/task-color-menu';
-import type { AppData, Task, TaskColor } from '@/lib/data';
+import type { AppData, Task, TaskColor, TaskGroup } from '@/lib/data';
 import {
   dateKey,
   minutesLabel,
@@ -151,7 +154,7 @@ type ScheduleProps = {
     targetId?: string,
   ) => void;
   setTaskColor: (day: string, id: string, color?: TaskColor) => void;
-  sendTaskToBacklog: (day: string, id: string) => void;
+  sendTaskToBacklog: (day: string, id: string, targetGroupId: string) => void;
   takeFutureTask: (day: string, id: string) => void;
   createMonth: (month: string) => void;
   openTemplates: () => void;
@@ -179,11 +182,36 @@ type TaskInteractions = {
   timeEditing: boolean;
   onCloseTime: () => void;
   onAddBelow: () => void;
-  onSendToBacklog: () => void;
+  onSendToBacklog: (targetGroupId: string) => void;
   onActivate: () => void;
   onFinish: () => void;
   onDiscard: () => void;
 };
+
+function ProjectDestinationMenu({
+  groups,
+  disabled,
+  onSelect,
+}: {
+  groups: TaskGroup[];
+  disabled: boolean;
+  onSelect: (groupId: string) => void;
+}) {
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger disabled={disabled || groups.length === 0}>
+        Перенести в проект
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="task-menu">
+        {groups.map((group) => (
+          <DropdownMenuItem key={group.id} onClick={() => onSelect(group.id)}>
+            {group.title}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  );
+}
 
 export function ScheduleView(props: ScheduleProps) {
   const { data, now, todayKey, addTask } = props;
@@ -373,9 +401,9 @@ export function ScheduleView(props: ScheduleProps) {
       onCloseTime: () => setTimeEditingId(null),
       onAddBelow: () => addAndEdit(day, id),
       onSetColor: (color?: TaskColor) => props.setTaskColor(day, id, color),
-      onSendToBacklog: () => {
+      onSendToBacklog: (targetGroupId: string) => {
         selectAfterRemoval(day, id);
-        props.sendTaskToBacklog(day, id);
+        props.sendTaskToBacklog(day, id, targetGroupId);
       },
       onDiscard: () => {
         selectAfterRemoval(day, id);
@@ -605,6 +633,7 @@ export function ScheduleView(props: ScheduleProps) {
 }
 
 function FutureTaskRow({
+  data,
   task,
   day,
   selected,
@@ -751,9 +780,11 @@ function FutureTaskRow({
               : 'Назначить время'}
           </DropdownMenuItem>
           <TaskColorMenu color={task.color} onChange={onSetColor} />
-          <DropdownMenuItem disabled={!hasName} onClick={onSendToBacklog}>
-            Перенести в проекты
-          </DropdownMenuItem>
+          <ProjectDestinationMenu
+            groups={data.backlog ?? []}
+            disabled={!hasName}
+            onSelect={onSendToBacklog}
+          />
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onClick={onDiscard}>
             Убрать без истории<DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
@@ -765,6 +796,7 @@ function FutureTaskRow({
 }
 
 function TaskRow({
+  data,
   task,
   warning,
   day,
@@ -969,9 +1001,11 @@ function TaskRow({
                 : 'Назначить время'}
             </DropdownMenuItem>
             <TaskColorMenu color={task.color} onChange={onSetColor} />
-            <DropdownMenuItem disabled={!hasName} onClick={onSendToBacklog}>
-              Перенести в проекты
-            </DropdownMenuItem>
+            <ProjectDestinationMenu
+              groups={data.backlog ?? []}
+              disabled={!hasName}
+              onSelect={onSendToBacklog}
+            />
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={onDiscard}>
               Убрать без истории

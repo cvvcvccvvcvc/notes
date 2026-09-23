@@ -32,7 +32,6 @@ import {
   type TaskGroup,
 } from '@/lib/data';
 import { dateKey, shiftedDay } from '@/lib/date-time';
-import { UNSORTED_GROUP_ID } from '@/lib/backlog';
 import {
   appendMonthTemplateRule,
   createMonthFromTemplate,
@@ -405,14 +404,21 @@ export default function Home() {
     updateTask(day, id, (task) => ({ ...task, color }));
   }
 
-  function sendTaskToBacklog(day: string, id: string) {
+  function sendTaskToBacklog(day: string, id: string, targetGroupId: string) {
     const tasks = dataRef.current?.schedule[day] ?? [];
     const index = tasks.findIndex((task) => task.id === id);
     const original = tasks[index];
-    if (!original) return;
+    if (
+      !original ||
+      !(dataRef.current?.backlog ?? []).some(
+        (group) => group.id === targetGroupId,
+      )
+    )
+      return;
     commitWithUndo(
       'Перенесено в проекты',
-      (current) => sendScheduledTaskToBacklog(current, day, id, Date.now()),
+      (current) =>
+        sendScheduledTaskToBacklog(current, day, id, Date.now(), targetGroupId),
       (current) => ({
         ...restoreScheduledTask(current, day, original, index),
         backlog: (current.backlog ?? []).map((group) => ({
@@ -466,15 +472,14 @@ export default function Home() {
   }
 
   function removeBacklogGroup(id: string) {
-    if (id === UNSORTED_GROUP_ID) return;
     const groups = dataRef.current?.backlog ?? [];
     const index = groups.findIndex((group) => group.id === id);
     const group = groups[index];
     if (!group) return;
     commitWithUndo(
       'Проект удалён',
-      (current) => removeBacklogGroupFromData(current, id),
-      (current) => restoreBacklogGroup(current, group, index),
+      (current) => removeBacklogGroupFromData(current, id, todayKey),
+      (current) => restoreBacklogGroup(current, group, index, todayKey),
     );
   }
 

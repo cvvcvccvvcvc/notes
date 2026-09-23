@@ -17,7 +17,6 @@ const databasePath = path.join(previewDirectory, 'notes.sqlite3');
 const seedDatePath = path.join(previewDirectory, 'seed-date');
 const ownerId = 'local-preview';
 const password = 'preview';
-const unsortedGroupId = 'backlog-unsorted';
 
 function dateKey(date = new Date()) {
   const year = date.getFullYear();
@@ -52,7 +51,7 @@ function createPreviewData(now = new Date()): AppData {
   const yesterday = addDays(now, -1);
 
   return appDataSchema.parse({
-    version: 4,
+    version: 7,
     schedule: {
       [today]: [
         task(
@@ -78,6 +77,8 @@ function createPreviewData(now = new Date()): AppData {
           color: 'yellow',
         }),
         task('preview-today-shopping', 'Прогулка и продукты'),
+        task('preview-backlog-book', 'Выбрать книгу на сентябрь'),
+        task('preview-backlog-documents', 'Разобрать папку с документами'),
       ],
       [tomorrow]: [
         task(
@@ -101,18 +102,6 @@ function createPreviewData(now = new Date()): AppData {
       ],
     },
     backlog: [
-      {
-        id: unsortedGroupId,
-        title: 'Не разобрано',
-        tasks: [
-          task('preview-backlog-book', 'Выбрать книгу на сентябрь', {
-            backlogGroupId: unsortedGroupId,
-          }),
-          task('preview-backlog-documents', 'Разобрать папку с документами', {
-            backlogGroupId: unsortedGroupId,
-          }),
-        ],
-      },
       {
         id: 'preview-backlog-work',
         title: 'Работа',

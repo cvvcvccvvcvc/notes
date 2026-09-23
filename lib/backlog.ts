@@ -1,2 +1,2 @@
-/** Stable id of the mandatory fallback backlog group. */
+/** Legacy group id retained only to migrate old documents. */
 export const UNSORTED_GROUP_ID = 'backlog-unsorted';

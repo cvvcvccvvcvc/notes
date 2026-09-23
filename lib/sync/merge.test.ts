@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { AppData, Task } from '../data.ts';
+import { migrateAppData } from '../migrations.ts';
 import { mergeAppData, validateAppData } from './merge.ts';
 
 function task(id: string, text = id): Task {
@@ -205,6 +206,57 @@ void test('merges a schedule-to-backlog move with an independent color edit', ()
     color: 'purple',
     backlogGroupId: 'general',
   });
+});
+
+void test('legacy unsorted migration preserves tasks across sync and reports concurrent additions', () => {
+  const today = '2026-09-05';
+  const base: AppData = {
+    ...data({ schedule: { [today]: [] } }),
+    version: 6,
+    backlog: [
+      {
+        id: 'backlog-unsorted',
+        title: 'Не разобрано',
+        tasks: [{ ...task('legacy'), backlogGroupId: 'backlog-unsorted' }],
+      },
+      { id: 'study', title: 'Учёба', tasks: [] },
+    ],
+  };
+  const local = migrateAppData(base, today);
+  const unchanged = merged(mergeAppData({ base, local, remote: base }));
+  assert.deepEqual(
+    unchanged.schedule[today].map((item) => item.id),
+    ['legacy'],
+  );
+  assert.deepEqual(
+    unchanged.backlog?.map((group) => group.id),
+    ['study'],
+  );
+
+  const editedRemote = structuredClone(base);
+  editedRemote.backlog![0].tasks[0].text = 'Изменено на другом устройстве';
+  const edited = merged(mergeAppData({ base, local, remote: editedRemote }));
+  assert.equal(edited.schedule[today][0].text, 'Изменено на другом устройстве');
+
+  const remote = structuredClone(base);
+  remote.backlog![0].tasks.push({
+    ...task('new'),
+    backlogGroupId: 'backlog-unsorted',
+  });
+  const concurrent = mergeAppData({ base, local, remote });
+  if (!concurrent.ok) {
+    assert.ok(concurrent.conflicts.length > 0);
+    return;
+  }
+  const normalized = migrateAppData(concurrent.data, today);
+  assert.deepEqual(
+    new Set(normalized.schedule[today].map((item) => item.id)),
+    new Set(['legacy', 'new']),
+  );
+  assert.deepEqual(
+    normalized.backlog?.map((group) => group.id),
+    ['study'],
+  );
 });
 
 void test('collapses identical edits and accepts delete versus unchanged', () => {
