@@ -1895,6 +1895,26 @@ h1 {
   border: 0;
   box-shadow: none;
 }
+.note-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 8px 28px 14px;
+  max-height: 100px;
+  overflow-y: auto;
+}
+.note-links a {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 8px;
+  padding: 5px 9px;
+  background: rgb(255 255 255 / 52%);
+  color: #185c48;
+  font-size: 13px;
+  text-decoration: underline;
+}
 .note-attachment-message {
   padding: 8px 28px 10px;
   color: #41695a;

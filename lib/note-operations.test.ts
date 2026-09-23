@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { AppData, Note } from './data.ts';
+import { noteLinks } from './note-links.ts';
 import {
   isEmptyNote,
   moveNote,
@@ -93,4 +94,17 @@ void test('removing a note preserves unrelated notes', () => {
   assert.deepEqual(restoreNote(removed, first, 0).notes, [first, second]);
   assert.equal(restoreNote(current, first, 0), current);
   assert.equal(removeNote(current, 'missing'), current);
+});
+
+void test('notes recognize bare and explicit web links', () => {
+  assert.deepEqual(
+    noteLinks(
+      'Яндекс: yandex.ru, сайт https://example.com/path. Ещё www.example.org',
+    ),
+    [
+      { label: 'yandex.ru', url: 'https://yandex.ru/' },
+      { label: 'https://example.com/path', url: 'https://example.com/path' },
+      { label: 'www.example.org', url: 'https://www.example.org/' },
+    ],
+  );
 });
