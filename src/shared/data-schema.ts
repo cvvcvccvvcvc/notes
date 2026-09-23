@@ -181,6 +181,10 @@ const monthTemplateScheduleSchema = z.discriminatedUnion('kind', [
     weekday: z.number().int().min(0).max(6),
   }),
   z.looseObject({
+    kind: z.literal('monthly'),
+    day: z.number().int().min(1).max(31),
+  }),
+  z.looseObject({
     kind: z.literal('fortnightly'),
     anchorDay: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-([0-2]\d|3[01])$/),
   }),

@@ -34,6 +34,11 @@ function data(): AppData {
           schedule: { kind: 'fortnightly', anchorDay: '2027-01-06' },
         },
         {
+          id: 'monthly',
+          text: 'Оплата',
+          schedule: { kind: 'monthly', day: 20 },
+        },
+        {
           id: 'birthday',
           text: 'День рождения',
           schedule: { kind: 'annual', month: 1, day: 15 },
@@ -53,7 +58,7 @@ function data(): AppData {
 void test('month generation materializes each date and matching rules exactly once', () => {
   const current = data();
   assert.equal(nextMonthKey(current, '2026-09-05'), '2027-01');
-  assert.equal(monthTemplateTaskCount(current, '2027-01'), 7);
+  assert.equal(monthTemplateTaskCount(current, '2027-01'), 8);
 
   const result = createMonthFromTemplate(current, '2027-01');
 
@@ -67,13 +72,41 @@ void test('month generation materializes each date and matching rules exactly on
     ['existing', 'month-template:weekly:2027-01-07'],
   );
   assert.equal(result.schedule['2027-01-07'][1].color, 'blue');
+  assert.equal(result.schedule['2027-01-06'][0].text, 'Через среду');
   assert.deepEqual(
-    ['2027-01-06', '2027-01-20'].map((day) => result.schedule[day][0].text),
-    ['Через среду', 'Через среду'],
+    result.schedule['2027-01-20'].map((task) => task.text),
+    ['Через среду', 'Оплата'],
   );
   assert.equal(result.schedule['2027-01-15'][0].text, 'День рождения');
   assert.deepEqual(result.monthPlanning?.createdMonths, ['2026-12', '2027-01']);
   assert.equal(createMonthFromTemplate(result, '2027-01'), result);
+});
+
+void test('a monthly date that does not exist is skipped without shifting', () => {
+  const current: AppData = {
+    version: 7,
+    schedule: {},
+    monthPlanning: {
+      createdMonths: [],
+      rules: [
+        {
+          id: 'last-day',
+          text: 'Тридцать первое',
+          schedule: { kind: 'monthly', day: 31 },
+        },
+      ],
+    },
+    notes: [],
+    history: [],
+  };
+  assert.equal(monthTemplateTaskCount(current, '2027-02'), 0);
+  assert.equal(monthTemplateTaskCount(current, '2027-03'), 1);
+  const february = createMonthFromTemplate(current, '2027-02');
+  assert.equal(Object.values(february.schedule).flat().length, 0);
+  assert.equal(
+    createMonthFromTemplate(february, '2027-03').schedule['2027-03-31'][0].id,
+    'month-template:last-day:2027-03-31',
+  );
 });
 
 void test('template rule operations preserve order and created months', () => {

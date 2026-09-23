@@ -120,6 +120,7 @@ export function defaultMonthTemplateSchedule(
   today = new Date(),
 ): MonthTemplateSchedule {
   if (kind === 'weekly') return { kind, weekday: today.getDay() };
+  if (kind === 'monthly') return { kind, day: today.getDate() };
   if (kind === 'fortnightly') return { kind, anchorDay: dateKey(today) };
   return { kind, month: today.getMonth() + 1, day: today.getDate() };
 }
@@ -141,6 +142,8 @@ function matchingTemplateRules(rules: MonthTemplateRule[], date: Date) {
     if (!rule.text.trim()) return false;
     if (rule.schedule.kind === 'weekly')
       return date.getDay() === rule.schedule.weekday;
+    if (rule.schedule.kind === 'monthly')
+      return date.getDate() === rule.schedule.day;
     if (rule.schedule.kind === 'annual')
       return (
         date.getMonth() + 1 === rule.schedule.month &&

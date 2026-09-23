@@ -39,7 +39,7 @@ const scheduleKinds: Array<{
   label: string;
 }> = [
   { value: 'weekly', label: 'каждую неделю' },
-  { value: 'fortnightly', label: 'раз в две недели' },
+  { value: 'monthly', label: 'каждый месяц' },
   { value: 'annual', label: 'каждый год' },
 ];
 
@@ -70,6 +70,8 @@ type TemplatesViewProps = {
 function scheduleLabel(schedule: MonthTemplateSchedule) {
   if (schedule.kind === 'weekly')
     return `${weekdays[schedule.weekday]}, каждую неделю`;
+  if (schedule.kind === 'monthly')
+    return `${schedule.day}-е число каждого месяца`;
   if (schedule.kind === 'fortnightly')
     return `раз в две недели · ${schedule.anchorDay}`;
   return `${schedule.day} ${months[schedule.month - 1]}, каждый год`;
@@ -282,6 +284,11 @@ export function TemplatesView({
                         }))
                       }
                     >
+                      {rule.schedule.kind === 'fortnightly' && (
+                        <option value="fortnightly">
+                          раз в две недели (старое правило)
+                        </option>
+                      )}
                       {scheduleKinds.map((kind) => (
                         <option value={kind.value} key={kind.value}>
                           {kind.label}
@@ -307,6 +314,32 @@ export function TemplatesView({
                         {weekdays.map((weekday, value) => (
                           <option value={value} key={weekday}>
                             {weekday}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+
+                    {rule.schedule.kind === 'monthly' && (
+                      <select
+                        value={rule.schedule.day}
+                        aria-label="Число месяца"
+                        onKeyDown={(event) => handleShortcut(event, rule)}
+                        onChange={(event) =>
+                          updateRule(rule.id, (current) => ({
+                            ...current,
+                            schedule: {
+                              kind: 'monthly',
+                              day: Number(event.target.value),
+                            },
+                          }))
+                        }
+                      >
+                        {Array.from(
+                          { length: 31 },
+                          (_, index) => index + 1,
+                        ).map((day) => (
+                          <option value={day} key={day}>
+                            {day}-е число
                           </option>
                         ))}
                       </select>
@@ -431,8 +464,8 @@ export function TemplatesView({
         <Button variant="outline" onClick={() => addRule('weekly')}>
           <Plus /> Каждую неделю
         </Button>
-        <Button variant="outline" onClick={() => addRule('fortnightly')}>
-          <Plus /> Раз в две недели
+        <Button variant="outline" onClick={() => addRule('monthly')}>
+          <Plus /> Каждый месяц
         </Button>
         <Button variant="outline" onClick={() => addRule('annual')}>
           <Plus /> Ежегодная дата
