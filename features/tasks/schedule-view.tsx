@@ -2,6 +2,7 @@ import {
   ArrowUpToLine,
   CalendarDays,
   Check,
+  ChevronDown,
   CirclePause,
   CirclePlay,
   Clock3,
@@ -273,6 +274,45 @@ export function ScheduleView(props: ScheduleProps) {
     });
   }
 
+  function renderFutureDays(dates: Date[]) {
+    return dates.map((date) => {
+      const day = dateKey(date);
+      const tasks = data.schedule[day] ?? [];
+      return (
+        <div
+          className={`future-day ${tasks.length ? 'has-tasks' : ''}`}
+          key={day}
+        >
+          <div className="future-date">{ruShortDate.format(date)}</div>
+          <SortableDropZone id={`schedule-day:${day}`} className="future-tasks">
+            <SortableItems items={tasks.map((task) => task.id)}>
+              {tasks.map((task) => (
+                <FutureTaskRow
+                  key={task.id}
+                  {...props}
+                  task={task}
+                  day={day}
+                  {...interactionsFor(day, task.id)}
+                  onActivate={() => {
+                    selectAfterRemoval(day, task.id);
+                    props.takeFutureTask(day, task.id);
+                  }}
+                />
+              ))}
+            </SortableItems>
+            <button
+              id={`add-${day}`}
+              className="future-add"
+              onClick={() => addAndEdit(day)}
+            >
+              <Plus /> Добавить
+            </button>
+          </SortableDropZone>
+        </div>
+      );
+    });
+  }
+
   function selectTask(day: string, id: string) {
     setSelectedId(id);
     setEditingId(null);
@@ -452,7 +492,6 @@ export function ScheduleView(props: ScheduleProps) {
       >
         <div className="page-heading schedule-heading">
           <div>
-            <p className="eyebrow">Сегодня</p>
             <h1>{ruDate.format(today)}</h1>
           </div>
         </div>
@@ -482,7 +521,6 @@ export function ScheduleView(props: ScheduleProps) {
                   props.setDayWindow(todayKey, { ...dayWindow, start: value })
                 }
               />
-              Начало дня
             </div>
             <SortableItems items={todayTasks.map((task) => task.id)}>
               {todayTasks.length ? (
@@ -537,96 +575,55 @@ export function ScheduleView(props: ScheduleProps) {
                   props.setDayWindow(todayKey, { ...dayWindow, end: value })
                 }
               />
-              Конец дня
             </div>
           </SortableDropZone>
         </section>
 
-        <section className="future-section">
-          {Object.entries(futureMonths).map(([month, dates]) => (
-            <details className="schedule-month" key={month} data-month={month}>
-              <summary className="month-heading">
-                {month === todayKey.slice(0, 7) ? (
-                  <>
-                    <span className="future-toggle-closed">
-                      Показать следующие дни
-                    </span>
-                    <span className="future-toggle-open">
-                      Скрыть следующие дни
-                    </span>
-                  </>
-                ) : (
-                  <>
+        <details className="future-section">
+          <summary className="future-toggle">
+            Следующие дни <ChevronDown aria-hidden="true" />
+          </summary>
+          <div className="future-content">
+            {Object.entries(futureMonths).map(([month, dates]) =>
+              month === todayKey.slice(0, 7) ? (
+                <div key={month}>{renderFutureDays(dates)}</div>
+              ) : (
+                <details
+                  className="schedule-month"
+                  key={month}
+                  data-month={month}
+                >
+                  <summary className="month-heading">
                     <span>{ruMonth.format(dates[0])}</span>
                     <span>{dates[0].getFullYear()}</span>
-                  </>
-                )}
-              </summary>
-              {dates.map((date) => {
-                const day = dateKey(date);
-                const tasks = data.schedule[day] ?? [];
-                return (
-                  <div
-                    className={`future-day ${tasks.length ? 'has-tasks' : ''}`}
-                    key={day}
-                  >
-                    <div className="future-date">
-                      {ruShortDate.format(date)}
-                    </div>
-                    <SortableDropZone
-                      id={`schedule-day:${day}`}
-                      className="future-tasks"
-                    >
-                      <SortableItems items={tasks.map((task) => task.id)}>
-                        {tasks.map((task) => (
-                          <FutureTaskRow
-                            key={task.id}
-                            {...props}
-                            task={task}
-                            day={day}
-                            {...interactionsFor(day, task.id)}
-                            onActivate={() => {
-                              selectAfterRemoval(day, task.id);
-                              props.takeFutureTask(day, task.id);
-                            }}
-                          />
-                        ))}
-                      </SortableItems>
-                      <button
-                        id={`add-${day}`}
-                        className="future-add"
-                        onClick={() => addAndEdit(day)}
-                      >
-                        <Plus /> Добавить
-                      </button>
-                    </SortableDropZone>
-                  </div>
-                );
-              })}
-            </details>
-          ))}
-          <div className="month-end">
-            <div>
-              <strong>
-                {ruMonth.format(nextMonthDate)} {nextMonthDate.getFullYear()}
-              </strong>
-              <span>
-                {hasFilledTemplate
-                  ? `${generatedTaskCount} ${recordCountLabel(generatedTaskCount)} из шаблона`
-                  : 'Сначала добавь постоянные записи'}
-              </span>
+                  </summary>
+                  {renderFutureDays(dates)}
+                </details>
+              ),
+            )}
+            <div className="month-end">
+              <div>
+                <strong>
+                  {ruMonth.format(nextMonthDate)} {nextMonthDate.getFullYear()}
+                </strong>
+                <span>
+                  {hasFilledTemplate
+                    ? `${generatedTaskCount} ${recordCountLabel(generatedTaskCount)} из шаблона`
+                    : 'Сначала добавь постоянные записи'}
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                onClick={
+                  hasFilledTemplate ? materializeNextMonth : props.openTemplates
+                }
+              >
+                <CalendarDays />
+                {hasFilledTemplate ? 'Создать месяц' : 'Настроить шаблон'}
+              </Button>
             </div>
-            <Button
-              variant="outline"
-              onClick={
-                hasFilledTemplate ? materializeNextMonth : props.openTemplates
-              }
-            >
-              <CalendarDays />
-              {hasFilledTemplate ? 'Создать месяц' : 'Настроить шаблон'}
-            </Button>
           </div>
-        </section>
+        </details>
       </div>
     </SortableRoot>
   );
