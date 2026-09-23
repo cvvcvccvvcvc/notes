@@ -31,7 +31,6 @@ import {
 import { TaskColorMenu } from '@/features/tasks/task-color-menu';
 import { UNSORTED_GROUP_ID } from '@/lib/backlog';
 import type { Task, TaskColor, TaskGroup } from '@/lib/data';
-import { useMobileLayout } from '@/hooks/use-mobile-layout';
 import { SortableDropZone, SortableItems, SortableRoot } from '@/lib/sorting';
 import {
   hasTaskTitle,
@@ -155,7 +154,6 @@ export function BacklogView(props: BacklogProps) {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [editingGroupKey, setEditingGroupKey] = useState<string | null>(null);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
-  const mobileLayout = useMobileLayout();
   const entries = props.groups.flatMap((group) =>
     group.tasks.map((task) => ({ groupId: group.id, id: task.id })),
   );
@@ -427,7 +425,7 @@ export function BacklogView(props: BacklogProps) {
               <SortableProject
                 key={group.id}
                 group={group}
-                dragDisabled={mobileLayout}
+                dragDisabled={false}
                 selected={selectedGroupId === group.id}
                 onSelect={() => {
                   setSelectedGroupId(group.id);

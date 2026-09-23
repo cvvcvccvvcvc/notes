@@ -1592,6 +1592,30 @@ h1 {
   gap: 16px;
   align-items: start;
 }
+.notes-section.after-pinned {
+  margin-top: 32px;
+}
+.notes-section-label {
+  margin: 28px 0 -20px;
+  color: #7a8580;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.note-card-pin {
+  position: absolute;
+  z-index: 1;
+  top: 10px;
+  right: 10px;
+  width: 16px;
+  height: 16px;
+  color: #69716d;
+  fill: rgb(105 113 109 / 30%);
+}
+.notes-mobile-add {
+  display: none;
+}
 .note-card {
   position: relative;
   user-select: none;
@@ -1775,6 +1799,7 @@ h1 {
   align-items: center;
   gap: 2px;
 }
+.note-pin,
 .note-close,
 .note-delete {
   width: 40px;
@@ -1786,6 +1811,9 @@ h1 {
   border-radius: 10px;
   cursor: pointer;
   color: #4f665c;
+}
+.note-pin.active {
+  color: #276c57;
 }
 .note-delete {
   color: #8b3f3f;
@@ -2643,8 +2671,8 @@ h1 {
     grid-row: 1 / span 2;
   }
   .project-dialog {
-    width: calc(100vw - 24px);
-    max-height: calc(100svh - 32px);
+    width: calc(100vw - 32px);
+    max-height: min(74svh, 680px);
     padding: 16px;
   }
   .today-section {
@@ -2873,6 +2901,34 @@ h1 {
     margin-top: 16px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+  }
+  .notes-section.after-pinned {
+    margin-top: 22px;
+  }
+  .notes-section-label {
+    margin: 16px 0 -8px;
+  }
+  .notes-page .add-primary {
+    display: none;
+  }
+  .notes-mobile-add {
+    position: fixed;
+    z-index: 40;
+    right: 20px;
+    bottom: calc(82px + env(safe-area-inset-bottom));
+    width: 54px;
+    height: 54px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgb(28 102 81 / 16%);
+    border-radius: 50%;
+    background: rgb(42 122 96 / 82%);
+    color: white;
+    box-shadow: 0 6px 18px rgb(20 70 50 / 18%);
+    backdrop-filter: blur(10px);
+  }
+  .notes-mobile-add svg {
+    width: 25px;
   }
   .note-card {
     min-height: 96px;

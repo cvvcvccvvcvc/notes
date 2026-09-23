@@ -44,6 +44,8 @@ export function moveNote(data: AppData, sourceId: string, targetId: string) {
   const from = data.notes.findIndex((note) => note.id === sourceId);
   const to = data.notes.findIndex((note) => note.id === targetId);
   if (from < 0 || to < 0) return data;
+  if (Boolean(data.notes[from].pinned) !== Boolean(data.notes[to].pinned))
+    return data;
   const notes = [...data.notes];
   const [moved] = notes.splice(from, 1);
   notes.splice(to, 0, moved);

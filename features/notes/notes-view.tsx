@@ -15,7 +15,7 @@ import { NoteEditor } from '@/lib/note-editor';
 import { SortableList } from '@/lib/sorting';
 import { NOTE_ATTACHMENT_MAX_COUNT } from '@/src/shared/data-schema';
 import { useMobileLayout } from '@/hooks/use-mobile-layout';
-import { Copy, ImageOff, Plus, Trash2, X } from 'lucide-react';
+import { Copy, ImageOff, Pin, Plus, Trash2, X } from 'lucide-react';
 
 export function NotesView({
   notes,
@@ -47,6 +47,8 @@ export function NotesView({
   const noteContentRef = useRef<HTMLTextAreaElement>(null);
   const noteTitleRef = useRef<HTMLInputElement>(null);
   const mobileLayout = useMobileLayout();
+  const pinnedNotes = notes.filter((note) => note.pinned);
+  const otherNotes = notes.filter((note) => !note.pinned);
   const [attachmentMessage, setAttachmentMessage] = useState<{
     noteId: string;
     text: string;
@@ -130,21 +132,55 @@ export function NotesView({
           <Plus /> Новая заметка
         </Button>
       </div>
-      <SortableList items={notes.map((note) => note.id)} grid onMove={moveNote}>
-        <div className="notes-grid">
-          {notes.map((note) => (
-            <SortableNote
-              key={note.id}
-              note={note}
-              dragDisabled={mobileLayout}
-              onOpen={() => {
-                setAttachmentMessage(null);
-                openNoteById(note.id);
-              }}
-            />
-          ))}
+      <SortableList
+        items={[...pinnedNotes, ...otherNotes].map((note) => note.id)}
+        grid
+        onMove={moveNote}
+      >
+        {pinnedNotes.length > 0 && (
+          <div className="notes-section">
+            <p className="notes-section-label">Закреплено</p>
+            <div className="notes-grid">
+              {pinnedNotes.map((note) => (
+                <SortableNote
+                  key={note.id}
+                  note={note}
+                  onOpen={() => {
+                    setAttachmentMessage(null);
+                    openNoteById(note.id);
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+        <div
+          className={`notes-section ${pinnedNotes.length ? 'after-pinned' : ''}`}
+        >
+          <div className="notes-grid">
+            {otherNotes.map((note) => (
+              <SortableNote
+                key={note.id}
+                note={note}
+                onOpen={() => {
+                  setAttachmentMessage(null);
+                  openNoteById(note.id);
+                }}
+              />
+            ))}
+          </div>
         </div>
       </SortableList>
+      {mobileLayout && (
+        <button
+          className="notes-mobile-add"
+          type="button"
+          aria-label="Новая заметка"
+          onClick={createNote}
+        >
+          <Plus />
+        </button>
+      )}
 
       <Dialog
         open={Boolean(openNote)}
@@ -185,6 +221,24 @@ export function NotesView({
                 ))}
               </div>
               <div className="note-dialog-controls">
+                <button
+                  className={`note-pin ${openNote.pinned ? 'active' : ''}`}
+                  aria-label={
+                    openNote.pinned ? 'Открепить заметку' : 'Закрепить заметку'
+                  }
+                  title={
+                    openNote.pinned ? 'Открепить заметку' : 'Закрепить заметку'
+                  }
+                  aria-pressed={Boolean(openNote.pinned)}
+                  onClick={() =>
+                    updateNote(openNote.id, (note) => ({
+                      ...note,
+                      pinned: !note.pinned,
+                    }))
+                  }
+                >
+                  <Pin />
+                </button>
                 <button
                   className="note-delete"
                   aria-label="Удалить заметку"
@@ -272,15 +326,7 @@ export function NotesView({
   );
 }
 
-function SortableNote({
-  note,
-  dragDisabled,
-  onOpen,
-}: {
-  note: Note;
-  dragDisabled: boolean;
-  onOpen: () => void;
-}) {
+function SortableNote({ note, onOpen }: { note: Note; onOpen: () => void }) {
   const {
     setNodeRef,
     attributes,
@@ -288,7 +334,11 @@ function SortableNote({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: note.id, disabled: dragDisabled });
+  } = useSortable({ id: note.id });
+  const draggedRef = useRef(false);
+  useEffect(() => {
+    if (isDragging) draggedRef.current = true;
+  }, [isDragging]);
   return (
     <button
       ref={setNodeRef}
@@ -297,11 +347,21 @@ function SortableNote({
       data-note-id={note.id}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={`note-card ${note.color} ${isDragging ? 'dragging' : ''}`}
+      onPointerDownCapture={() => {
+        draggedRef.current = false;
+      }}
       aria-label={
         note.title ? `Открыть заметку ${note.title}` : 'Открыть заметку'
       }
-      onClick={onOpen}
+      onClick={() => {
+        if (draggedRef.current) {
+          draggedRef.current = false;
+          return;
+        }
+        onOpen();
+      }}
     >
+      {note.pinned && <Pin className="note-card-pin" aria-hidden="true" />}
       {note.attachments?.[0] && (
         <NoteImage
           attachment={note.attachments[0]}

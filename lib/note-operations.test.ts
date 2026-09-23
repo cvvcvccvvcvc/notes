@@ -73,6 +73,11 @@ void test('note updates and moves preserve unrelated notes', () => {
   assert.equal(moved.notes[1], first);
 });
 
+void test('dragging keeps pinned and other notes in their sections', () => {
+  const current = { ...data(), notes: [{ ...first, pinned: true }, second] };
+  assert.equal(moveNote(current, 'first', 'second'), current);
+});
+
 void test('a new note is prepended once', () => {
   const note = { ...first, id: 'new' };
   const created = prependNote(data(), note);
