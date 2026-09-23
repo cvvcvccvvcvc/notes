@@ -1915,50 +1915,47 @@ h1 {
   max-height: 520px;
   overflow: hidden;
 }
-.note-content-input {
-  padding: 0 28px 26px;
-  line-height: 1.62;
-  font-size: 17px;
-  letter-spacing: normal;
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
-  word-break: normal;
-  tab-size: 8;
-}
-.note-content-input {
-  position: relative;
-  field-sizing: fixed;
+.note-code-editor {
   width: 100%;
   height: 100%;
-  min-height: 0;
-  resize: none;
-  border: 0;
   background: transparent;
-  box-shadow: none;
 }
-.note-content-input:focus-visible {
-  border: 0;
-  box-shadow: none;
+.note-code-editor .cm-editor {
+  height: 100%;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 17px;
+  line-height: 1.62;
 }
-.note-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  padding: 8px 28px 14px;
-  max-height: 100px;
-  overflow-y: auto;
+.note-code-editor .cm-editor.cm-focused {
+  outline: 0;
 }
-.note-links a {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  border-radius: 8px;
-  padding: 5px 9px;
-  background: rgb(255 255 255 / 52%);
-  color: #185c48;
-  font-size: 13px;
+.note-code-editor .cm-scroller {
+  overflow: auto;
+  font-family: inherit;
+}
+.note-code-editor .cm-content {
+  min-height: 100%;
+  padding: 0 28px 26px;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  caret-color: #236e5b;
+}
+.note-code-editor .cm-line {
+  padding: 0;
+}
+.note-code-editor .cm-placeholder {
+  color: #818d86;
+}
+.note-code-editor .cm-bare-link {
+  color: #145dba;
   text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.note-editor-loading {
+  padding: 0 28px;
+  color: #75847b;
 }
 .note-attachment-message {
   padding: 8px 28px 10px;
@@ -3051,8 +3048,10 @@ h1 {
     min-height: 100px;
     max-height: 520px;
   }
-  .note-content-input {
+  .note-code-editor .cm-content {
     padding: 0 19px 22px;
+  }
+  .note-code-editor .cm-editor {
     font-size: 16px;
   }
   .future-take span {

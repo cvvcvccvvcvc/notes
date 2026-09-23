@@ -1,7 +1,12 @@
 import { history, historyKeymap, defaultKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
 import { syntaxHighlighting, syntaxTree } from '@codemirror/language';
-import { Annotation, EditorState, type Range } from '@codemirror/state';
+import {
+  Annotation,
+  EditorState,
+  Transaction,
+  type Range,
+} from '@codemirror/state';
 import {
   Decoration,
   EditorView,
@@ -15,6 +20,7 @@ import {
 } from '@codemirror/view';
 import { classHighlighter } from '@lezer/highlight';
 import { useEffect, useRef } from 'react';
+import { noteLinkRanges } from '@/lib/note-links';
 
 const externalChange = Annotation.define<boolean>();
 const concealedNodes = new Set([
@@ -25,13 +31,7 @@ const concealedNodes = new Set([
   'StrikethroughMark',
   'URL',
 ]);
-const BARE_URL = /https?:\/\/[^\s<>"']+/gi;
-
 type EditorLink = { from: number; to: number; url: string };
-
-function bareUrlText(value: string) {
-  return value.replace(/[),.;!?]+$/, '');
-}
 
 function safeWebUrl(value: string) {
   try {
@@ -64,13 +64,10 @@ function parsedLinkAt(state: EditorState, position: number) {
 
 function bareLinkAt(state: EditorState, position: number) {
   const line = state.doc.lineAt(position);
-  for (const match of line.text.matchAll(BARE_URL)) {
-    const start = line.from + (match.index ?? 0);
-    const text = bareUrlText(match[0]);
-    const end = start + text.length;
-    if (position < start || position > end) continue;
-    const url = safeWebUrl(text);
-    if (url) return { from: start, to: end, url };
+  for (const link of noteLinkRanges(line.text)) {
+    const from = line.from + link.from;
+    const to = line.from + link.to;
+    if (position >= from && position <= to) return { from, to, url: link.url };
   }
   return null;
 }
@@ -138,9 +135,9 @@ function markdownDecorations(view: EditorView) {
 
   for (const visible of view.visibleRanges) {
     const text = view.state.sliceDoc(visible.from, visible.to);
-    for (const match of text.matchAll(BARE_URL)) {
-      const from = visible.from + (match.index ?? 0);
-      const to = from + bareUrlText(match[0]).length;
+    for (const link of noteLinkRanges(text)) {
+      const from = visible.from + link.from;
+      const to = visible.from + link.to;
       if (
         from === to ||
         parsedUrls.some((url) => from < url.to && to > url.from)
@@ -169,27 +166,63 @@ const concealInactiveMarkdown = ViewPlugin.fromClass(
   { decorations: (value) => value.decorations },
 );
 
+const decoratePlainLinks = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+
+    constructor(view: EditorView) {
+      this.decorations = this.collect(view);
+    }
+
+    collect(view: EditorView) {
+      return Decoration.set(
+        noteLinkRanges(view.state.doc.toString()).map((link) =>
+          Decoration.mark({ class: 'cm-bare-link' }).range(link.from, link.to),
+        ),
+      );
+    }
+
+    update(update: ViewUpdate) {
+      if (update.docChanged) this.decorations = this.collect(update.view);
+    }
+  },
+  { decorations: (value) => value.decorations },
+);
+
 export function MarkdownEditor({
   id,
   value,
   placeholder: placeholderText,
   ariaLabel,
   onChange,
+  plainText = false,
+  recoverPreviousSession,
+  focusOnMount = false,
 }: {
   id: string;
   value: string;
   placeholder: string;
   ariaLabel: string;
   onChange: (value: string) => void;
+  plainText?: boolean;
+  recoverPreviousSession?: () => boolean;
+  focusOnMount?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   const initialValueRef = useRef(value);
+  const initialFocusRef = useRef(focusOnMount);
+  const hasLocalChangesRef = useRef(false);
+  const recoveryUsedRef = useRef(false);
+  const recoverRef = useRef(recoverPreviousSession);
 
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+  useEffect(() => {
+    recoverRef.current = recoverPreviousSession;
+  }, [recoverPreviousSession]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -199,10 +232,30 @@ export function MarkdownEditor({
         doc: initialValueRef.current,
         extensions: [
           history(),
-          keymap.of([...defaultKeymap, ...historyKeymap]),
-          markdown(),
-          syntaxHighlighting(classHighlighter),
-          concealInactiveMarkdown,
+          keymap.of([
+            {
+              key: 'Mod-z',
+              run: () => {
+                if (
+                  !recoverRef.current ||
+                  recoveryUsedRef.current ||
+                  hasLocalChangesRef.current
+                )
+                  return false;
+                recoveryUsedRef.current = recoverRef.current();
+                return recoveryUsedRef.current;
+              },
+            },
+            ...defaultKeymap,
+            ...historyKeymap,
+          ]),
+          ...(plainText
+            ? [decoratePlainLinks]
+            : [
+                markdown(),
+                syntaxHighlighting(classHighlighter),
+                concealInactiveMarkdown,
+              ]),
           selectedLinkTooltip,
           EditorView.lineWrapping,
           EditorView.contentAttributes.of({
@@ -218,27 +271,43 @@ export function MarkdownEditor({
               !update.transactions.some((transaction) =>
                 transaction.annotation(externalChange),
               )
-            )
+            ) {
+              hasLocalChangesRef.current =
+                update.state.doc.toString() !== initialValueRef.current;
               onChangeRef.current(update.state.doc.toString());
+            }
           }),
         ],
       }),
     });
     viewRef.current = view;
+    const focusFrame = initialFocusRef.current
+      ? requestAnimationFrame(() => view.focus())
+      : null;
     return () => {
+      if (focusFrame !== null) cancelAnimationFrame(focusFrame);
       viewRef.current = null;
       view.destroy();
     };
-  }, [ariaLabel, placeholderText]);
+  }, [ariaLabel, placeholderText, plainText]);
 
   useEffect(() => {
     const view = viewRef.current;
     if (!view || view.state.doc.toString() === value) return;
     view.dispatch({
       changes: { from: 0, to: view.state.doc.length, insert: value },
-      annotations: externalChange.of(true),
+      annotations: [
+        externalChange.of(true),
+        Transaction.addToHistory.of(false),
+      ],
     });
   }, [value]);
 
-  return <div ref={containerRef} id={id} className="markdown-editor" />;
+  return (
+    <div
+      ref={containerRef}
+      id={id}
+      className={plainText ? 'note-code-editor' : 'markdown-editor'}
+    />
+  );
 }

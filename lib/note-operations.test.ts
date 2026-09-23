@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { AppData, Note } from './data.ts';
-import { noteLinks } from './note-links.ts';
+import { noteLinkRanges, noteLinks } from './note-links.ts';
 import {
   isEmptyNote,
   moveNote,
@@ -107,4 +107,7 @@ void test('notes recognize bare and explicit web links', () => {
       { label: 'www.example.org', url: 'https://www.example.org/' },
     ],
   );
+  assert.deepEqual(noteLinkRanges('Текст yandex.ru!'), [
+    { from: 6, to: 15, label: 'yandex.ru', url: 'https://yandex.ru/' },
+  ]);
 });

@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ClipboardEvent,
-} from 'react';
+import { useEffect, useRef, useState, type ClipboardEvent } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -18,7 +12,6 @@ import {
   synchronizeNoteAttachments,
 } from '@/lib/note-attachments';
 import { NoteEditor } from '@/lib/note-editor';
-import { noteLinks } from '@/lib/note-links';
 import { SortableList } from '@/lib/sorting';
 import { NOTE_ATTACHMENT_MAX_COUNT } from '@/src/shared/data-schema';
 import { useMobileLayout } from '@/hooks/use-mobile-layout';
@@ -51,15 +44,10 @@ export function NotesView({
   } | null;
   restoreUndo: () => boolean;
 }) {
-  const noteContentRef = useRef<HTMLTextAreaElement>(null);
   const noteTitleRef = useRef<HTMLInputElement>(null);
   const mobileLayout = useMobileLayout();
   const pinnedNotes = notes.filter((note) => note.pinned);
   const otherNotes = notes.filter((note) => !note.pinned);
-  const links = useMemo(
-    () => noteLinks(openNote?.content ?? ''),
-    [openNote?.content],
-  );
   const [attachmentMessage, setAttachmentMessage] = useState<{
     noteId: string;
     text: string;
@@ -203,11 +191,9 @@ export function NotesView({
           <DialogContent
             className={`note-dialog ${openNote.color}`}
             showCloseButton={false}
-            onPaste={pasteImages}
+            onPasteCapture={pasteImages}
             initialFocus={() =>
-              !openNote.title && !openNote.content
-                ? noteTitleRef.current
-                : noteContentRef.current
+              !openNote.title && !openNote.content ? noteTitleRef.current : null
             }
             finalFocus={() =>
               document.querySelector<HTMLButtonElement>(
@@ -301,8 +287,10 @@ export function NotesView({
               }
             />
             <NoteEditor
-              editorRef={noteContentRef}
+              key={openNote.id}
+              id={openNote.id}
               value={openNote.content}
+              focusOnMount={Boolean(openNote.title || openNote.content)}
               onChange={(content) =>
                 updateNote(openNote.id, (note) => ({
                   ...note,
@@ -313,20 +301,6 @@ export function NotesView({
                 undo?.noteContentId === openNote.id ? restoreUndo : undefined
               }
             />
-            {links.length > 0 && (
-              <div className="note-links" aria-label="Ссылки в заметке">
-                {links.map((link) => (
-                  <a
-                    key={link.url}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {link.label} ↗
-                  </a>
-                ))}
-              </div>
-            )}
             {attachmentMessage?.noteId === openNote.id && (
               <output
                 className={`note-attachment-message ${attachmentMessage.error ? 'error' : ''}`}

@@ -1,52 +1,38 @@
-import { useRef, type KeyboardEvent, type RefObject } from 'react';
-import { Textarea } from '@/components/ui/textarea';
+import { lazy, Suspense } from 'react';
+
+const MarkdownEditor = lazy(() =>
+  import('@/components/markdown-editor').then((module) => ({
+    default: module.MarkdownEditor,
+  })),
+);
 
 export function NoteEditor({
-  editorRef,
+  id,
   value,
   onChange,
   recoverPreviousSession,
+  focusOnMount,
 }: {
-  editorRef: RefObject<HTMLTextAreaElement | null>;
+  id: string;
   value: string;
   onChange: (value: string) => void;
   recoverPreviousSession?: () => boolean;
+  focusOnMount: boolean;
 }) {
-  const initialValueRef = useRef(value);
-  const hasLocalChangesRef = useRef(false);
-  const recoveryUsedRef = useRef(false);
-
-  function handleUndo(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (
-      !recoverPreviousSession ||
-      recoveryUsedRef.current ||
-      hasLocalChangesRef.current ||
-      event.shiftKey ||
-      event.altKey ||
-      (!event.metaKey && !event.ctrlKey) ||
-      event.key.toLowerCase() !== 'z'
-    )
-      return;
-
-    event.preventDefault();
-    recoveryUsedRef.current = recoverPreviousSession();
-  }
-
   return (
     <div className="note-content-shell">
-      <Textarea
-        ref={editorRef}
-        className="note-content-input"
-        value={value}
-        placeholder="Текст заметки"
-        aria-label="Текст заметки"
-        onChange={(event) => {
-          const nextValue = event.target.value;
-          hasLocalChangesRef.current = nextValue !== initialValueRef.current;
-          onChange(nextValue);
-        }}
-        onKeyDown={handleUndo}
-      />
+      <Suspense fallback={<div className="note-editor-loading">Загрузка…</div>}>
+        <MarkdownEditor
+          id={`note-content-editor-${id}`}
+          value={value}
+          placeholder="Текст заметки"
+          ariaLabel="Текст заметки"
+          onChange={onChange}
+          plainText
+          recoverPreviousSession={recoverPreviousSession}
+          focusOnMount={focusOnMount}
+        />
+      </Suspense>
     </div>
   );
 }
