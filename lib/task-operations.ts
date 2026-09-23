@@ -118,6 +118,17 @@ export function updateScheduledTasks(
   return { ...data, schedule: { ...data.schedule, [day]: tasks } };
 }
 
+export function insertTaskAfter(
+  tasks: Task[],
+  task: Task,
+  afterId?: string | null,
+) {
+  const index =
+    afterId === null ? -1 : tasks.findIndex((item) => item.id === afterId);
+  const position = afterId === null ? 0 : index < 0 ? tasks.length : index + 1;
+  return [...tasks.slice(0, position), task, ...tasks.slice(position)];
+}
+
 export function updateScheduledTask(
   data: AppData,
   day: string,
@@ -357,7 +368,12 @@ export function updateBacklogTask(
   return { ...data, backlog };
 }
 
-export function appendBacklogTask(data: AppData, groupId: string, task: Task) {
+export function insertBacklogTask(
+  data: AppData,
+  groupId: string,
+  task: Task,
+  afterId?: string | null,
+) {
   const groups = data.backlog ?? [];
   if (
     Object.values(data.schedule).some((tasks) =>
@@ -375,7 +391,11 @@ export function appendBacklogTask(data: AppData, groupId: string, task: Task) {
       group.id === groupId
         ? {
             ...group,
-            tasks: [...group.tasks, { ...task, backlogGroupId: groupId }],
+            tasks: insertTaskAfter(
+              group.tasks,
+              { ...task, backlogGroupId: groupId },
+              afterId,
+            ),
           }
         : group,
     ),

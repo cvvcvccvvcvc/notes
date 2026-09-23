@@ -526,25 +526,105 @@ h1 {
   padding: 8px 10px;
   white-space: nowrap;
 }
-.empty-today {
-  width: 100%;
-  min-height: 44px;
-  border: 1px dashed #cdd1ca;
-  border-radius: 14px;
-  background: transparent;
+.task-list.insertable-list,
+.future-tasks.insertable-list,
+.backlog-list.insertable-list {
+  gap: 0;
+}
+.task-insert {
+  position: relative;
+  z-index: 1;
   display: flex;
-  gap: 8px;
+  width: 100%;
+  height: 14px;
   align-items: center;
   justify-content: center;
-  color: #7c827d;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #397963;
   cursor: pointer;
 }
-.empty-today:hover {
+.task-insert::before {
+  content: '';
+  position: absolute;
+  right: 8px;
+  left: 8px;
+  border-top: 1px solid #81ae9b;
+  opacity: 0;
+}
+.task-insert-label {
+  position: relative;
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid #c9ded0;
+  border-radius: 99px;
+  background: #f5faf5;
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.task-insert-label svg {
+  width: 14px;
+  height: 14px;
+}
+.task-insert-mobile-label {
+  display: none;
+}
+.task-insert:hover::before,
+.task-insert:focus-visible::before,
+.task-insert:hover .task-insert-label,
+.task-insert:focus-visible .task-insert-label {
+  opacity: 1;
+}
+.task-insert:focus-visible {
+  outline: 2px solid #3f8b73;
+  outline-offset: 1px;
+}
+.task-insert.empty {
+  height: 44px;
+  margin: 4px 0;
+  border: 1px dashed #cdd1ca;
+  border-radius: 14px;
+  color: #7c827d;
+}
+.task-insert.empty .task-insert-label {
+  border: 0;
+  background: transparent;
+  opacity: 1;
+}
+.task-insert.empty:hover {
   border-color: #73a697;
   color: #236e5b;
 }
-.empty-today svg {
-  width: 18px;
+@media (hover: hover) {
+  .insertable-list > .task-insert:last-child:not(.empty) {
+    height: 24px;
+  }
+}
+@media (hover: none) {
+  .task-insert:not(.empty) {
+    height: 6px;
+    pointer-events: none;
+  }
+  .task-insert.adjacent {
+    height: 44px;
+    pointer-events: auto;
+  }
+  .task-insert.adjacent::before,
+  .task-insert.adjacent .task-insert-label {
+    opacity: 1;
+  }
+  .task-insert-desktop-label {
+    display: none;
+  }
+  .task-insert-mobile-label {
+    display: inline;
+  }
 }
 
 .future-section {
@@ -924,23 +1004,12 @@ h1 {
   padding: 8px 12px;
   font-size: 15px;
 }
-.future-add {
-  min-height: 38px;
-  justify-self: start;
+.future-tasks .task-insert.empty {
+  justify-content: flex-start;
+  height: 38px;
+  margin: 0;
   border: 0;
-  background: transparent;
-  color: #9a9f9b;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  cursor: pointer;
   font-size: 13px;
-}
-.future-day:hover .future-add {
-  color: #377963;
-}
-.future-add svg {
-  width: 14px;
 }
 .month-end {
   margin: 28px 0 0;
@@ -1386,15 +1455,6 @@ h1 {
   display: inline;
 }
 .backlog-take svg {
-  width: 16px;
-}
-.project-add-task {
-  min-height: 34px;
-  margin-top: 4px;
-  padding-inline: 8px;
-  color: #68716c;
-}
-.project-add-task svg {
   width: 16px;
 }
 .backlog-add-group-bottom {
@@ -2918,9 +2978,6 @@ h1 {
   .future-date {
     font-size: 12px;
   }
-  .future-add {
-    min-height: 40px;
-  }
   .future-tasks {
     gap: 6px;
   }
@@ -3380,31 +3437,6 @@ h1 {
 .planned-time-badge:focus-within {
   background: #e5ece5;
 }
-.today-add {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 7px;
-  color: #7a877d;
-  text-align: left;
-  border-radius: 10px;
-  min-height: 36px;
-  font-size: 13px;
-}
-.today-add:hover,
-.today-add:focus-visible {
-  background: #eaf0e9;
-  color: #356c53;
-}
-.today-add svg {
-  width: 16px;
-  height: 16px;
-}
-.today-add kbd {
-  margin-left: auto;
-  font-size: 11px;
-  color: #8d978f;
-}
 @media (max-width: 640px) {
   [data-task-card]:not(.editing) {
     touch-action: pan-y;
@@ -3420,9 +3452,6 @@ h1 {
   .source-meta {
     margin: -1px 4px 4px;
     font-size: 10px;
-  }
-  .today-add kbd {
-    display: none;
   }
 }
 

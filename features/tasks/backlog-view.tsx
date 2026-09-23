@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { TaskColorMenu } from '@/features/tasks/task-color-menu';
+import { TaskInsertList } from '@/features/tasks/task-insert';
 import type { Task, TaskColor, TaskGroup } from '@/lib/data';
 import { SortableDropZone, SortableItems, SortableRoot } from '@/lib/sorting';
 import {
@@ -72,7 +73,7 @@ function isTextEditor(target: EventTarget | null) {
 type BacklogProps = {
   groups: TaskGroup[];
   addGroup: () => string;
-  addTask: (groupId: string) => string;
+  addTask: (groupId: string, afterId?: string | null) => string;
   renameGroup: (id: string, title: string) => void;
   setGroupContent: (id: string, content: string) => void;
   setGroupColor: (id: string, color?: TaskColor) => void;
@@ -264,8 +265,8 @@ export function BacklogView(props: BacklogProps) {
     setEditingGroupKey(`card:${id}`);
   }
 
-  function addTask(groupId: string) {
-    const id = props.addTask(groupId);
+  function addTask(groupId: string, afterId?: string | null) {
+    const id = props.addTask(groupId, afterId);
     setOpenGroupId(groupId);
     setSelectedGroupId(null);
     setSelectedId(id);
@@ -339,66 +340,78 @@ export function BacklogView(props: BacklogProps) {
             <>
               <SortableDropZone
                 id={`backlog-group:${group.id}`}
-                className="backlog-list"
+                className={`backlog-list${location === 'dialog' ? ' insertable-list' : ''}`}
                 kind="task-zone"
               >
                 <SortableItems items={visibleTasks.map((task) => task.id)}>
-                  {visibleTasks.map((task, index) => (
-                    <BacklogTaskRow
-                      key={task.id}
-                      task={task}
-                      selected={selectedId === task.id}
-                      editing={editingId === task.id}
-                      onSelect={() => select(task.id)}
-                      onEdit={() => {
-                        setSelectedId(task.id);
-                        setEditingId(task.id);
-                      }}
-                      onStopEditing={(refocus = false) => {
-                        if (!hasTaskTitle(task.text)) {
+                  <TaskInsertList
+                    tasks={visibleTasks}
+                    selectedId={selectedId}
+                    enabled={location === 'dialog'}
+                    emptyLabel="Добавить первое дело"
+                    onInsert={(afterId) => addTask(group.id, afterId)}
+                    renderTask={(task, index) => (
+                      <BacklogTaskRow
+                        key={task.id}
+                        task={task}
+                        selected={selectedId === task.id}
+                        editing={editingId === task.id}
+                        onSelect={() => select(task.id)}
+                        onEdit={() => {
+                          setSelectedId(task.id);
+                          setEditingId(task.id);
+                        }}
+                        onStopEditing={(refocus = false) => {
+                          if (!hasTaskTitle(task.text)) {
+                            selectAfterRemoval(task.id);
+                            props.discardTask(group.id, task.id);
+                            return;
+                          }
+                          setEditingId(null);
+                          if (refocus) focusBacklogTask(task.id);
+                        }}
+                        onNavigate={(direction) =>
+                          selectRelative(task.id, direction)
+                        }
+                        onMove={(direction) => {
+                          props.moveTaskVertically(
+                            group.id,
+                            task.id,
+                            direction,
+                          );
+                          if (
+                            location === 'card' &&
+                            direction === 1 &&
+                            index === PROJECT_PREVIEW_TASK_LIMIT - 1 &&
+                            group.tasks.length > PROJECT_PREVIEW_TASK_LIMIT
+                          )
+                            openProject(group.id);
+                          focusBacklogTask(task.id);
+                        }}
+                        canMoveUp={index > 0 || groupIndex > 0}
+                        canMoveDown={
+                          index < group.tasks.length - 1 ||
+                          groupIndex < props.groups.length - 1
+                        }
+                        onUpdate={(change) =>
+                          props.updateTask(group.id, task.id, change)
+                        }
+                        onAddBelow={() => addTask(group.id, task.id)}
+                        onTake={() => {
+                          selectAfterRemoval(task.id);
+                          props.takeTask(group.id, task.id);
+                        }}
+                        onDiscard={() => {
                           selectAfterRemoval(task.id);
                           props.discardTask(group.id, task.id);
-                          return;
-                        }
-                        setEditingId(null);
-                        if (refocus) focusBacklogTask(task.id);
-                      }}
-                      onNavigate={(direction) =>
-                        selectRelative(task.id, direction)
-                      }
-                      onMove={(direction) => {
-                        props.moveTaskVertically(group.id, task.id, direction);
-                        if (
-                          location === 'card' &&
-                          direction === 1 &&
-                          index === PROJECT_PREVIEW_TASK_LIMIT - 1 &&
-                          group.tasks.length > PROJECT_PREVIEW_TASK_LIMIT
-                        )
-                          openProject(group.id);
-                        focusBacklogTask(task.id);
-                      }}
-                      canMoveUp={index > 0 || groupIndex > 0}
-                      canMoveDown={
-                        index < group.tasks.length - 1 ||
-                        groupIndex < props.groups.length - 1
-                      }
-                      onUpdate={(change) =>
-                        props.updateTask(group.id, task.id, change)
-                      }
-                      onTake={() => {
-                        selectAfterRemoval(task.id);
-                        props.takeTask(group.id, task.id);
-                      }}
-                      onDiscard={() => {
-                        selectAfterRemoval(task.id);
-                        props.discardTask(group.id, task.id);
-                      }}
-                      onFinish={() => {
-                        selectAfterRemoval(task.id);
-                        props.finishTask(group.id, task.id);
-                      }}
-                    />
-                  ))}
+                        }}
+                        onFinish={() => {
+                          selectAfterRemoval(task.id);
+                          props.finishTask(group.id, task.id);
+                        }}
+                      />
+                    )}
+                  />
                 </SortableItems>
               </SortableDropZone>
               {location === 'card' && hiddenTaskCount > 0 && (
@@ -410,15 +423,6 @@ export function BacklogView(props: BacklogProps) {
                 >
                   Ещё {hiddenTaskCount}
                 </button>
-              )}
-              {location !== 'card' && (
-                <Button
-                  className="project-add-task"
-                  variant="ghost"
-                  onClick={() => addTask(group.id)}
-                >
-                  <Plus /> Новое дело
-                </Button>
               )}
               {location === 'dialog' && (
                 <ProjectInformation
@@ -447,7 +451,7 @@ export function BacklogView(props: BacklogProps) {
       className="backlog-page"
       onPointerDownCapture={(event) => {
         const target = event.target as HTMLElement;
-        if (!target.closest('[data-task-card]')) {
+        if (!target.closest('[data-task-card], [data-task-insert]')) {
           setSelectedId(null);
           setEditingId(null);
           const active = document.activeElement;
@@ -903,6 +907,7 @@ function BacklogTaskRow({
   canMoveUp,
   canMoveDown,
   onUpdate,
+  onAddBelow,
   onTake,
   onFinish,
   onDiscard,
@@ -918,6 +923,7 @@ function BacklogTaskRow({
   canMoveUp: boolean;
   canMoveDown: boolean;
   onUpdate: (change: (task: Task) => Task) => void;
+  onAddBelow: () => void;
   onTake: () => void;
   onFinish: () => void;
   onDiscard: () => void;
@@ -936,6 +942,21 @@ function BacklogTaskRow({
   );
 
   function handleShortcut(event: React.KeyboardEvent<HTMLElement>) {
+    if (
+      event.key === 'Enter' &&
+      event.shiftKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      !event.ctrlKey &&
+      !event.nativeEvent.isComposing &&
+      (isTextEditor(event.target) ||
+        (event.target as HTMLElement).closest('[data-task-focus]'))
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!event.repeat) onAddBelow();
+      return true;
+    }
     return backlogShortcut(event, {
       edit: onEdit,
       navigate: onNavigate,

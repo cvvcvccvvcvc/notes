@@ -3,7 +3,8 @@ import { describe, it } from 'node:test';
 
 import type { AppData, Task } from './data';
 import {
-  appendBacklogTask,
+  insertBacklogTask,
+  insertTaskAfter,
   finishScheduledTask,
   moveBacklogTask,
   moveBacklogGroup,
@@ -34,6 +35,23 @@ function data(overrides: Partial<AppData> = {}): AppData {
 }
 
 void describe('schedule task operations', () => {
+  void it('inserts a task before the first, between tasks, and at the end', () => {
+    const one = task('one');
+    const two = task('two');
+    const created = task('new');
+    assert.deepEqual(insertTaskAfter([one, two], created, null), [
+      created,
+      one,
+      two,
+    ]);
+    assert.deepEqual(insertTaskAfter([one, two], created, 'one'), [
+      one,
+      created,
+      two,
+    ]);
+    assert.deepEqual(insertTaskAfter([one, two], created), [one, two, created]);
+  });
+
   void it('starts, pauses and resumes the same task timer', () => {
     const current = data({ schedule: { '2026-09-05': [task('one')] } });
     const started = toggleScheduledTaskTimer(current, '2026-09-05', 'one', 100);
@@ -162,13 +180,35 @@ void describe('schedule task operations', () => {
 void describe('backlog task operations', () => {
   void it('adds a new task directly to its group once', () => {
     const current = data();
-    const created = appendBacklogTask(current, 'study', task('new'));
+    const created = insertBacklogTask(current, 'study', task('new'));
 
     assert.deepEqual(created.backlog?.[0].tasks, [
       task('new', { backlogGroupId: 'study' }),
     ]);
-    assert.equal(appendBacklogTask(created, 'study', task('new')), created);
-    assert.equal(appendBacklogTask(current, 'missing', task('new')), current);
+    assert.equal(insertBacklogTask(created, 'study', task('new')), created);
+    assert.equal(insertBacklogTask(current, 'missing', task('new')), current);
+  });
+
+  void it('inserts inside a project without changing existing task IDs', () => {
+    const current = data({
+      backlog: [
+        { id: 'study', title: 'Учёба', tasks: [task('one'), task('two')] },
+      ],
+    });
+    const inserted = insertBacklogTask(current, 'study', task('new'), 'one');
+    assert.deepEqual(
+      inserted.backlog?.[0].tasks.map((item) => item.id),
+      ['one', 'new', 'two'],
+    );
+    assert.deepEqual(
+      insertBacklogTask(
+        current,
+        'study',
+        task('new'),
+        null,
+      ).backlog?.[0].tasks.map((item) => item.id),
+      ['new', 'one', 'two'],
+    );
   });
 
   void it('removes only the requested task without creating history', () => {

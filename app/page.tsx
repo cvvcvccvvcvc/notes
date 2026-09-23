@@ -67,7 +67,8 @@ import {
   updateReviewResult as updateReviewResultInData,
 } from '@/lib/review-operations';
 import {
-  appendBacklogTask,
+  insertBacklogTask,
+  insertTaskAfter,
   moveBacklogGroup as moveBacklogGroupInData,
   moveBacklogGroupTo as moveBacklogGroupToInData,
   moveBacklogTask as moveBacklogTaskInData,
@@ -298,20 +299,11 @@ export default function Home() {
     commit((current) => updateScheduledTasks(current, day, change));
   }
 
-  function addTask(day: string, afterId?: string) {
+  function addTask(day: string, afterId?: string | null) {
     const id = uid();
-    updateTasks(day, (tasks) => {
-      const next = [...tasks];
-      const index = afterId
-        ? tasks.findIndex((task) => task.id === afterId)
-        : -1;
-      next.splice(index < 0 ? tasks.length : index + 1, 0, {
-        id,
-        text: '',
-        intervals: [],
-      });
-      return next;
-    });
+    updateTasks(day, (tasks) =>
+      insertTaskAfter(tasks, { id, text: '', intervals: [] }, afterId),
+    );
     return id;
   }
 
@@ -443,10 +435,15 @@ export default function Home() {
     return id;
   }
 
-  function addBacklogTask(groupId: string) {
+  function addBacklogTask(groupId: string, afterId?: string | null) {
     const id = uid();
     commit((current) =>
-      appendBacklogTask(current, groupId, { id, text: '', intervals: [] }),
+      insertBacklogTask(
+        current,
+        groupId,
+        { id, text: '', intervals: [] },
+        afterId,
+      ),
     );
     return id;
   }

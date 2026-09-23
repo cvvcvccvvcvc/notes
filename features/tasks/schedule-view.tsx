@@ -28,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { TaskColorMenu } from '@/features/tasks/task-color-menu';
+import { TaskInsertList } from '@/features/tasks/task-insert';
 import type { AppData, Task, TaskColor, TaskGroup } from '@/lib/data';
 import {
   dateKey,
@@ -139,7 +140,7 @@ type ScheduleProps = {
   data: AppData;
   now: number;
   todayKey: string;
-  addTask: (day: string, afterId?: string) => string;
+  addTask: (day: string, afterId?: string | null) => string;
   updateTask: (day: string, id: string, change: (task: Task) => Task) => void;
   runTimer: (day: string, id: string) => void;
   finishTask: (day: string, id: string) => void;
@@ -281,29 +282,32 @@ export function ScheduleView(props: ScheduleProps) {
           key={day}
         >
           <div className="future-date">{ruShortDate.format(date)}</div>
-          <SortableDropZone id={`schedule-day:${day}`} className="future-tasks">
+          <SortableDropZone
+            id={`schedule-day:${day}`}
+            className="future-tasks insertable-list"
+          >
             <SortableItems items={tasks.map((task) => task.id)}>
-              {tasks.map((task) => (
-                <FutureTaskRow
-                  key={task.id}
-                  {...props}
-                  task={task}
-                  day={day}
-                  {...interactionsFor(day, task.id)}
-                  onActivate={() => {
-                    selectAfterRemoval(day, task.id);
-                    props.takeFutureTask(day, task.id);
-                  }}
-                />
-              ))}
+              <TaskInsertList
+                tasks={tasks}
+                selectedId={selectedId}
+                emptyId={`add-${day}`}
+                emptyLabel="Добавить дело"
+                onInsert={(afterId) => addAndEdit(day, afterId)}
+                renderTask={(task) => (
+                  <FutureTaskRow
+                    key={task.id}
+                    {...props}
+                    task={task}
+                    day={day}
+                    {...interactionsFor(day, task.id)}
+                    onActivate={() => {
+                      selectAfterRemoval(day, task.id);
+                      props.takeFutureTask(day, task.id);
+                    }}
+                  />
+                )}
+              />
             </SortableItems>
-            <button
-              id={`add-${day}`}
-              className="future-add"
-              onClick={() => addAndEdit(day)}
-            >
-              <Plus /> Добавить
-            </button>
           </SortableDropZone>
         </div>
       );
@@ -354,7 +358,7 @@ export function ScheduleView(props: ScheduleProps) {
     focusTask(target?.day ?? day, target?.id);
   }
 
-  function addAndEdit(day: string, afterId?: string) {
+  function addAndEdit(day: string, afterId?: string | null) {
     const id = addTask(day, afterId);
     setSelectedId(id);
     setEditingId(id);
@@ -465,7 +469,9 @@ export function ScheduleView(props: ScheduleProps) {
             event.altKey ||
             event.ctrlKey ||
             event.nativeEvent.isComposing ||
-            (event.target as HTMLElement).closest('[data-no-drag]')
+            (event.target as HTMLElement).closest(
+              '[data-no-drag], [data-task-insert]',
+            )
           )
             return;
           event.preventDefault();
@@ -475,7 +481,11 @@ export function ScheduleView(props: ScheduleProps) {
           addAndEdit(day, selectedId ?? undefined);
         }}
         onPointerDownCapture={(event) => {
-          if (!(event.target as HTMLElement).closest('[data-task-card]')) {
+          if (
+            !(event.target as HTMLElement).closest(
+              '[data-task-card], [data-task-insert]',
+            )
+          ) {
             setSelectedId(null);
             setEditingId(null);
             const active = document.activeElement;
@@ -502,11 +512,16 @@ export function ScheduleView(props: ScheduleProps) {
         <section className="today-section">
           <SortableDropZone
             id={`schedule-day:${todayKey}`}
-            className="task-list today-timeline"
+            className="task-list today-timeline insertable-list"
           >
             <SortableItems items={todayTasks.map((task) => task.id)}>
-              {todayTasks.length ? (
-                todayTasks.map((task) => (
+              <TaskInsertList
+                tasks={todayTasks}
+                selectedId={selectedId}
+                emptyId={`add-${todayKey}`}
+                emptyLabel="Написать первое дело"
+                onInsert={(afterId) => addAndEdit(todayKey, afterId)}
+                renderTask={(task) => (
                   <TaskRow
                     key={task.id}
                     task={task}
@@ -518,26 +533,9 @@ export function ScheduleView(props: ScheduleProps) {
                     }}
                     {...props}
                   />
-                ))
-              ) : (
-                <button
-                  id={`add-${todayKey}`}
-                  className="empty-today"
-                  onClick={() => addAndEdit(todayKey)}
-                >
-                  <Plus /> Написать первое дело
-                </button>
-              )}
+                )}
+              />
             </SortableItems>
-            {todayTasks.length > 0 && (
-              <button
-                id={`add-${todayKey}`}
-                className="today-add"
-                onClick={() => addAndEdit(todayKey)}
-              >
-                <Plus /> Добавить дело <kbd>⇧ Enter</kbd>
-              </button>
-            )}
           </SortableDropZone>
         </section>
 
