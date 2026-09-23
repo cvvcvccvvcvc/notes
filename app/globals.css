@@ -1068,7 +1068,9 @@ h1 {
   position: sticky;
   top: 0;
   z-index: 5;
-  padding: 8px 0;
+  margin: calc(-1 * var(--project-dialog-inset))
+    calc(-1 * var(--project-dialog-inset)) 8px;
+  padding: var(--project-dialog-inset) var(--project-dialog-inset) 8px;
   background: inherit;
 }
 .backlog-group-title {
@@ -1402,12 +1404,13 @@ h1 {
   margin-top: 16px;
 }
 .project-dialog {
+  --project-dialog-inset: 24px;
   width: min(980px, calc(100vw - 128px));
   max-width: 980px !important;
   max-height: calc(100svh - 96px);
   display: block;
   overflow: auto;
-  padding: 24px;
+  padding: var(--project-dialog-inset);
   border-radius: 18px;
   background: #f8faf7;
 }
@@ -2751,9 +2754,9 @@ h1 {
     grid-row: 1 / span 2;
   }
   .project-dialog {
+    --project-dialog-inset: 16px;
     width: calc(100vw - 32px);
     max-height: min(74svh, 680px);
-    padding: 16px;
   }
   .today-section {
     padding: 0 0 16px;
