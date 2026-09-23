@@ -95,6 +95,24 @@ export function historyItemsForPeriod(data: AppData, period: ReviewPeriod) {
     .sort((left, right) => left.finishedAt - right.finishedAt);
 }
 
+export function sourceReviewsForPeriod(data: AppData, period: ReviewPeriod) {
+  if (period.kind === 'week') return [];
+  const childKind = period.kind === 'month' ? 'week' : 'month';
+  const { start, end } = reviewPeriodRange(period);
+  return (data.reviews ?? [])
+    .filter((review) => {
+      if (review.status !== 'completed' || review.period.kind !== childKind)
+        return false;
+      const childEnd = reviewPeriodRange(review.period).end;
+      return childEnd >= start && childEnd <= end;
+    })
+    .sort((left, right) =>
+      reviewPeriodRange(left.period).end.localeCompare(
+        reviewPeriodRange(right.period).end,
+      ),
+    );
+}
+
 export function goalsForPeriod(data: AppData, period: ReviewPeriod) {
   return (data.goals ?? []).filter(
     (goal) =>
@@ -175,13 +193,9 @@ export function createPeriodReview(
     id: string;
     period: ReviewPeriod;
     createdAt: number;
-    resultIds: string[];
   },
 ): AppData {
   if (reviewForPeriod(data, input.period)) return data;
-  const history = historyItemsForPeriod(data, input.period);
-  if (history.length !== input.resultIds.length)
-    throw new Error('Each history item needs one review result id');
   const review: PeriodReview = {
     id: input.id,
     period: input.period,
@@ -190,12 +204,7 @@ export function createPeriodReview(
     goalSnapshot: goalsForPeriod(data, input.period)
       .map((goal) => goal.text.trim())
       .filter(Boolean),
-    results: history.map((item, index) => ({
-      id: input.resultIds[index],
-      text: item.text,
-      included: true,
-      sourceHistoryItemId: item.id,
-    })),
+    results: [],
   };
   return { ...data, reviews: [...(data.reviews ?? []), review] };
 }

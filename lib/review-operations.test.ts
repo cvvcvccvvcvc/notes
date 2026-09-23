@@ -4,12 +4,14 @@ import test from 'node:test';
 import type { AppData } from './data';
 import {
   appendGoal,
+  appendReviewResult,
   completePeriodReview,
   createPeriodReview,
   currentReviewPeriod,
   dueReviewPeriods,
   moveReviewPeriod,
   reviewPeriodRange,
+  sourceReviewsForPeriod,
   updateReviewResult,
 } from './review-operations';
 
@@ -102,10 +104,15 @@ void test('review edits its own snapshot without changing day history', () => {
     id: 'review-one',
     period: { kind: 'week', key: '2026-08-31' },
     createdAt: 20,
-    resultIds: ['result-one'],
+  });
+  assert.deepEqual(started.reviews?.[0].results, []);
+  const withResult = appendReviewResult(started, 'review-one', {
+    id: 'result-one',
+    text: 'Черновик',
+    included: true,
   });
   const edited = updateReviewResult(
-    started,
+    withResult,
     'review-one',
     'result-one',
     (result) => ({ ...result, text: 'Черновик готов' }),
@@ -116,4 +123,39 @@ void test('review edits its own snapshot without changing day history', () => {
   assert.equal(completed.reviews?.[0].results[0].text, 'Черновик готов');
   assert.deepEqual(completed.reviews?.[0].goalSnapshot, ['Запустить черновик']);
   assert.equal(completed.reviews?.[0].status, 'completed');
+});
+
+void test('month and year reference only completed summaries of the next smaller period', () => {
+  const week = { kind: 'week' as const, key: '2026-08-31' };
+  const month = { kind: 'month' as const, key: '2026-09' };
+  const current = data({
+    reviews: [
+      {
+        id: 'week',
+        period: week,
+        status: 'completed',
+        results: [],
+        goalSnapshot: [],
+        createdAt: 1,
+      },
+      {
+        id: 'month',
+        period: month,
+        status: 'completed',
+        results: [],
+        goalSnapshot: [],
+        createdAt: 2,
+      },
+    ],
+  });
+  assert.deepEqual(
+    sourceReviewsForPeriod(current, month).map((review) => review.id),
+    ['week'],
+  );
+  assert.deepEqual(
+    sourceReviewsForPeriod(current, { kind: 'year', key: '2026' }).map(
+      (review) => review.id,
+    ),
+    ['month'],
+  );
 });

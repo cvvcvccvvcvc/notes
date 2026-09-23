@@ -24,12 +24,14 @@ import {
   dueReviewPeriods,
   goalsForPeriod,
   historyItemDay,
+  historyItemsForPeriod,
   moveReviewPeriod,
   reviewForPeriod,
   reviewPeriodLabel,
   reviewPeriodRange,
+  sourceReviewsForPeriod,
 } from '@/lib/review-operations';
-import { TaskTextPreview } from '@/lib/task-text';
+import { splitTaskText, TaskTextPreview } from '@/lib/task-text';
 
 type ReviewsViewProps = {
   data: AppData;
@@ -325,20 +327,22 @@ function ReviewEditor({
   removeGoal,
 }: ReviewsViewProps & { review: PeriodReview; close: () => void }) {
   const nextPeriod = moveReviewPeriod(review.period, 1);
-  const historyById = new Map(data.history.map((item) => [item.id, item]));
-  const groups = new Map<string, ReviewResult[]>();
-  for (const result of review.results) {
-    const source = result.sourceHistoryItemId
-      ? historyById.get(result.sourceHistoryItemId)
-      : undefined;
-    const key = source ? historyItemDay(source) : '';
-    groups.set(key, [...(groups.get(key) ?? []), result]);
-  }
-  const orderedGroups = [...groups].sort(([left], [right]) => {
-    if (!left) return 1;
-    if (!right) return -1;
-    return left.localeCompare(right);
-  });
+  const history = historyItemsForPeriod(data, review.period);
+  const sourceReviews = sourceReviewsForPeriod(data, review.period);
+  const weekDays =
+    review.period.kind === 'week'
+      ? Array.from({ length: 7 }, (_, offset) => {
+          const date = new Date(`${review.period.key}T12:00:00`);
+          date.setDate(date.getDate() + offset);
+          const key = dateKey(date);
+          return {
+            key,
+            date,
+            items: history.filter((item) => historyItemDay(item) === key),
+          };
+        })
+      : [];
+  const writtenResults = review.results.filter((result) => result.included);
 
   function createResult() {
     const id = addResult(review.id);
@@ -378,72 +382,89 @@ function ReviewEditor({
       </section>
 
       <section className="review-editor-section">
-        <h2>Что получилось</h2>
-        <p className="review-editor-note">
-          Меняются только формулировки итога. Записи в истории дней останутся
-          прежними.
-        </p>
-        {orderedGroups.length === 0 && (
-          <p className="review-empty-copy">
-            В истории этого периода нет завершённых дел.
-          </p>
-        )}
-        {orderedGroups.map(([day, results]) => (
-          <section className="review-result-group" key={day || 'manual'}>
-            <h3>
-              {day
-                ? ruDate.format(new Date(`${day}T12:00:00`))
-                : 'Добавлено вручную'}
-            </h3>
-            <div className="review-result-rows">
-              {results.map((result) => (
-                <div
-                  className={`review-result-row ${result.included ? '' : 'excluded'}`}
-                  key={result.id}
-                >
-                  <input
-                    type="checkbox"
-                    checked={result.included}
-                    aria-label="Включить в итог"
-                    onChange={(event) =>
-                      updateResult(review.id, result.id, (current) => ({
-                        ...current,
-                        included: event.target.checked,
-                      }))
-                    }
-                  />
-                  <textarea
-                    id={`review-result-${result.id}`}
-                    rows={1}
-                    value={result.text}
-                    aria-label="Формулировка результата"
-                    onChange={(event) =>
-                      updateResult(review.id, result.id, (current) => ({
-                        ...current,
-                        text: event.target.value,
-                      }))
-                    }
-                  />
-                  {!result.sourceHistoryItemId && (
-                    <button
-                      type="button"
-                      aria-label="Удалить добавленный результат"
-                      onClick={() => removeResult(review.id, result.id)}
-                    >
-                      <Trash2 />
-                    </button>
-                  )}
-                </div>
-              ))}
+        <h2>
+          {review.period.kind === 'week'
+            ? 'Дни недели'
+            : review.period.kind === 'month'
+              ? 'Недельные итоги'
+              : 'Месячные итоги'}
+        </h2>
+        <div className="review-reference">
+          {weekDays.map(({ key, date, items }) => (
+            <section className="review-reference-period" key={key}>
+              <h3>{ruDate.format(date)}</h3>
+              {items.length ? (
+                <ul>
+                  {items.map((item) => (
+                    <li key={item.id}>{splitTaskText(item.text).title}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p>Нет завершённых дел</p>
+              )}
+            </section>
+          ))}
+          {sourceReviews.map((source) => {
+            const results = source.results.filter(
+              (result) => result.included && result.text.trim(),
+            );
+            return (
+              <section className="review-reference-period" key={source.id}>
+                <h3>{reviewPeriodLabel(source.period)}</h3>
+                {results.length ? (
+                  <ul>
+                    {results.map((result) => (
+                      <li key={result.id}>{result.text}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>Итог не записан</p>
+                )}
+              </section>
+            );
+          })}
+          {review.period.kind !== 'week' && !sourceReviews.length && (
+            <p className="review-empty-copy">
+              Пока нет подведённых итогов за меньшие периоды.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="review-editor-section">
+        <h2>Мой итог</h2>
+        <p className="review-editor-note">Напишите главное своими словами.</p>
+        <div className="review-result-rows">
+          {writtenResults.map((result) => (
+            <div className="review-result-row" key={result.id}>
+              <textarea
+                id={`review-result-${result.id}`}
+                rows={2}
+                value={result.text}
+                aria-label="Формулировка итога"
+                onChange={(event) =>
+                  updateResult(review.id, result.id, (current) => ({
+                    ...current,
+                    text: event.target.value,
+                  }))
+                }
+              />
+              <button
+                type="button"
+                aria-label="Удалить строку итога"
+                onClick={() => removeResult(review.id, result.id)}
+              >
+                <Trash2 />
+              </button>
             </div>
-          </section>
-        ))}
+          ))}
+        </div>
         <button
           type="button"
           className="review-text-action"
           onClick={createResult}
         >
-          <Plus /> Добавить результат, которого не было в делах
+          <Plus /> Добавить строку итога
         </button>
       </section>
 

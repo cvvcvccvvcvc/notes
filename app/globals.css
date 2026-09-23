@@ -2394,31 +2394,56 @@ h1 {
 .review-result-rows {
   display: grid;
   gap: 7px;
+  margin-top: 12px;
 }
 .review-result-row {
   min-height: 54px;
   padding: 6px 8px 6px 13px;
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) 34px;
+  grid-template-columns: minmax(0, 1fr) 34px;
   align-items: center;
   gap: 6px;
   border: 1px solid var(--border);
   border-radius: 11px;
   background: #fffefb;
 }
-.review-result-row.excluded {
-  opacity: 0.5;
+.review-reference {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fffefb;
+  overflow: hidden;
 }
-.review-result-row input {
-  width: 17px;
-  height: 17px;
-  accent-color: #27765f;
+.review-reference-period {
+  padding: 10px 14px;
+}
+.review-reference-period + .review-reference-period {
+  border-top: 1px solid var(--border);
+}
+.review-reference-period h3 {
+  margin: 0 0 4px;
+  color: #586861;
+  font-size: 13px;
+  font-weight: 650;
+  text-transform: capitalize;
+}
+.review-reference-period ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #343d37;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.review-reference-period p {
+  margin: 0;
+  color: #8b938d;
+  font-size: 12px;
 }
 .review-result-row textarea {
   resize: vertical;
 }
 .review-result-row > button:last-child:first-of-type {
-  grid-column: 3;
+  grid-column: 2;
 }
 .review-editor-section > .goal-list {
   max-width: 720px;
@@ -2882,7 +2907,7 @@ h1 {
     margin-top: 2px;
   }
   .review-result-row {
-    grid-template-columns: 22px minmax(0, 1fr) 40px;
+    grid-template-columns: minmax(0, 1fr) 40px;
   }
   .period-review-card header {
     align-items: stretch;

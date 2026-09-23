@@ -63,7 +63,6 @@ import {
   completePeriodReview,
   createPeriodReview,
   dueReviewPeriods,
-  historyItemsForPeriod,
   removeGoal as removeGoalFromData,
   removeReviewResult as removeReviewResultFromData,
   reviewForPeriod,
@@ -767,15 +766,11 @@ export default function Home() {
     const existing = current ? reviewForPeriod(current, period) : undefined;
     if (existing) return existing.id;
     const id = uid();
-    const resultIds = current
-      ? historyItemsForPeriod(current, period).map(() => uid())
-      : [];
     commit((latest) =>
       createPeriodReview(latest, {
         id,
         period,
         createdAt: Date.now(),
-        resultIds,
       }),
     );
     return id;
