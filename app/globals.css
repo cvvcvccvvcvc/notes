@@ -76,9 +76,11 @@
 }
 html {
   scroll-behavior: smooth;
+  touch-action: pan-x pan-y;
 }
 body {
   margin: 0;
+  touch-action: pan-x pan-y;
   background: var(--background);
   color: var(--foreground);
   font-family:
