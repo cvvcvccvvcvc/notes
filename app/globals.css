@@ -2768,8 +2768,10 @@ h1 {
   .rules-panel {
     position: relative;
     top: auto;
+    width: 100%;
+    max-width: 480px;
     max-height: none;
-    margin-top: 0;
+    margin: 20px auto 0;
     padding: 0;
     border: 0;
     border-radius: 0;
@@ -2778,7 +2780,7 @@ h1 {
     overflow: visible;
   }
   .rules-panel.mobile-expanded {
-    padding: 7px 8px;
+    padding: 12px 14px 14px;
     border: 1px solid #d6e3d9;
     border-radius: 11px;
     background: #eef5ef;
@@ -2806,14 +2808,14 @@ h1 {
   .rules-panel.mobile-expanded .rules-mobile-summary {
     width: 100%;
     margin: 0;
-    justify-content: flex-start;
+    justify-content: center;
   }
   .rules-mobile-close {
     position: absolute;
-    top: 6px;
-    right: 8px;
-    width: 28px;
-    height: 28px;
+    top: 10px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
     display: grid;
     place-items: center;
     border: 0;
@@ -2833,11 +2835,22 @@ h1 {
   }
   .rules-content {
     display: none;
-    padding-top: 5px;
+    padding-top: 10px;
   }
   .rules-content.mobile-expanded {
     display: flex;
     max-height: min(52svh, 420px);
+  }
+  .rules-content.mobile-expanded .rules-list {
+    gap: 8px;
+  }
+  .rules-content.mobile-expanded .add-rule {
+    min-height: 40px;
+    margin: 12px auto 0;
+    padding: 7px 10px;
+  }
+  .schedule-page .today-timeline {
+    margin-top: 20px;
   }
   .page-heading {
     align-items: center;
