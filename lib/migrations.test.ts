@@ -34,7 +34,7 @@ void test('migration repairs the backlog invariants even for current-version dat
     result.backlog?.map((group) => group.id),
     ['study'],
   );
-  assert.equal(result.version, 7);
+  assert.equal(result.version, 8);
   assert.deepEqual(result.monthPlanning, { rules: [], createdMonths: [] });
   assert.equal(result.rules?.length, 3);
   assert.deepEqual(result.goals, []);

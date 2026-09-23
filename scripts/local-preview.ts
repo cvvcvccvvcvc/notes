@@ -51,7 +51,7 @@ function createPreviewData(now = new Date()): AppData {
   const yesterday = addDays(now, -1);
 
   return appDataSchema.parse({
-    version: 7,
+    version: 8,
     schedule: {
       [today]: [
         task(

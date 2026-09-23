@@ -14,6 +14,6 @@ void test('fresh local data is empty and satisfies sync invariants', () => {
   assert.deepEqual(data.history, []);
   assert.equal(data.rules?.length, 3);
   assert.deepEqual(data.backlog, []);
-  assert.equal(data.version, 7);
+  assert.equal(data.version, 8);
   assert.deepEqual(validateAppData(data, 'local'), []);
 });
