@@ -1,5 +1,5 @@
-import { ChevronDown, Plus } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { ChevronDown, Plus, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -32,6 +32,8 @@ export function RulesPanel({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [mobileExpanded, setMobileExpanded] = useState(false);
+  const summaryTouchY = useRef<number | null>(null);
+  const suppressSummaryClick = useRef(false);
 
   useEffect(() => {
     function clearSelection(event: PointerEvent) {
@@ -117,7 +119,7 @@ export function RulesPanel({
 
   return (
     <aside
-      className="rules-panel"
+      className={`rules-panel ${mobileExpanded ? 'mobile-expanded' : ''}`}
       aria-label="Правила"
       onPointerDownCapture={(event) => {
         if (!(event.target as HTMLElement).closest('[data-rule-card]')) {
@@ -131,16 +133,44 @@ export function RulesPanel({
         className="rules-mobile-summary"
         aria-expanded={mobileExpanded}
         aria-controls="rules-mobile-content"
+        onTouchStart={(event) => {
+          summaryTouchY.current = event.touches[0]?.clientY ?? null;
+        }}
+        onTouchEnd={(event) => {
+          const start = summaryTouchY.current;
+          summaryTouchY.current = null;
+          if (start === null) return;
+          const movement = event.changedTouches[0].clientY - start;
+          if (Math.abs(movement) < 36) return;
+          suppressSummaryClick.current = true;
+          window.setTimeout(() => {
+            suppressSummaryClick.current = false;
+          }, 400);
+          setMobileExpanded(movement > 0);
+        }}
         onClick={() => {
+          if (suppressSummaryClick.current) {
+            suppressSummaryClick.current = false;
+            return;
+          }
           setMobileExpanded((expanded) => !expanded);
           setSelectedId(null);
           setEditingId(null);
         }}
       >
         <span>Правила</span>
-        <small>{rules.length}</small>
         <ChevronDown />
       </button>
+      {mobileExpanded && (
+        <button
+          type="button"
+          className="rules-mobile-close"
+          aria-label="Скрыть правила"
+          onClick={() => setMobileExpanded(false)}
+        >
+          <X />
+        </button>
+      )}
       <h2>Правила</h2>
       <div
         id="rules-mobile-content"
