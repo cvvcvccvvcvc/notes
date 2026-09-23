@@ -9,8 +9,7 @@ import {
   MoreHorizontal,
   Plus,
 } from 'lucide-react';
-import { Fragment, useEffect, useRef, useState } from 'react';
-import { dayTimeline } from '@/lib/day-timeline';
+import { useEffect, useRef, useState } from 'react';
 import { InlineTime } from './inline-time';
 import { cardDragListeners, isCardSurface, useTaskSwipe } from '@/lib/sorting';
 import { useSortable } from '@dnd-kit/sortable';
@@ -141,7 +140,6 @@ type ScheduleProps = {
   now: number;
   todayKey: string;
   addTask: (day: string, afterId?: string) => string;
-  setDayWindow: (day: string, window: { start?: string; end?: string }) => void;
   updateTask: (day: string, id: string, change: (task: Task) => Task) => void;
   runTimer: (day: string, id: string) => void;
   finishTask: (day: string, id: string) => void;
@@ -220,7 +218,6 @@ export function ScheduleView(props: ScheduleProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const previousEditingId = useRef<string | null>(null);
   const [timeEditingId, setTimeEditingId] = useState<string | null>(null);
-  const dayWindow = data.dayWindows?.[todayKey] ?? {};
   const today = new Date(now);
   const todayTasks = data.schedule[todayKey] ?? [];
   useEffect(() => {
@@ -507,41 +504,21 @@ export function ScheduleView(props: ScheduleProps) {
             id={`schedule-day:${todayKey}`}
             className="task-list today-timeline"
           >
-            <div className="timeline-boundary">
-              <InlineTime
-                className="boundary-time"
-                value={dayWindow.start}
-                label="Начало дня"
-                validate={(value) =>
-                  value && dayWindow.end && value >= dayWindow.end
-                    ? 'Конец должен быть позже начала'
-                    : undefined
-                }
-                onChange={(value) =>
-                  props.setDayWindow(todayKey, { ...dayWindow, start: value })
-                }
-              />
-            </div>
             <SortableItems items={todayTasks.map((task) => task.id)}>
               {todayTasks.length ? (
-                dayTimeline(todayTasks, dayWindow).map(
-                  ({ task, range, warning }) => (
-                    <Fragment key={task.id}>
-                      {range && <div className="timeline-range">{range}</div>}
-                      <TaskRow
-                        warning={warning}
-                        task={task}
-                        day={todayKey}
-                        {...interactionsFor(todayKey, task.id)}
-                        onActivate={() => {
-                          selectAfterRemoval(todayKey, task.id);
-                          props.finishTask(todayKey, task.id);
-                        }}
-                        {...props}
-                      />
-                    </Fragment>
-                  ),
-                )
+                todayTasks.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    day={todayKey}
+                    {...interactionsFor(todayKey, task.id)}
+                    onActivate={() => {
+                      selectAfterRemoval(todayKey, task.id);
+                      props.finishTask(todayKey, task.id);
+                    }}
+                    {...props}
+                  />
+                ))
               ) : (
                 <button
                   id={`add-${todayKey}`}
@@ -561,21 +538,6 @@ export function ScheduleView(props: ScheduleProps) {
                 <Plus /> Добавить дело <kbd>⇧ Enter</kbd>
               </button>
             )}
-            <div className="timeline-boundary">
-              <InlineTime
-                className="boundary-time"
-                value={dayWindow.end}
-                label="Конец дня"
-                validate={(value) =>
-                  value && dayWindow.start && value <= dayWindow.start
-                    ? 'Конец должен быть позже начала'
-                    : undefined
-                }
-                onChange={(value) =>
-                  props.setDayWindow(todayKey, { ...dayWindow, end: value })
-                }
-              />
-            </div>
           </SortableDropZone>
         </section>
 
@@ -795,7 +757,6 @@ function FutureTaskRow({
 function TaskRow({
   data,
   task,
-  warning,
   day,
   now,
   updateTask,
@@ -822,7 +783,6 @@ function TaskRow({
 }: ScheduleProps & {
   task: Task;
   day: string;
-  warning?: string;
 } & TaskInteractions) {
   const hasName = hasTaskTitle(task.text);
   const state = taskState(task);
@@ -884,7 +844,6 @@ function TaskRow({
         }
       />
       <div className="task-body">
-        {warning && <p className="timeline-warning">{warning}</p>}
         {editing ? (
           <TaskTextEditor
             text={task.text}
@@ -925,29 +884,6 @@ function TaskRow({
         )}
       </div>
       <div className="task-actions">
-        <Button
-          className="timer-button"
-          variant={state === 'running' ? 'secondary' : 'outline'}
-          title={`${timerLabel} · ⌥↵`}
-          disabled={!hasName}
-          onClick={() => {
-            onSelect();
-            runTimer(day, task.id);
-          }}
-        >
-          <TimerIcon />
-          <span className="task-action-label">{timerLabel}</span>
-        </Button>
-        <Button
-          className="finish-button"
-          size="icon"
-          disabled={!hasName}
-          onClick={onActivate}
-          aria-label="Завершить дело"
-          title="Завершить · ⌘↵"
-        >
-          <Check />
-        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger
             className="more-button"
@@ -958,7 +894,7 @@ function TaskRow({
           </DropdownMenuTrigger>
           <DropdownMenuContent className="task-menu" align="end" sideOffset={8}>
             <DropdownMenuItem
-              className="mobile-task-menu-action"
+              className="task-menu-action"
               disabled={!hasName}
               onClick={() => {
                 onSelect();
@@ -969,14 +905,14 @@ function TaskRow({
               {timerLabel}
             </DropdownMenuItem>
             <DropdownMenuItem
-              className="mobile-task-menu-action"
+              className="task-menu-action"
               disabled={!hasName}
               onClick={onActivate}
             >
               <Check />
               Завершить
             </DropdownMenuItem>
-            <DropdownMenuSeparator className="mobile-task-menu-separator" />
+            <DropdownMenuSeparator className="task-menu-action-separator" />
             <DropdownMenuItem onClick={onAddBelow}>
               <Plus />
               Создать ниже
