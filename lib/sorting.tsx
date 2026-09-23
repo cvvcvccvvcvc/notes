@@ -50,6 +50,7 @@ export function useTaskSwipe(
   return {
     onTouchStartCapture: (event: React.TouchEvent<HTMLElement>) => {
       if (animation.current !== null) return;
+      suppressClick.current = false;
       const touch = event.touches[0];
       start.current =
         !disabled && touch && isCardSurface(event.target)
@@ -67,15 +68,24 @@ export function useTaskSwipe(
       if (!origin || !touch) return;
       const dx = touch.clientX - origin.x;
       const dy = touch.clientY - origin.y;
-      if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) {
+      if (
+        !surface.current &&
+        Math.abs(dy) > 12 &&
+        Math.abs(dy) > Math.abs(dx)
+      ) {
         start.current = null;
         clearFeedback();
         return;
       }
-      if (Date.now() - origin.time > 550 || Math.abs(dx) < 10) return;
+      if (
+        !surface.current &&
+        (Date.now() - origin.time > 550 || Math.abs(dx) < 10)
+      )
+        return;
       const card = event.currentTarget;
       surface.current = card;
-      card.dataset.swipeAction = dx > 0 ? 'finish' : 'remove';
+      if (Math.abs(dx) < 10) delete card.dataset.swipeAction;
+      else card.dataset.swipeAction = dx > 0 ? 'finish' : 'remove';
       card.style.transition = 'none';
       card.style.translate = `${Math.max(-100, Math.min(100, dx * 0.7))}px 0`;
       card.style.setProperty(
@@ -95,12 +105,15 @@ export function useTaskSwipe(
       const dx = touch.clientX - origin.x;
       const dy = touch.clientY - origin.y;
       const horizontal = Math.abs(dx) > Math.abs(dy) * 1.5;
-      if (horizontal && Math.abs(dx) > 12) suppressClick.current = true;
+      const wasSwiping = surface.current !== null;
+      if (wasSwiping) suppressClick.current = true;
+      if (!wasSwiping) return;
       const card = surface.current ?? event.currentTarget;
       surface.current = card;
-      card.dataset.swipeAction = dx > 0 ? 'finish' : 'remove';
+      if (Math.abs(dx) < 10) delete card.dataset.swipeAction;
+      else card.dataset.swipeAction = dx > 0 ? 'finish' : 'remove';
       card.style.transition = 'translate 180ms ease, opacity 180ms ease';
-      if (Date.now() - origin.time > 550 || Math.abs(dx) < 72 || !horizontal) {
+      if (Math.abs(dx) < 72 || !horizontal) {
         card.style.translate = '0 0';
         card.style.setProperty('--swipe-progress', '0');
         animation.current = window.setTimeout(() => {
