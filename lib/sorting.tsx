@@ -17,7 +17,44 @@ import {
   rectSortingStrategy,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
+
+export function useTaskSwipe(
+  onRight: () => void,
+  onLeft: () => void,
+  disabled: boolean,
+) {
+  const start = useRef<{ x: number; y: number; time: number } | null>(null);
+  const suppressClick = useRef(false);
+  return {
+    onTouchStartCapture: (event: React.TouchEvent<HTMLElement>) => {
+      const touch = event.touches[0];
+      start.current =
+        !disabled && touch && isCardSurface(event.target)
+          ? { x: touch.clientX, y: touch.clientY, time: Date.now() }
+          : null;
+    },
+    onTouchEndCapture: (event: React.TouchEvent<HTMLElement>) => {
+      const origin = start.current;
+      start.current = null;
+      const touch = event.changedTouches[0];
+      if (!origin || !touch || disabled || Date.now() - origin.time > 550)
+        return;
+      const dx = touch.clientX - origin.x;
+      const dy = touch.clientY - origin.y;
+      if (Math.abs(dx) < 72 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      suppressClick.current = true;
+      if (dx > 0) onRight();
+      else onLeft();
+    },
+    onClickCapture: (event: React.MouseEvent<HTMLElement>) => {
+      if (!suppressClick.current) return;
+      suppressClick.current = false;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+  };
+}
 
 /** Card controls and text editing never initiate a drag. */
 export function isCardSurface(target: EventTarget | null) {

@@ -1,4 +1,4 @@
-import { cardDragListeners, isCardSurface } from '@/lib/sorting';
+import { cardDragListeners, isCardSurface, useTaskSwipe } from '@/lib/sorting';
 import {
   ArrowUpToLine,
   ChevronDown,
@@ -78,6 +78,7 @@ type BacklogProps = {
   ) => void;
   moveTaskVertically: (groupId: string, id: string, direction: -1 | 1) => void;
   discardTask: (groupId: string, id: string) => void;
+  finishTask: (groupId: string, id: string) => void;
   takeTask: (groupId: string, id: string) => void;
 };
 
@@ -357,6 +358,10 @@ export function BacklogView(props: BacklogProps) {
                     onDiscard={() => {
                       selectAfterRemoval(task.id);
                       props.discardTask(group.id, task.id);
+                    }}
+                    onFinish={() => {
+                      selectAfterRemoval(task.id);
+                      props.finishTask(group.id, task.id);
                     }}
                   />
                 ))}
@@ -879,6 +884,7 @@ function BacklogTaskRow({
   canMoveDown,
   onUpdate,
   onTake,
+  onFinish,
   onDiscard,
 }: {
   task: Task;
@@ -893,6 +899,7 @@ function BacklogTaskRow({
   canMoveDown: boolean;
   onUpdate: (change: (task: Task) => Task) => void;
   onTake: () => void;
+  onFinish: () => void;
   onDiscard: () => void;
 }) {
   const hasName = hasTaskTitle(task.text);
@@ -902,6 +909,11 @@ function BacklogTaskRow({
       disabled: !hasName,
       data: { kind: 'task' },
     });
+  const swipe = useTaskSwipe(
+    onFinish,
+    onDiscard,
+    editing || !hasName || isDragging,
+  );
 
   function handleShortcut(event: React.KeyboardEvent<HTMLElement>) {
     return backlogShortcut(event, {
@@ -919,6 +931,7 @@ function BacklogTaskRow({
       id={`backlog-task-${task.id}`}
       data-task-card
       {...cardDragListeners(listeners, editing)}
+      {...swipe}
       onKeyDownCapture={handleShortcut}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={`backlog-task ${task.color ? `task-color-${task.color}` : ''} ${selected ? 'selected' : ''} ${editing ? 'editing' : ''} ${isDragging ? 'dragging' : ''}`}

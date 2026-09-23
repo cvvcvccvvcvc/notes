@@ -3376,6 +3376,9 @@ h1 {
   color: #8d978f;
 }
 @media (max-width: 640px) {
+  [data-task-card]:not(.editing) {
+    touch-action: pan-y;
+  }
   .today-timeline .timeline-time {
     position: static;
     grid-column: 1;

@@ -11,7 +11,7 @@ import {
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { dayTimeline } from '@/lib/day-timeline';
 import { InlineTime } from './inline-time';
-import { cardDragListeners, isCardSurface } from '@/lib/sorting';
+import { cardDragListeners, isCardSurface, useTaskSwipe } from '@/lib/sorting';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -181,6 +181,7 @@ type TaskInteractions = {
   onAddBelow: () => void;
   onSendToBacklog: () => void;
   onActivate: () => void;
+  onFinish: () => void;
   onDiscard: () => void;
 };
 
@@ -379,6 +380,10 @@ export function ScheduleView(props: ScheduleProps) {
       onDiscard: () => {
         selectAfterRemoval(day, id);
         props.discardTask(day, id);
+      },
+      onFinish: () => {
+        selectAfterRemoval(day, id);
+        props.finishTask(day, id);
       },
     };
   };
@@ -618,6 +623,7 @@ function FutureTaskRow({
   onAddBelow,
   onSendToBacklog,
   onActivate,
+  onFinish,
   onDiscard,
   updateTask,
 }: ScheduleProps & {
@@ -627,6 +633,11 @@ function FutureTaskRow({
   const hasName = hasTaskTitle(task.text);
   const { setNodeRef, listeners, transform, transition, isDragging } =
     useSortable({ id: task.id, disabled: !hasName });
+  const swipe = useTaskSwipe(
+    onFinish,
+    onDiscard,
+    editing || !hasName || isDragging,
+  );
   function handleShortcut(event: React.KeyboardEvent<HTMLElement>) {
     return selectedTaskShortcut(event, {
       edit: onEdit,
@@ -642,6 +653,7 @@ function FutureTaskRow({
       id={`task-${task.id}`}
       data-task-card
       {...cardDragListeners(listeners, editing)}
+      {...swipe}
       onKeyDownCapture={handleShortcut}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={`future-task ${task.color ? `task-color-${task.color}` : ''} ${selected ? 'selected' : ''} ${editing ? 'editing' : ''} ${isDragging ? 'dragging' : ''}`}
@@ -776,6 +788,7 @@ function TaskRow({
   onAddBelow,
   onSendToBacklog,
   onActivate,
+  onFinish,
   onDiscard,
 }: ScheduleProps & {
   task: Task;
@@ -789,6 +802,11 @@ function TaskRow({
   const TimerIcon = state === 'running' ? CirclePause : CirclePlay;
   const { setNodeRef, listeners, transform, transition, isDragging } =
     useSortable({ id: task.id, disabled: !hasName });
+  const swipe = useTaskSwipe(
+    onFinish,
+    onDiscard,
+    editing || !hasName || isDragging,
+  );
 
   function handleShortcut(event: React.KeyboardEvent<HTMLElement>) {
     return selectedTaskShortcut(event, {
@@ -807,6 +825,7 @@ function TaskRow({
       id={`task-${task.id}`}
       data-task-card
       {...cardDragListeners(listeners, editing)}
+      {...swipe}
       onKeyDownCapture={handleShortcut}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={`task-row ${task.color ? `task-color-${task.color}` : ''} ${selected ? 'selected' : ''} ${editing ? 'editing' : ''} ${state === 'running' ? 'running' : ''} ${isDragging ? 'dragging' : ''}`}

@@ -51,7 +51,13 @@ export function toggleScheduledTaskTimer(
 
 export function finishScheduledTask(
   data: AppData,
-  input: { day: string; id: string; historyId: string; stamp: number },
+  input: {
+    day: string;
+    id: string;
+    historyId: string;
+    stamp: number;
+    finishedDay?: string;
+  },
 ) {
   const { day, id, historyId, stamp } = input;
   const tasks = data.schedule[day] ?? [];
@@ -70,7 +76,7 @@ export function finishScheduledTask(
         taskId: task.id,
         text: task.text,
         finishedAt: stamp,
-        finishedDay: day,
+        finishedDay: input.finishedDay ?? day,
         intervals: finished.intervals,
       },
       ...data.history,

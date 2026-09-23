@@ -95,6 +95,19 @@ void describe('schedule task operations', () => {
     );
   });
 
+  void it('records the actual completion day when finishing a future task', () => {
+    const current = data({ schedule: { '2026-09-07': [task('later')] } });
+    const result = finishScheduledTask(current, {
+      day: '2026-09-07',
+      id: 'later',
+      historyId: 'done',
+      stamp: 250,
+      finishedDay: '2026-09-05',
+    });
+    assert.equal(result.history[0].finishedDay, '2026-09-05');
+    assert.deepEqual(result.schedule['2026-09-07'], []);
+  });
+
   void it('falls back to the unsorted group instead of losing a task whose old group was deleted', () => {
     const running = task('one', {
       backlogGroupId: 'deleted-group',

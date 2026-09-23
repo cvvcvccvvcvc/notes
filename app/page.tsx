@@ -328,7 +328,6 @@ export default function Home() {
   }
 
   function finishTask(day: string, id: string) {
-    if (day !== todayKey) return;
     const task = dataRef.current?.schedule[day]?.find(
       (candidate) => candidate.id === id,
     );
@@ -340,7 +339,14 @@ export default function Home() {
     const stamp = Date.now();
     commitWithUndo(
       'Дело завершено',
-      (current) => finishScheduledTask(current, { day, id, historyId, stamp }),
+      (current) =>
+        finishScheduledTask(current, {
+          day,
+          id,
+          historyId,
+          stamp,
+          finishedDay: todayKey,
+        }),
       (current) => ({
         ...restoreScheduledTask(current, day, task, index),
         history: current.history.filter((item) => item.id !== historyId),
@@ -537,6 +543,39 @@ export default function Home() {
           tasks.splice(Math.min(index, tasks.length), 0, task);
           return { ...candidate, tasks };
         }),
+      }),
+    );
+  }
+
+  function finishBacklogTask(groupId: string, id: string) {
+    const group = dataRef.current?.backlog?.find(
+      (candidate) => candidate.id === groupId,
+    );
+    const index = group?.tasks.findIndex((task) => task.id === id) ?? -1;
+    const task = group?.tasks[index];
+    if (!task || !hasTaskTitle(task.text)) return;
+    const historyId = uid();
+    const stamp = Date.now();
+    commitWithUndo(
+      'Дело завершено',
+      (current) =>
+        finishScheduledTask(
+          takeBacklogTaskFromData(current, groupId, id, todayKey),
+          { day: todayKey, id, historyId, stamp, finishedDay: todayKey },
+        ),
+      (current) => ({
+        ...current,
+        backlog: (current.backlog ?? []).map((candidate) => {
+          if (
+            candidate.id !== groupId ||
+            candidate.tasks.some((item) => item.id === id)
+          )
+            return candidate;
+          const tasks = [...candidate.tasks];
+          tasks.splice(Math.min(index, tasks.length), 0, task);
+          return { ...candidate, tasks };
+        }),
+        history: current.history.filter((item) => item.id !== historyId),
       }),
     );
   }
@@ -981,6 +1020,7 @@ export default function Home() {
             moveTask={moveBacklogTask}
             moveTaskVertically={moveBacklogTaskVertically}
             discardTask={discardBacklogTask}
+            finishTask={finishBacklogTask}
             takeTask={takeBacklogTask}
           />
         )}
