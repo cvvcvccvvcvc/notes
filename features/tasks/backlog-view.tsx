@@ -40,6 +40,20 @@ import {
 
 const PROJECT_DND_PREFIX = 'backlog-project:';
 const PROJECT_PREVIEW_TASK_LIMIT = 2;
+
+function ProjectBody({
+  dialog,
+  children,
+}: {
+  dialog: boolean;
+  children: ReactNode;
+}) {
+  return dialog ? (
+    <div className="project-dialog-body">{children}</div>
+  ) : (
+    children
+  );
+}
 const projectDndId = (id: string) => `${PROJECT_DND_PREFIX}${id}`;
 const loadMarkdownEditor = () =>
   import('@/components/markdown-editor').then((module) => ({
@@ -320,106 +334,110 @@ export function BacklogView(props: BacklogProps) {
             onRemove={() => props.removeGroup(group.id)}
           />
         </header>
-        {contentVisible && (
-          <>
-            <SortableDropZone
-              id={`backlog-group:${group.id}`}
-              className="backlog-list"
-              kind="task-zone"
-            >
-              <SortableItems items={visibleTasks.map((task) => task.id)}>
-                {visibleTasks.map((task, index) => (
-                  <BacklogTaskRow
-                    key={task.id}
-                    task={task}
-                    selected={selectedId === task.id}
-                    editing={editingId === task.id}
-                    onSelect={() => select(task.id)}
-                    onEdit={() => {
-                      setSelectedId(task.id);
-                      setEditingId(task.id);
-                    }}
-                    onStopEditing={(refocus = false) => {
-                      if (!hasTaskTitle(task.text)) {
+        <ProjectBody dialog={location === 'dialog'}>
+          {contentVisible && (
+            <>
+              <SortableDropZone
+                id={`backlog-group:${group.id}`}
+                className="backlog-list"
+                kind="task-zone"
+              >
+                <SortableItems items={visibleTasks.map((task) => task.id)}>
+                  {visibleTasks.map((task, index) => (
+                    <BacklogTaskRow
+                      key={task.id}
+                      task={task}
+                      selected={selectedId === task.id}
+                      editing={editingId === task.id}
+                      onSelect={() => select(task.id)}
+                      onEdit={() => {
+                        setSelectedId(task.id);
+                        setEditingId(task.id);
+                      }}
+                      onStopEditing={(refocus = false) => {
+                        if (!hasTaskTitle(task.text)) {
+                          selectAfterRemoval(task.id);
+                          props.discardTask(group.id, task.id);
+                          return;
+                        }
+                        setEditingId(null);
+                        if (refocus) focusBacklogTask(task.id);
+                      }}
+                      onNavigate={(direction) =>
+                        selectRelative(task.id, direction)
+                      }
+                      onMove={(direction) => {
+                        props.moveTaskVertically(group.id, task.id, direction);
+                        if (
+                          location === 'card' &&
+                          direction === 1 &&
+                          index === PROJECT_PREVIEW_TASK_LIMIT - 1 &&
+                          group.tasks.length > PROJECT_PREVIEW_TASK_LIMIT
+                        )
+                          openProject(group.id);
+                        focusBacklogTask(task.id);
+                      }}
+                      canMoveUp={index > 0 || groupIndex > 0}
+                      canMoveDown={
+                        index < group.tasks.length - 1 ||
+                        groupIndex < props.groups.length - 1
+                      }
+                      onUpdate={(change) =>
+                        props.updateTask(group.id, task.id, change)
+                      }
+                      onTake={() => {
+                        selectAfterRemoval(task.id);
+                        props.takeTask(group.id, task.id);
+                      }}
+                      onDiscard={() => {
                         selectAfterRemoval(task.id);
                         props.discardTask(group.id, task.id);
-                        return;
-                      }
-                      setEditingId(null);
-                      if (refocus) focusBacklogTask(task.id);
-                    }}
-                    onNavigate={(direction) =>
-                      selectRelative(task.id, direction)
-                    }
-                    onMove={(direction) => {
-                      props.moveTaskVertically(group.id, task.id, direction);
-                      if (
-                        location === 'card' &&
-                        direction === 1 &&
-                        index === PROJECT_PREVIEW_TASK_LIMIT - 1 &&
-                        group.tasks.length > PROJECT_PREVIEW_TASK_LIMIT
-                      )
-                        openProject(group.id);
-                      focusBacklogTask(task.id);
-                    }}
-                    canMoveUp={index > 0 || groupIndex > 0}
-                    canMoveDown={
-                      index < group.tasks.length - 1 ||
-                      groupIndex < props.groups.length - 1
-                    }
-                    onUpdate={(change) =>
-                      props.updateTask(group.id, task.id, change)
-                    }
-                    onTake={() => {
-                      selectAfterRemoval(task.id);
-                      props.takeTask(group.id, task.id);
-                    }}
-                    onDiscard={() => {
-                      selectAfterRemoval(task.id);
-                      props.discardTask(group.id, task.id);
-                    }}
-                    onFinish={() => {
-                      selectAfterRemoval(task.id);
-                      props.finishTask(group.id, task.id);
-                    }}
-                  />
-                ))}
-              </SortableItems>
-            </SortableDropZone>
-            {location === 'card' && hiddenTaskCount > 0 && (
-              <button
-                type="button"
-                className="project-more-tasks"
-                aria-label={`Открыть проект ${group.title}; скрыто дел: ${hiddenTaskCount}`}
-                onClick={() => openProject(group.id)}
-              >
-                Ещё {hiddenTaskCount}
-              </button>
-            )}
-            {location !== 'card' && (
-              <Button
-                className="project-add-task"
-                variant="ghost"
-                onClick={() => addTask(group.id)}
-              >
-                <Plus /> Новое дело
-              </Button>
-            )}
-            {location === 'dialog' && (
-              <ProjectInformation
-                group={group}
-                editorId={`project-info-input-${location}-${group.id}`}
-                onChange={(content) => props.setGroupContent(group.id, content)}
-              />
-            )}
-            {location === 'card' && group.content?.trim() && (
-              <p className="project-info-preview">
-                {projectInfoPreview(group.content)}
-              </p>
-            )}
-          </>
-        )}
-        {location !== 'dialog' && <MobileProjectPreview group={group} />}
+                      }}
+                      onFinish={() => {
+                        selectAfterRemoval(task.id);
+                        props.finishTask(group.id, task.id);
+                      }}
+                    />
+                  ))}
+                </SortableItems>
+              </SortableDropZone>
+              {location === 'card' && hiddenTaskCount > 0 && (
+                <button
+                  type="button"
+                  className="project-more-tasks"
+                  aria-label={`Открыть проект ${group.title}; скрыто дел: ${hiddenTaskCount}`}
+                  onClick={() => openProject(group.id)}
+                >
+                  Ещё {hiddenTaskCount}
+                </button>
+              )}
+              {location !== 'card' && (
+                <Button
+                  className="project-add-task"
+                  variant="ghost"
+                  onClick={() => addTask(group.id)}
+                >
+                  <Plus /> Новое дело
+                </Button>
+              )}
+              {location === 'dialog' && (
+                <ProjectInformation
+                  group={group}
+                  editorId={`project-info-input-${location}-${group.id}`}
+                  onChange={(content) =>
+                    props.setGroupContent(group.id, content)
+                  }
+                />
+              )}
+              {location === 'card' && group.content?.trim() && (
+                <p className="project-info-preview">
+                  {projectInfoPreview(group.content)}
+                </p>
+              )}
+            </>
+          )}
+          {location !== 'dialog' && <MobileProjectPreview group={group} />}
+        </ProjectBody>
       </>
     );
   }
