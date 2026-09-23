@@ -289,7 +289,7 @@ export default function Home() {
         setUndo((current) =>
           current === visibleUndo ? { ...current, visible: false } : current,
         ),
-      15_000,
+      10_000,
     );
     return () => window.clearTimeout(timeout);
   }, [undo]);
