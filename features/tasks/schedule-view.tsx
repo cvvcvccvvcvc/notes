@@ -8,7 +8,7 @@ import {
   MoreHorizontal,
   Plus,
 } from 'lucide-react';
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { dayTimeline } from '@/lib/day-timeline';
 import { InlineTime } from './inline-time';
 import { cardDragListeners, isCardSurface } from '@/lib/sorting';
@@ -183,10 +183,23 @@ export function ScheduleView(props: ScheduleProps) {
   const { data, now, todayKey, addTask } = props;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const previousEditingId = useRef<string | null>(null);
   const [timeEditingId, setTimeEditingId] = useState<string | null>(null);
   const dayWindow = data.dayWindows?.[todayKey] ?? {};
   const today = new Date(now);
   const todayTasks = data.schedule[todayKey] ?? [];
+  useEffect(() => {
+    const previous = previousEditingId.current;
+    previousEditingId.current = editingId;
+    if (!previous || previous === editingId) return;
+    for (const [day, tasks] of Object.entries(data.schedule)) {
+      const task = tasks.find((candidate) => candidate.id === previous);
+      if (task && !hasTaskTitle(task.text)) {
+        props.discardTask(day, previous);
+        break;
+      }
+    }
+  }, [editingId, data.schedule, props]);
   const futureMonths = (() => {
     const months: Record<string, Date[]> = {};
     const monthEnd = dateKey(
@@ -617,9 +630,6 @@ function FutureTaskRow({
       data-task-card
       {...cardDragListeners(listeners, editing)}
       onKeyDownCapture={handleShortcut}
-      onDoubleClickCapture={(event) => {
-        if (isCardSurface(event.target)) onEdit();
-      }}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={`future-task ${task.color ? `task-color-${task.color}` : ''} ${selected ? 'selected' : ''} ${editing ? 'editing' : ''} ${isDragging ? 'dragging' : ''}`}
       onFocusCapture={onSelect}
@@ -663,11 +673,7 @@ function FutureTaskRow({
             }
           />
         ) : (
-          <button
-            data-task-focus
-            className="future-task-text"
-            onClick={onSelect}
-          >
+          <button data-task-focus className="future-task-text" onClick={onEdit}>
             <TaskTextPreview
               text={task.text}
               revealDescription={selected || task.intervals.length > 0}
@@ -785,9 +791,6 @@ function TaskRow({
       data-task-card
       {...cardDragListeners(listeners, editing)}
       onKeyDownCapture={handleShortcut}
-      onDoubleClickCapture={(event) => {
-        if (isCardSurface(event.target)) onEdit();
-      }}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={`task-row ${task.color ? `task-color-${task.color}` : ''} ${selected ? 'selected' : ''} ${editing ? 'editing' : ''} ${state === 'running' ? 'running' : ''} ${isDragging ? 'dragging' : ''}`}
       onFocusCapture={onSelect}
@@ -835,7 +838,7 @@ function TaskRow({
           <button
             data-task-focus
             className="task-text task-text-display"
-            onClick={onSelect}
+            onClick={onEdit}
           >
             <TaskTextPreview
               text={task.text}

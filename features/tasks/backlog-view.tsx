@@ -151,12 +151,25 @@ function backlogShortcut(
 export function BacklogView(props: BacklogProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const previousEditingId = useRef<string | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [editingGroupKey, setEditingGroupKey] = useState<string | null>(null);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const entries = props.groups.flatMap((group) =>
     group.tasks.map((task) => ({ groupId: group.id, id: task.id })),
   );
+  useEffect(() => {
+    const previous = previousEditingId.current;
+    previousEditingId.current = editingId;
+    if (!previous || previous === editingId) return;
+    for (const group of props.groups) {
+      const task = group.tasks.find((candidate) => candidate.id === previous);
+      if (task && !hasTaskTitle(task.text)) {
+        props.discardTask(group.id, previous);
+        break;
+      }
+    }
+  }, [editingId, props]);
   const unsorted = props.groups.find((group) => group.id === UNSORTED_GROUP_ID);
   const projects = props.groups.filter(
     (group) => group.id !== UNSORTED_GROUP_ID,
@@ -907,9 +920,6 @@ function BacklogTaskRow({
       data-task-card
       {...cardDragListeners(listeners, editing)}
       onKeyDownCapture={handleShortcut}
-      onDoubleClickCapture={(event) => {
-        if (isCardSurface(event.target)) onEdit();
-      }}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       className={`backlog-task ${task.color ? `task-color-${task.color}` : ''} ${selected ? 'selected' : ''} ${editing ? 'editing' : ''} ${isDragging ? 'dragging' : ''}`}
       onFocusCapture={onSelect}
@@ -938,11 +948,7 @@ function BacklogTaskRow({
           }
         />
       ) : (
-        <button
-          data-task-focus
-          className="backlog-task-text"
-          onClick={onSelect}
-        >
+        <button data-task-focus className="backlog-task-text" onClick={onEdit}>
           <TaskTextPreview
             text={task.text}
             revealDescription={selected || task.intervals.length > 0}
