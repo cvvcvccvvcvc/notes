@@ -32,11 +32,9 @@ import { TaskInsertList } from '@/features/tasks/task-insert';
 import type { AppData, Task, TaskColor, TaskGroup } from '@/lib/data';
 import {
   dateKey,
-  minutesLabel,
   ruDate,
   ruMonth,
   ruShortDate,
-  ruTime,
   shiftedDay,
 } from '@/lib/date-time';
 import { monthTemplateTaskCount, nextMonthKey } from '@/lib/month-template';
@@ -47,7 +45,7 @@ import {
   TaskTextEditor,
   TaskTextPreview,
 } from '@/lib/task-text';
-import { taskDuration, taskState } from '@/lib/task-operations';
+import { taskState } from '@/lib/task-operations';
 import { RulesPanel } from '@/features/rules/rules-panel';
 import type { Rule } from '@/lib/data';
 
@@ -756,7 +754,6 @@ function TaskRow({
   data,
   task,
   day,
-  now,
   updateTask,
   runTimer,
   selected,
@@ -872,16 +869,19 @@ function TaskRow({
             />
           </button>
         )}
-        {state !== 'idle' && (
-          <p className="timer-meta">
-            <Clock3 />
-            {state === 'running' ? 'Идёт' : 'На паузе'} ·{' '}
-            {minutesLabel(taskDuration(task, now))} · с{' '}
-            {ruTime.format(task.intervals[0].start)}
-          </p>
-        )}
       </div>
       <div className="task-actions">
+        <button
+          type="button"
+          className="quick-finish"
+          aria-label="Завершить дело"
+          title="Завершить дело"
+          disabled={!hasName}
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={onActivate}
+        >
+          <Check aria-hidden="true" />
+        </button>
         <DropdownMenu>
           <DropdownMenuTrigger
             className="more-button"

@@ -471,7 +471,6 @@ h1 {
 .task-description-indicator i:last-child {
   width: 68%;
 }
-.timer-meta,
 .source-meta {
   margin: -3px 7px 4px;
   color: #67716b;
@@ -479,10 +478,6 @@ h1 {
   display: flex;
   align-items: center;
   gap: 5px;
-}
-.timer-meta svg {
-  width: 13px;
-  height: 13px;
 }
 .source-meta {
   color: #8b7aa0;
@@ -496,6 +491,31 @@ h1 {
 .task-actions > button,
 .task-actions [data-slot='button'] {
   min-height: 38px;
+}
+.task-actions > .quick-finish {
+  width: 28px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #858d88;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.task-actions > .quick-finish svg {
+  width: 16px;
+  height: 16px;
+}
+.task-actions > .quick-finish:hover,
+.task-actions > .quick-finish:focus-visible {
+  color: #236e5b;
+  background: #e8f1eb;
+}
+.task-actions > .quick-finish:disabled {
+  visibility: hidden;
 }
 .more-button {
   width: 38px;
@@ -2649,6 +2669,9 @@ h1 {
 }
 
 @media (max-width: 760px) {
+  .task-actions > .quick-finish {
+    display: none;
+  }
   body {
     padding-bottom: calc(66px + env(safe-area-inset-bottom));
   }
@@ -2963,7 +2986,6 @@ h1 {
     padding: 6px 5px;
     font-size: 16px;
   }
-  .timer-meta,
   .source-meta {
     margin-left: 5px;
   }
@@ -3273,7 +3295,7 @@ h1 {
   white-space: pre-wrap;
 }
 .task-row {
-  grid-template-columns: 54px minmax(0, 1fr) 32px;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
   align-items: center;
   gap: 2px;
   min-height: 40px;
@@ -3281,7 +3303,7 @@ h1 {
   border-radius: 10px;
 }
 .task-row:has(.timeline-time.unset-time) {
-  grid-template-columns: minmax(0, 1fr) 32px;
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 .task-row:has(.timeline-time.unset-time) .task-body {
   grid-column: 1;
@@ -3307,7 +3329,7 @@ h1 {
   grid-column: 3;
   grid-row: 1;
   align-self: center;
-  gap: 0;
+  gap: 2px;
   padding: 0;
 }
 .today-timeline .task-actions .more-button {
@@ -3461,7 +3483,6 @@ h1 {
   .future-task .task-unified-editor {
     font-size: 16px;
   }
-  .timer-meta,
   .source-meta {
     margin: -1px 4px 4px;
     font-size: 10px;
