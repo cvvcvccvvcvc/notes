@@ -5,12 +5,14 @@ import { hasTaskTitle } from '@/lib/task-text';
 
 export function TaskInsert({
   adjacent,
+  edge = false,
   empty = false,
   id,
   mobileLabel,
   onInsert,
 }: {
   adjacent: boolean;
+  edge?: boolean;
   empty?: boolean;
   id?: string;
   mobileLabel: string;
@@ -21,15 +23,21 @@ export function TaskInsert({
       type="button"
       id={id}
       data-task-insert
-      className={`task-insert${adjacent ? ' adjacent' : ''}${empty ? ' empty' : ''}`}
-      tabIndex={adjacent || empty ? 0 : -1}
-      aria-hidden={!adjacent && !empty}
-      aria-label={adjacent || empty ? mobileLabel : 'Добавить дело здесь'}
+      className={`task-insert${adjacent ? ' adjacent' : ''}${edge ? ' edge' : ''}${empty ? ' empty' : ''}`}
+      tabIndex={adjacent || edge || empty ? 0 : -1}
+      aria-hidden={!adjacent && !edge && !empty}
+      aria-label={
+        adjacent || edge || empty ? mobileLabel : 'Добавить дело здесь'
+      }
       onPointerDown={(event) => event.preventDefault()}
       onClick={onInsert}
     >
       <span className="task-insert-label">
         <Plus aria-hidden="true" />
+      </span>
+      <span className="task-insert-edge-label" aria-hidden="true">
+        <Plus />
+        Добавить дело
       </span>
     </button>
   );
@@ -78,8 +86,13 @@ export function TaskInsertList({
           <Fragment key={task.id}>
             <TaskInsert
               adjacent={adjacent}
+              edge={index === 0 && hasTaskTitle(task.text)}
               mobileLabel={
-                editingId === task.id ? 'Новое дело выше' : 'Новое дело ниже'
+                index === 0
+                  ? 'Добавить дело в начало списка'
+                  : editingId === task.id
+                    ? 'Новое дело выше'
+                    : 'Новое дело ниже'
               }
               onInsert={() => onInsert(previousId)}
             />
@@ -89,7 +102,8 @@ export function TaskInsertList({
       })}
       <TaskInsert
         adjacent={!!showAdjacent && editingId === tasks.at(-1)?.id}
-        mobileLabel="Новое дело ниже"
+        edge={hasTaskTitle(tasks.at(-1)!.text)}
+        mobileLabel="Добавить дело в конец списка"
         onInsert={() => onInsert(tasks.at(-1)!.id)}
       />
     </>

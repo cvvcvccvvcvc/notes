@@ -568,6 +568,9 @@ h1 {
   width: 14px;
   height: 14px;
 }
+.task-insert-edge-label {
+  display: none;
+}
 .task-insert:focus-visible::before,
 .task-insert:focus-visible .task-insert-label {
   opacity: 1;
@@ -613,6 +616,32 @@ h1 {
   .task-insert.adjacent::before,
   .task-insert.adjacent .task-insert-label {
     opacity: 1;
+  }
+}
+@media (hover: none), (max-width: 640px) {
+  .task-insert.edge:not(.empty) {
+    height: 44px;
+    pointer-events: auto;
+    color: #858d88;
+  }
+  .task-insert.edge::before,
+  .task-insert.edge .task-insert-label {
+    display: none;
+  }
+  .task-insert.edge .task-insert-edge-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    line-height: 1;
+  }
+  .task-insert.edge .task-insert-edge-label svg {
+    width: 13px;
+    height: 13px;
+  }
+  .task-insert.edge:active {
+    color: #236e5b;
+    background: rgb(63 139 115 / 6%);
   }
 }
 
