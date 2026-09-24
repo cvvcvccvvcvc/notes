@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 
 export function splitTaskText(text: string) {
   const lineBreak = text.indexOf('\n');
@@ -26,8 +26,56 @@ export function leadingTaskTime(text: string) {
 
 function resize(element: HTMLTextAreaElement | null) {
   if (!element) return;
-  element.style.height = '0px';
+  element.style.height = 'auto';
   element.style.height = `${Math.max(42, element.scrollHeight)}px`;
+}
+
+function editorCaretTop(editor: HTMLTextAreaElement) {
+  const style = getComputedStyle(editor);
+  const mirror = document.createElement('div');
+  mirror.style.position = 'fixed';
+  mirror.style.top = '0';
+  mirror.style.left = '0';
+  mirror.style.visibility = 'hidden';
+  mirror.style.width = `${editor.offsetWidth}px`;
+  mirror.style.boxSizing = style.boxSizing;
+  mirror.style.border = style.border;
+  mirror.style.padding = style.padding;
+  mirror.style.font = style.font;
+  mirror.style.lineHeight = style.lineHeight;
+  mirror.style.letterSpacing = style.letterSpacing;
+  mirror.style.whiteSpace = 'pre-wrap';
+  mirror.style.overflowWrap = 'anywhere';
+  mirror.textContent = editor.value.slice(0, editor.selectionStart);
+  const caret = document.createElement('span');
+  caret.textContent = '\u200b';
+  mirror.append(caret);
+  document.body.append(mirror);
+  const top =
+    caret.getBoundingClientRect().top - mirror.getBoundingClientRect().top;
+  mirror.remove();
+  return (
+    editor.getBoundingClientRect().top + window.scrollY + top - editor.scrollTop
+  );
+}
+
+function revealEditorStart(editor: HTMLTextAreaElement) {
+  if (document.activeElement !== editor) return;
+  const viewport = window.visualViewport;
+  const visibleTop = viewport?.pageTop ?? window.scrollY;
+  const visibleBottom = visibleTop + (viewport?.height ?? window.innerHeight);
+  const caretTop = editorCaretTop(editor);
+  const margin = 24;
+  const offset =
+    caretTop > visibleBottom - margin
+      ? caretTop - (visibleBottom - margin)
+      : caretTop < visibleTop + margin
+        ? caretTop - (visibleTop + margin)
+        : 0;
+  if (!offset) return;
+  const dialogBody = editor.closest<HTMLElement>('.project-dialog-body');
+  if (dialogBody) dialogBody.scrollTop += offset;
+  else window.scrollBy(0, offset);
 }
 
 export function TaskTextPreview({
@@ -76,16 +124,29 @@ export function TaskTextEditor({
 }) {
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const initialTitleLength = useRef(splitTaskText(text).title.length);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const editor = editorRef.current;
-    editor?.focus();
-    editor?.setSelectionRange(
+    if (!editor) return;
+    resize(editor);
+    editor.setSelectionRange(
       initialTitleLength.current,
       initialTitleLength.current,
     );
-    resize(editor);
+    editor.focus({ preventScroll: true });
+    let frame = requestAnimationFrame(() => revealEditorStart(editor));
+    const reveal = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => revealEditorStart(editor));
+    };
+    window.visualViewport?.addEventListener('resize', reveal);
+    const fallback = window.setTimeout(reveal, 350);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(fallback);
+      window.visualViewport?.removeEventListener('resize', reveal);
+    };
   }, []);
-  useEffect(() => resize(editorRef.current), [text]);
+  useLayoutEffect(() => resize(editorRef.current), [text]);
   return (
     <textarea
       ref={editorRef}

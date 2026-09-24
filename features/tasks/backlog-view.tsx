@@ -346,7 +346,7 @@ export function BacklogView(props: BacklogProps) {
                 <SortableItems items={visibleTasks.map((task) => task.id)}>
                   <TaskInsertList
                     tasks={visibleTasks}
-                    selectedId={selectedId}
+                    editingId={editingId}
                     enabled={location === 'dialog'}
                     emptyLabel="Добавить первое дело"
                     onInsert={(afterId) => addTask(group.id, afterId)}

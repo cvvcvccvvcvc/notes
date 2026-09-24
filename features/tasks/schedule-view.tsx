@@ -289,7 +289,7 @@ export function ScheduleView(props: ScheduleProps) {
             <SortableItems items={tasks.map((task) => task.id)}>
               <TaskInsertList
                 tasks={tasks}
-                selectedId={selectedId}
+                editingId={editingId}
                 emptyId={`add-${day}`}
                 emptyLabel="Добавить дело"
                 onInsert={(afterId) => addAndEdit(day, afterId)}
@@ -517,7 +517,7 @@ export function ScheduleView(props: ScheduleProps) {
             <SortableItems items={todayTasks.map((task) => task.id)}>
               <TaskInsertList
                 tasks={todayTasks}
-                selectedId={selectedId}
+                editingId={editingId}
                 emptyId={`add-${todayKey}`}
                 emptyLabel="Написать первое дело"
                 onInsert={(afterId) => addAndEdit(todayKey, afterId)}

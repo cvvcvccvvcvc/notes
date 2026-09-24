@@ -25,12 +25,11 @@ export function TaskInsert({
       tabIndex={adjacent || empty ? 0 : -1}
       aria-hidden={!adjacent && !empty}
       aria-label={adjacent || empty ? mobileLabel : 'Добавить дело здесь'}
+      onPointerDown={(event) => event.preventDefault()}
       onClick={onInsert}
     >
       <span className="task-insert-label">
         <Plus aria-hidden="true" />
-        <span className="task-insert-desktop-label">Новое дело здесь</span>
-        <span className="task-insert-mobile-label">{mobileLabel}</span>
       </span>
     </button>
   );
@@ -38,7 +37,7 @@ export function TaskInsert({
 
 export function TaskInsertList({
   tasks,
-  selectedId,
+  editingId,
   enabled = true,
   emptyId,
   emptyLabel,
@@ -46,15 +45,15 @@ export function TaskInsertList({
   renderTask,
 }: {
   tasks: Task[];
-  selectedId: string | null;
+  editingId: string | null;
   enabled?: boolean;
   emptyId?: string;
   emptyLabel: string;
   onInsert: (afterId: string | null) => void;
   renderTask: (task: Task, index: number) => ReactNode;
 }) {
-  const selected = tasks.find((task) => task.id === selectedId);
-  const showAdjacent = selected && hasTaskTitle(selected.text);
+  const editingTask = tasks.find((task) => task.id === editingId);
+  const showAdjacent = editingTask && hasTaskTitle(editingTask.text);
 
   if (!enabled) return <>{tasks.map(renderTask)}</>;
 
@@ -74,14 +73,13 @@ export function TaskInsertList({
       {tasks.map((task, index) => {
         const previousId = tasks[index - 1]?.id ?? null;
         const adjacent =
-          !!showAdjacent &&
-          (selectedId === task.id || selectedId === previousId);
+          !!showAdjacent && (editingId === task.id || editingId === previousId);
         return (
           <Fragment key={task.id}>
             <TaskInsert
               adjacent={adjacent}
               mobileLabel={
-                selectedId === task.id ? 'Новое дело выше' : 'Новое дело ниже'
+                editingId === task.id ? 'Новое дело выше' : 'Новое дело ниже'
               }
               onInsert={() => onInsert(previousId)}
             />
@@ -90,7 +88,7 @@ export function TaskInsertList({
         );
       })}
       <TaskInsert
-        adjacent={!!showAdjacent && selectedId === tasks.at(-1)?.id}
+        adjacent={!!showAdjacent && editingId === tasks.at(-1)?.id}
         mobileLabel="Новое дело ниже"
         onInsert={() => onInsert(tasks.at(-1)!.id)}
       />
