@@ -704,11 +704,9 @@ h1 {
   align-self: start;
   max-height: calc(100svh - 56px);
   padding: 16px 12px 10px;
-  border: 1px solid #d6e3d9;
-  border-left: 3px solid #719c82;
+  border: 1px solid #e0e2dc;
   border-radius: 16px;
-  background: #eef5ef;
-  box-shadow: 0 6px 22px rgb(38 64 46 / 5%);
+  background: #fffefb;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -740,7 +738,7 @@ h1 {
   .rules-panel {
     position: fixed;
     z-index: 35;
-    top: 110px;
+    top: 48px;
     right: 0;
     width: 300px;
     max-height: min(70svh, 600px);
@@ -791,7 +789,7 @@ h1 {
   padding: 9px 8px;
   border: 1px solid transparent;
   border-radius: 10px;
-  background: rgb(255 254 251 / 58%);
+  background: transparent;
   outline: 0;
   cursor: grab;
   transition:
@@ -800,12 +798,12 @@ h1 {
     box-shadow 120ms;
 }
 .rule-card:hover {
-  background: rgb(255 254 251 / 86%);
+  background: #f7f8f5;
 }
 .rule-card.selected {
-  border-color: #6b9984;
-  background: #fffefb;
-  box-shadow: 0 0 0 2px rgb(75 133 105 / 12%);
+  border-color: #c4cac4;
+  background: #f7f8f5;
+  box-shadow: 0 0 0 2px rgb(70 80 72 / 8%);
 }
 .rule-card.dragging {
   cursor: grabbing;
@@ -2874,10 +2872,10 @@ h1 {
   }
   .rules-panel.mobile-expanded {
     padding: 12px 14px 14px;
-    border: 1px solid #d6e3d9;
+    border: 1px solid #e0e2dc;
     border-radius: 11px;
-    background: #eef5ef;
-    box-shadow: 0 6px 18px rgb(38 64 46 / 8%);
+    background: #fffefb;
+    box-shadow: 0 6px 18px rgb(38 48 40 / 8%);
   }
   .rules-panel h2 {
     display: none;
