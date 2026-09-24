@@ -380,17 +380,10 @@ h1 {
   background: #f7fcfa;
   box-shadow: inset 3px 0 #3e9a78;
 }
-.task-row.selected,
-.future-task.selected,
-.backlog-task.selected {
-  border-color: #3f8b73;
-  box-shadow: 0 0 0 2px rgb(44 128 98 / 16%);
-}
 .task-row.editing,
 .future-task.editing,
 .backlog-task.editing {
   background: #fbfffd;
-  box-shadow: inset 3px 0 #3f8b73;
 }
 .task-row.dragging {
   z-index: 40;
@@ -563,6 +556,10 @@ h1 {
   color: #397963;
   cursor: pointer;
 }
+.task-insert-spacer {
+  height: 14px;
+  pointer-events: none;
+}
 .task-insert::before {
   content: '';
   position: absolute;
@@ -646,6 +643,9 @@ h1 {
   color: #236e5b;
 }
 @media (hover: none), (max-width: 640px) {
+  .task-insert-spacer {
+    height: 6px;
+  }
   .task-insert:not(.empty) {
     height: 6px;
     pointer-events: none;
@@ -952,7 +952,6 @@ h1 {
 .future-task.selected,
 .backlog-task.selected {
   border-color: #3f8b73;
-  box-shadow: 0 0 0 2px rgb(44 128 98 / 16%);
 }
 .task-row.running {
   border-color: #82b8a6;

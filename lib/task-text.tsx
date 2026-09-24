@@ -27,7 +27,7 @@ export function leadingTaskTime(text: string) {
 function resize(element: HTMLTextAreaElement | null) {
   if (!element) return;
   element.style.height = 'auto';
-  element.style.height = `${Math.max(42, element.scrollHeight)}px`;
+  element.style.height = `${element.scrollHeight}px`;
 }
 
 function editorCaretTop(editor: HTMLTextAreaElement) {

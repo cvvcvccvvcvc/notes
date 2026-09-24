@@ -101,6 +101,9 @@ export function TaskInsertList({
                 onInsert={() => onInsert(previousId)}
               />
             )}
+            {!canInsertBefore && previousTask && (
+              <span className="task-insert-spacer" aria-hidden="true" />
+            )}
             {renderTask(task, index)}
           </Fragment>
         );
