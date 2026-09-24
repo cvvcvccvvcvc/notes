@@ -664,14 +664,13 @@ h1 {
     height: 44px;
   }
   .task-insert.edge:active {
-    color: #236e5b;
     background: rgb(63 139 115 / 6%);
   }
 }
 
 .future-section {
   grid-area: future;
-  padding-top: 8px;
+  padding-top: 72px;
 }
 .future-toggle {
   display: flex;
@@ -3004,9 +3003,6 @@ h1 {
     min-width: 40px;
     min-height: 40px;
     padding: 0;
-  }
-  .future-section {
-    padding-top: 8px;
   }
   .future-day {
     grid-template-columns: minmax(0, 1fr);
