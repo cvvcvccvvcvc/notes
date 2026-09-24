@@ -1714,14 +1714,6 @@ h1 {
 .notes-section.after-pinned {
   margin-top: 32px;
 }
-.notes-section-label {
-  margin: 28px 0 -20px;
-  color: #7a8580;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
 .note-card-pin {
   position: absolute;
   z-index: 1;
@@ -3067,9 +3059,6 @@ h1 {
   }
   .notes-section.after-pinned {
     margin-top: 22px;
-  }
-  .notes-section-label {
-    margin: 16px 0 -8px;
   }
   .notes-page .add-primary {
     display: none;

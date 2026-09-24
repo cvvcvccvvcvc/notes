@@ -138,7 +138,6 @@ export function NotesView({
       >
         {pinnedNotes.length > 0 && (
           <div className="notes-section">
-            <p className="notes-section-label">Закреплено</p>
             <div className="notes-grid">
               {pinnedNotes.map((note) => (
                 <SortableNote
