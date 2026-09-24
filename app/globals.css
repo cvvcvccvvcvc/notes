@@ -1753,7 +1753,7 @@ h1 {
   align-items: start;
 }
 .notes-section.after-pinned {
-  margin-top: 32px;
+  margin-top: 64px;
 }
 .note-card-pin {
   position: absolute;
@@ -3105,7 +3105,7 @@ h1 {
     gap: 8px;
   }
   .notes-section.after-pinned {
-    margin-top: 22px;
+    margin-top: 44px;
   }
   .notes-page .add-primary {
     display: none;
