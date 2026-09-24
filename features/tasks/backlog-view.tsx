@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { TaskColorMenu } from '@/features/tasks/task-color-menu';
 import { TaskInsertList } from '@/features/tasks/task-insert';
+import { mobileLayoutMatches } from '@/hooks/use-mobile-layout';
 import type { Task, TaskColor, TaskGroup } from '@/lib/data';
 import { SortableDropZone, SortableItems, SortableRoot } from '@/lib/sorting';
 import {
@@ -739,6 +740,9 @@ function ProjectTitle({
       tabIndex={allowDoubleClick || editing ? 0 : -1}
       aria-label="Название проекта"
       data-editing={editing || undefined}
+      onClick={() => {
+        if (!editing && mobileLayoutMatches()) onStartEditing();
+      }}
       onDoubleClick={() => {
         if (!editing && allowDoubleClick) onStartEditing();
       }}

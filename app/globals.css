@@ -2833,6 +2833,12 @@ h1 {
     text-overflow: ellipsis;
     font-size: 15px;
   }
+  .backlog-group .backlog-group-title:not([data-editing]) {
+    pointer-events: auto;
+  }
+  .backlog-group-title[data-editing] {
+    font-size: 16px;
+  }
   .backlog-task {
     grid-template-columns: minmax(0, 1fr) 40px;
     align-items: start;
