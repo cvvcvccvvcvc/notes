@@ -601,7 +601,7 @@ h1 {
     height: 24px;
   }
 }
-@media (hover: none) {
+@media (hover: none), (max-width: 640px) {
   .task-insert:not(.empty) {
     height: 6px;
     pointer-events: none;
