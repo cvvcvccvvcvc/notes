@@ -620,9 +620,30 @@ h1 {
   .task-insert:hover .task-insert-label {
     opacity: 1;
   }
-  .insertable-list > .task-insert:last-child:not(.empty) {
+  .insertable-list > .task-insert:last-child:not(.empty):not(.edge) {
     height: 24px;
   }
+}
+.task-insert.edge:not(.empty) {
+  height: 32px;
+  pointer-events: auto;
+  color: #858d88;
+}
+.task-insert.edge::before,
+.task-insert.edge .task-insert-label {
+  display: none;
+}
+.task-insert.edge .task-insert-edge-label {
+  display: inline-flex;
+  align-items: center;
+}
+.task-insert.edge .task-insert-edge-label svg {
+  width: 16px;
+  height: 16px;
+}
+.task-insert.edge:hover,
+.task-insert.edge:active {
+  color: #236e5b;
 }
 @media (hover: none), (max-width: 640px) {
   .task-insert:not(.empty) {
@@ -641,20 +662,6 @@ h1 {
 @media (hover: none), (max-width: 640px) {
   .task-insert.edge:not(.empty) {
     height: 44px;
-    pointer-events: auto;
-    color: #858d88;
-  }
-  .task-insert.edge::before,
-  .task-insert.edge .task-insert-label {
-    display: none;
-  }
-  .task-insert.edge .task-insert-edge-label {
-    display: inline-flex;
-    align-items: center;
-  }
-  .task-insert.edge .task-insert-edge-label svg {
-    width: 16px;
-    height: 16px;
   }
   .task-insert.edge:active {
     color: #236e5b;

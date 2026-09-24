@@ -78,33 +78,41 @@ export function TaskInsertList({
   return (
     <>
       {tasks.map((task, index) => {
-        const previousId = tasks[index - 1]?.id ?? null;
+        const previousTask = tasks[index - 1];
+        const previousId = previousTask?.id ?? null;
+        const canInsertBefore =
+          hasTaskTitle(task.text) &&
+          (!previousTask || hasTaskTitle(previousTask.text));
         const adjacent =
           !!showAdjacent && (editingId === task.id || editingId === previousId);
         return (
           <Fragment key={task.id}>
-            <TaskInsert
-              adjacent={adjacent}
-              edge={index === 0 && hasTaskTitle(task.text)}
-              mobileLabel={
-                index === 0
-                  ? 'Добавить дело в начало списка'
-                  : editingId === task.id
-                    ? 'Новое дело выше'
-                    : 'Новое дело ниже'
-              }
-              onInsert={() => onInsert(previousId)}
-            />
+            {canInsertBefore && (
+              <TaskInsert
+                adjacent={adjacent}
+                edge={index === 0}
+                mobileLabel={
+                  index === 0
+                    ? 'Добавить дело в начало списка'
+                    : editingId === task.id
+                      ? 'Новое дело выше'
+                      : 'Новое дело ниже'
+                }
+                onInsert={() => onInsert(previousId)}
+              />
+            )}
             {renderTask(task, index)}
           </Fragment>
         );
       })}
-      <TaskInsert
-        adjacent={!!showAdjacent && editingId === tasks.at(-1)?.id}
-        edge={hasTaskTitle(tasks.at(-1)!.text)}
-        mobileLabel="Добавить дело в конец списка"
-        onInsert={() => onInsert(tasks.at(-1)!.id)}
-      />
+      {hasTaskTitle(tasks.at(-1)!.text) && (
+        <TaskInsert
+          adjacent={!!showAdjacent && editingId === tasks.at(-1)?.id}
+          edge
+          mobileLabel="Добавить дело в конец списка"
+          onInsert={() => onInsert(tasks.at(-1)!.id)}
+        />
+      )}
     </>
   );
 }
