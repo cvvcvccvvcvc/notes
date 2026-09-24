@@ -631,13 +631,10 @@ h1 {
   .task-insert.edge .task-insert-edge-label {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    font-size: 12px;
-    line-height: 1;
   }
   .task-insert.edge .task-insert-edge-label svg {
-    width: 13px;
-    height: 13px;
+    width: 16px;
+    height: 16px;
   }
   .task-insert.edge:active {
     color: #236e5b;

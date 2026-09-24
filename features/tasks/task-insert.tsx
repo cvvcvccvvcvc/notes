@@ -37,7 +37,6 @@ export function TaskInsert({
       </span>
       <span className="task-insert-edge-label" aria-hidden="true">
         <Plus />
-        Добавить дело
       </span>
     </button>
   );
