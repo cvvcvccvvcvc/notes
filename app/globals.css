@@ -1782,7 +1782,8 @@ h1 {
   max-height: 250px;
   overflow: hidden;
   color: #303733;
-  line-height: 1.52;
+  font-size: 17px;
+  line-height: 1.62;
 }
 .note-image {
   position: relative;
@@ -3093,13 +3094,13 @@ h1 {
     display: none;
   }
   .note-card-content {
-    max-height: 9.6em;
+    max-height: 8.1em;
     display: -webkit-box;
     overflow: hidden;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 8;
-    font-size: 12px;
-    line-height: 1.35;
+    -webkit-line-clamp: 5;
+    font-size: 16px;
+    line-height: 1.62;
   }
   .note-image.preview img {
     max-height: 110px;
