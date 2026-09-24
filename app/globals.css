@@ -485,7 +485,7 @@ h1 {
 .task-actions [data-slot='button'] {
   min-height: 38px;
 }
-.task-actions > .quick-finish {
+.task-actions > .quick-action {
   width: 28px;
   height: 32px;
   min-height: 32px;
@@ -498,7 +498,7 @@ h1 {
   place-items: center;
   cursor: pointer;
 }
-.task-actions > .quick-finish svg {
+.task-actions > .quick-action svg {
   width: 16px;
   height: 16px;
 }
@@ -507,7 +507,12 @@ h1 {
   color: #236e5b;
   background: #e8f1eb;
 }
-.task-actions > .quick-finish:disabled {
+.task-actions > .quick-discard:hover,
+.task-actions > .quick-discard:focus-visible {
+  color: #a33a3a;
+  background: #faeaea;
+}
+.task-actions > .quick-action:disabled {
   visibility: hidden;
 }
 .more-button {
@@ -2672,7 +2677,7 @@ h1 {
 }
 
 @media (max-width: 760px) {
-  .task-actions > .quick-finish {
+  .task-actions > .quick-action {
     display: none;
   }
   body {

@@ -8,6 +8,7 @@ import {
   Clock3,
   MoreHorizontal,
   Plus,
+  X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { InlineTime } from './inline-time';
@@ -873,7 +874,8 @@ function TaskRow({
       <div className="task-actions">
         <button
           type="button"
-          className="quick-finish"
+          data-no-drag
+          className="quick-action quick-finish"
           aria-label="Завершить дело"
           title="Завершить дело"
           disabled={!hasName}
@@ -881,6 +883,18 @@ function TaskRow({
           onClick={onActivate}
         >
           <Check aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          data-no-drag
+          className="quick-action quick-discard"
+          aria-label="Удалить дело без истории"
+          title="Удалить дело без истории"
+          disabled={!hasName}
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={onDiscard}
+        >
+          <X aria-hidden="true" />
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger
