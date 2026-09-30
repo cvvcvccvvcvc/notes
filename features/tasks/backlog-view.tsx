@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { TaskColorMenu } from '@/features/tasks/task-color-menu';
 import { TaskInsertList } from '@/features/tasks/task-insert';
-import { mobileLayoutMatches } from '@/hooks/use-mobile-layout';
+import { useMobileLayout } from '@/hooks/use-mobile-layout';
 import type { Task, TaskColor, TaskGroup } from '@/lib/data';
 import { SortableDropZone, SortableItems, SortableRoot } from '@/lib/sorting';
 import {
@@ -166,6 +166,7 @@ function backlogShortcut(
 }
 
 export function BacklogView(props: BacklogProps) {
+  const mobileLayout = useMobileLayout();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const previousEditingId = useRef<string | null>(null);
@@ -309,7 +310,8 @@ export function BacklogView(props: BacklogProps) {
             id={`backlog-group-title-${location}-${group.id}`}
             title={group.title}
             editing={titleEditing}
-            allowDoubleClick={location === 'dialog'}
+            mobile={mobileLayout}
+            location={location}
             onStartEditing={() => {
               setSelectedGroupId(group.id);
               setEditingGroupKey(locationKey);
@@ -709,7 +711,8 @@ function ProjectTitle({
   id,
   title,
   editing,
-  allowDoubleClick,
+  mobile,
+  location,
   onStartEditing,
   onStopEditing,
   onChange,
@@ -717,7 +720,8 @@ function ProjectTitle({
   id: string;
   title: string;
   editing: boolean;
-  allowDoubleClick: boolean;
+  mobile: boolean;
+  location: 'card' | 'dialog';
   onStartEditing: () => void;
   onStopEditing: () => void;
   onChange: (title: string) => void;
@@ -736,15 +740,18 @@ function ProjectTitle({
       id={id}
       className="backlog-group-title"
       value={title}
-      readOnly={!editing}
-      tabIndex={allowDoubleClick || editing ? 0 : -1}
+      readOnly={!editing && !(mobile && location === 'card')}
+      tabIndex={location === 'dialog' || editing ? 0 : -1}
       aria-label="Название проекта"
       data-editing={editing || undefined}
+      onFocus={() => {
+        if (!editing && mobile && location === 'card') onStartEditing();
+      }}
       onClick={() => {
-        if (!editing && mobileLayoutMatches()) onStartEditing();
+        if (!editing && mobile && location === 'dialog') onStartEditing();
       }}
       onDoubleClick={() => {
-        if (!editing && allowDoubleClick) onStartEditing();
+        if (!editing && location === 'dialog') onStartEditing();
       }}
       onBlur={onStopEditing}
       onChange={(event) => onChange(event.target.value)}
