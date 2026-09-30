@@ -167,6 +167,41 @@ export function appendGoal(data: AppData, goal: Goal): AppData {
   return { ...data, goals: [...(data.goals ?? []), goal] };
 }
 
+export function insertGoal(
+  data: AppData,
+  goal: Goal,
+  afterId?: string,
+): AppData {
+  const goals = [...(data.goals ?? [])];
+  const after = goals.findIndex(
+    (item) =>
+      item.id === afterId &&
+      item.period.kind === goal.period.kind &&
+      item.period.key === goal.period.key,
+  );
+  goals.splice(after < 0 ? goals.length : after + 1, 0, goal);
+  return { ...data, goals };
+}
+
+export function moveGoal(
+  data: AppData,
+  sourceId: string,
+  targetId: string,
+): AppData {
+  const goals = [...(data.goals ?? [])];
+  const from = goals.findIndex((goal) => goal.id === sourceId);
+  const to = goals.findIndex((goal) => goal.id === targetId);
+  if (from < 0 || to < 0 || from === to) return data;
+  if (
+    goals[from].period.kind !== goals[to].period.kind ||
+    goals[from].period.key !== goals[to].period.key
+  )
+    return data;
+  const [moved] = goals.splice(from, 1);
+  goals.splice(to, 0, moved);
+  return { ...data, goals };
+}
+
 export function updateGoal(
   data: AppData,
   id: string,
@@ -232,6 +267,37 @@ export function appendReviewResult(
     ...review,
     results: [...review.results, result],
   }));
+}
+
+export function insertReviewResult(
+  data: AppData,
+  reviewId: string,
+  result: ReviewResult,
+  afterId?: string,
+): AppData {
+  return updateReview(data, reviewId, (review) => {
+    const results = [...review.results];
+    const after = results.findIndex((item) => item.id === afterId);
+    results.splice(after < 0 ? results.length : after + 1, 0, result);
+    return { ...review, results };
+  });
+}
+
+export function moveReviewResult(
+  data: AppData,
+  reviewId: string,
+  sourceId: string,
+  targetId: string,
+): AppData {
+  return updateReview(data, reviewId, (review) => {
+    const results = [...review.results];
+    const from = results.findIndex((result) => result.id === sourceId);
+    const to = results.findIndex((result) => result.id === targetId);
+    if (from < 0 || to < 0 || from === to) return review;
+    const [moved] = results.splice(from, 1);
+    results.splice(to, 0, moved);
+    return { ...review, results };
+  });
 }
 
 export function removeReviewResult(

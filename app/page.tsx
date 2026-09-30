@@ -55,11 +55,13 @@ import {
   updateRule as updateRuleInData,
 } from '@/lib/rule-operations';
 import {
-  appendGoal,
-  appendReviewResult,
   completePeriodReview,
   createPeriodReview,
   dueReviewPeriods,
+  insertGoal,
+  insertReviewResult,
+  moveGoal as moveGoalInData,
+  moveReviewResult as moveReviewResultInData,
   removeGoal as removeGoalFromData,
   removeReviewResult as removeReviewResultFromData,
   reviewForPeriod,
@@ -825,16 +827,27 @@ export default function Home() {
     );
   }
 
-  function addReviewResult(reviewId: string) {
+  function addReviewResult(reviewId: string, afterId?: string) {
     const id = uid();
     commit((current) =>
-      appendReviewResult(current, reviewId, {
-        id,
-        text: '',
-        included: true,
-      }),
+      insertReviewResult(
+        current,
+        reviewId,
+        { id, text: '', included: true },
+        afterId,
+      ),
     );
     return id;
+  }
+
+  function moveReviewResult(
+    reviewId: string,
+    sourceId: string,
+    targetId: string,
+  ) {
+    commit((current) =>
+      moveReviewResultInData(current, reviewId, sourceId, targetId),
+    );
   }
 
   function removeReviewResult(reviewId: string, resultId: string) {
@@ -847,10 +860,14 @@ export default function Home() {
     commit((current) => completePeriodReview(current, reviewId, Date.now()));
   }
 
-  function addGoal(period: ReviewPeriod) {
+  function addGoal(period: ReviewPeriod, afterId?: string) {
     const id = uid();
-    commit((current) => appendGoal(current, { id, period, text: '' }));
+    commit((current) => insertGoal(current, { id, period, text: '' }, afterId));
     return id;
+  }
+
+  function moveGoal(sourceId: string, targetId: string) {
+    commit((current) => moveGoalInData(current, sourceId, targetId));
   }
 
   function updateGoal(id: string, text: string) {
@@ -1052,9 +1069,11 @@ export default function Home() {
             startReview={startReview}
             updateResult={updateReviewResult}
             addResult={addReviewResult}
+            moveResult={moveReviewResult}
             removeResult={removeReviewResult}
             completeReview={completeReview}
             addGoal={addGoal}
+            moveGoal={moveGoal}
             updateGoal={updateGoal}
             removeGoal={removeGoal}
           />

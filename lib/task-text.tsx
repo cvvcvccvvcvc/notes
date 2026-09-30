@@ -108,6 +108,7 @@ export function TaskTextPreview({
 export function TaskTextEditor({
   text,
   ariaLabel,
+  placeholder = 'Что сделать?',
   onChange,
   onDone,
   onDiscard,
@@ -115,6 +116,7 @@ export function TaskTextEditor({
 }: {
   text: string;
   ariaLabel: string;
+  placeholder?: string;
   onChange: (text: string) => void;
   onDone: (refocus?: boolean) => void;
   onDiscard: () => void;
@@ -154,7 +156,7 @@ export function TaskTextEditor({
       value={text}
       rows={1}
       aria-label={ariaLabel}
-      placeholder="Что сделать?"
+      placeholder={placeholder}
       onBlur={() => onDone(false)}
       onChange={(event) => {
         resize(event.currentTarget);

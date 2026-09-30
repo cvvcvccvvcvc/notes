@@ -9,6 +9,11 @@ import {
   createPeriodReview,
   currentReviewPeriod,
   dueReviewPeriods,
+  goalsForPeriod,
+  insertGoal,
+  insertReviewResult,
+  moveGoal,
+  moveReviewResult,
   moveReviewPeriod,
   reviewPeriodRange,
   sourceReviewsForPeriod,
@@ -157,5 +162,59 @@ void test('month and year reference only completed summaries of the next smaller
       (review) => review.id,
     ),
     ['month'],
+  );
+});
+
+void test('goals and results keep their IDs when inserted and reordered', () => {
+  const week = { kind: 'week' as const, key: '2026-08-31' };
+  const month = { kind: 'month' as const, key: '2026-09' };
+  const current = data({
+    goals: [
+      { id: 'first', period: week, text: 'Первое' },
+      { id: 'month-goal', period: month, text: 'Месяц' },
+      { id: 'second', period: week, text: 'Второе' },
+    ],
+    reviews: [
+      {
+        id: 'review',
+        period: week,
+        status: 'draft',
+        goalSnapshot: [],
+        createdAt: 1,
+        results: [
+          { id: 'result-a', text: 'А', included: true },
+          { id: 'result-b', text: 'Б', included: true },
+        ],
+      },
+    ],
+  });
+
+  const inserted = insertGoal(
+    current,
+    { id: 'between', period: week, text: 'Между' },
+    'first',
+  );
+  const moved = moveGoal(inserted, 'second', 'first');
+  assert.deepEqual(
+    goalsForPeriod(moved, week).map((goal) => goal.id),
+    ['second', 'first', 'between'],
+  );
+  assert.equal(moveGoal(moved, 'second', 'month-goal'), moved);
+
+  const withResult = insertReviewResult(
+    moved,
+    'review',
+    { id: 'result-middle', text: 'Между', included: true },
+    'result-a',
+  );
+  const reordered = moveReviewResult(
+    withResult,
+    'review',
+    'result-b',
+    'result-a',
+  );
+  assert.deepEqual(
+    reordered.reviews?.[0].results.map((result) => result.id),
+    ['result-b', 'result-a', 'result-middle'],
   );
 });
