@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { TaskColorMenu } from '@/features/tasks/task-color-menu';
 import { TaskInsertList } from '@/features/tasks/task-insert';
-import { useMobileLayout } from '@/hooks/use-mobile-layout';
+import { mobileLayoutMatches } from '@/hooks/use-mobile-layout';
 import type { Task, TaskColor, TaskGroup } from '@/lib/data';
 import { SortableDropZone, SortableItems, SortableRoot } from '@/lib/sorting';
 import {
@@ -166,7 +166,6 @@ function backlogShortcut(
 }
 
 export function BacklogView(props: BacklogProps) {
-  const mobileLayout = useMobileLayout();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const previousEditingId = useRef<string | null>(null);
@@ -263,8 +262,13 @@ export function BacklogView(props: BacklogProps) {
 
   function addGroup() {
     const id = props.addGroup();
-    setSelectedGroupId(id);
-    setEditingGroupKey(`card:${id}`);
+    if (mobileLayoutMatches()) {
+      openProject(id);
+      setEditingGroupKey(`dialog:${id}`);
+    } else {
+      setSelectedGroupId(id);
+      setEditingGroupKey(`card:${id}`);
+    }
   }
 
   function addTask(groupId: string, afterId?: string | null) {
@@ -310,7 +314,6 @@ export function BacklogView(props: BacklogProps) {
             id={`backlog-group-title-${location}-${group.id}`}
             title={group.title}
             editing={titleEditing}
-            mobile={mobileLayout}
             location={location}
             onStartEditing={() => {
               setSelectedGroupId(group.id);
@@ -662,7 +665,10 @@ function SortableProject({
             event.key === 'Enter'
           ) {
             event.preventDefault();
-            if (!event.repeat) onEditTitle();
+            if (!event.repeat) {
+              if (mobileLayoutMatches()) onOpen();
+              else onEditTitle();
+            }
             return;
           }
           if (
@@ -711,7 +717,6 @@ function ProjectTitle({
   id,
   title,
   editing,
-  mobile,
   location,
   onStartEditing,
   onStopEditing,
@@ -720,7 +725,6 @@ function ProjectTitle({
   id: string;
   title: string;
   editing: boolean;
-  mobile: boolean;
   location: 'card' | 'dialog';
   onStartEditing: () => void;
   onStopEditing: () => void;
@@ -740,15 +744,13 @@ function ProjectTitle({
       id={id}
       className="backlog-group-title"
       value={title}
-      readOnly={!editing && !(mobile && location === 'card')}
+      readOnly={!editing}
       tabIndex={location === 'dialog' || editing ? 0 : -1}
       aria-label="Название проекта"
       data-editing={editing || undefined}
-      onFocus={() => {
-        if (!editing && mobile && location === 'card') onStartEditing();
-      }}
       onClick={() => {
-        if (!editing && mobile && location === 'dialog') onStartEditing();
+        if (!editing && location === 'dialog' && mobileLayoutMatches())
+          onStartEditing();
       }}
       onDoubleClick={() => {
         if (!editing && location === 'dialog') onStartEditing();
@@ -759,7 +761,7 @@ function ProjectTitle({
         if (!editing && event.key === 'Enter') {
           event.preventDefault();
           event.stopPropagation();
-          onStartEditing();
+          if (location === 'dialog' || !mobileLayoutMatches()) onStartEditing();
           return;
         }
         if (!editing) return;

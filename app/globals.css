@@ -2837,9 +2837,6 @@ h1 {
     text-overflow: ellipsis;
     font-size: 15px;
   }
-  .backlog-group .backlog-group-title:not([data-editing]) {
-    pointer-events: auto;
-  }
   .backlog-group-title[data-editing] {
     font-size: 16px;
   }
