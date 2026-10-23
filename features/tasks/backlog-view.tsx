@@ -1016,10 +1016,7 @@ function BacklogTaskRow({
         />
       ) : (
         <button data-task-focus className="backlog-task-text" onClick={onEdit}>
-          <TaskTextPreview
-            text={task.text}
-            revealDescription={selected || task.intervals.length > 0}
-          />
+          <TaskTextPreview text={task.text} revealDescription={selected} />
         </button>
       )}
       <Button

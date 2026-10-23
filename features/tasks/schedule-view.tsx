@@ -688,10 +688,7 @@ function FutureTaskRow({
           />
         ) : (
           <button data-task-focus className="future-task-text" onClick={onEdit}>
-            <TaskTextPreview
-              text={task.text}
-              revealDescription={selected || task.intervals.length > 0}
-            />
+            <TaskTextPreview text={task.text} revealDescription={selected} />
           </button>
         )}
       </div>
@@ -864,10 +861,7 @@ function TaskRow({
             className="task-text task-text-display"
             onClick={onEdit}
           >
-            <TaskTextPreview
-              text={task.text}
-              revealDescription={selected || state !== 'idle'}
-            />
+            <TaskTextPreview text={task.text} revealDescription={selected} />
           </button>
         )}
       </div>

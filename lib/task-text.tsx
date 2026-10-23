@@ -85,22 +85,9 @@ export function TaskTextPreview({
   text: string;
   revealDescription: boolean;
 }) {
-  const { title, description } = splitTaskText(text);
   return (
-    <div className="task-text-preview">
-      <span className="task-title">{title || 'Без названия'}</span>
-      {description &&
-        (revealDescription ? (
-          <span className="task-description">{description}</span>
-        ) : (
-          <span
-            className="task-description-indicator"
-            aria-label="Есть описание"
-          >
-            <i />
-            <i />
-          </span>
-        ))}
+    <div className={`task-text-preview ${revealDescription ? 'expanded' : ''}`}>
+      <span className="task-title">{text || 'Без названия'}</span>
     </div>
   );
 }
@@ -164,7 +151,14 @@ export function TaskTextEditor({
       }}
       onKeyDown={(event) => {
         if (event.nativeEvent.isComposing) return;
-        if (event.key === 'Escape') {
+        if (
+          event.key === 'Escape' ||
+          (event.key === 'Enter' &&
+            !event.metaKey &&
+            !event.ctrlKey &&
+            !event.altKey &&
+            !event.shiftKey)
+        ) {
           event.preventDefault();
           event.stopPropagation();
           onDone(true);
