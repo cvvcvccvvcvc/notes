@@ -33,7 +33,6 @@ import { dateKey, shiftedDay } from '@/lib/date-time';
 import {
   acceptTemplateSuggestion,
   skipTemplateSuggestion,
-  templateSuggestions,
   appendMonthTemplateRule,
   createMonthFromTemplate,
   defaultMonthTemplateSchedule,
@@ -918,7 +917,6 @@ export default function Home() {
 
   const openNote = data.notes.find((note) => note.id === openNoteId) ?? null;
   const reviewDebtCount = dueReviewPeriods(data, todayKey).length;
-  const templateReminderCount = templateSuggestions(data, [todayKey]).length;
 
   const navigation = (
     <>
@@ -1016,25 +1014,6 @@ export default function Home() {
       </header>
 
       <main className="main-content">
-        {templateReminderCount > 0 && (
-          <output className="template-reminder">
-            <button
-              type="button"
-              onClick={() => {
-                navigate('today');
-                requestAnimationFrame(() =>
-                  document
-                    .getElementById('today-template-suggestions')
-                    ?.scrollIntoView({ block: 'center' }),
-                );
-              }}
-            >
-              <CalendarDays aria-hidden="true" />
-              Сегодня не запланировано из шаблона: {templateReminderCount}
-              <span>Разобрать</span>
-            </button>
-          </output>
-        )}
         {view === 'today' && (
           <ScheduleView
             data={data}

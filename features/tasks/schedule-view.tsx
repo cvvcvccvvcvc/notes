@@ -275,7 +275,6 @@ export function ScheduleView(props: ScheduleProps) {
   const suggestionsFor = (day: string) => (
     <TemplateSuggestions
       suggestions={suggestionsByDay.get(day) ?? []}
-      today={todayKey}
       onAccept={props.acceptSuggestion}
       onSkip={props.skipSuggestion}
     />
@@ -563,17 +562,8 @@ export function ScheduleView(props: ScheduleProps) {
                 )}
               />
             </SortableItems>
+            {suggestionsFor(todayKey)}
           </SortableDropZone>
-          {(suggestionsByDay.get(todayKey)?.length ?? 0) > 0 && (
-            <section
-              id="today-template-suggestions"
-              className="today-template-suggestions"
-              aria-label="Не запланировано из шаблона"
-            >
-              <h2>Сегодня из шаблона</h2>
-              {suggestionsFor(todayKey)}
-            </section>
-          )}
         </section>
 
         <details

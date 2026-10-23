@@ -1769,133 +1769,40 @@ h1 {
   flex-wrap: wrap;
   gap: 8px;
 }
-.template-reminder {
-  display: block;
-  position: sticky;
-  top: 0;
-  z-index: 15;
-  padding: 8px 24px;
-  background: #f7f7f3;
-}
-.template-reminder > button {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 10px 14px;
-  border: 1px solid #d9cba0;
-  border-radius: 10px;
-  background: #fff5d6;
-  color: #6b5722;
-  text-align: left;
-  cursor: pointer;
-  font-size: 13px;
-}
-.template-reminder svg {
-  width: 18px;
-  flex-shrink: 0;
-}
-.template-reminder span {
-  margin-left: auto;
-  font-weight: 600;
-}
-.today-template-suggestions {
-  margin-top: 22px;
-}
-.today-template-suggestions h2 {
-  margin: 0 0 10px;
-  color: #7b806f;
-  font-size: 13px;
-  font-weight: 500;
-}
 .template-suggestions {
   display: grid;
   gap: 6px;
   min-width: 0;
 }
-.template-suggestion {
-  min-width: 0;
+.task-row.template-suggestion {
+  grid-template-columns: minmax(0, 1fr) 32px 32px;
+  border-style: dashed;
+}
+.template-suggestion-action {
+  width: 32px;
+  height: 32px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto 32px;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 8px;
-  border: 1px dashed #acb8ae;
-  border-radius: 10px;
-  background: rgb(255 254 251 / 55%);
-  color: #66746a;
-}
-.template-suggestion-text {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-  padding: 0 3px;
-}
-.template-suggestion-text small {
-  font-size: 10px;
-  opacity: 0.75;
-}
-.template-suggestion-text > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 14px;
-}
-.template-suggestion-add {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  min-height: 36px;
-  padding: 4px 6px;
+  place-items: center;
+  padding: 0;
   border: 0;
   border-radius: 7px;
   background: transparent;
-  color: #236e5b;
+  color: #747b76;
   cursor: pointer;
-  font-size: 12px;
 }
 .template-suggestion-add:hover,
 .template-suggestion-add:focus-visible {
   background: #e3f0eb;
+  color: #236e5b;
 }
-.template-suggestion-add svg {
-  width: 16px;
-  height: 16px;
+.template-suggestion-skip:hover,
+.template-suggestion-skip:focus-visible {
+  background: #faeaea;
+  color: #a33a3a;
 }
-.template-suggestion-move {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 6px;
-  padding: 6px 0;
-}
-.template-suggestion-move label {
-  display: grid;
-  gap: 4px;
-  font-size: 12px;
-}
-.template-suggestion-move input {
-  min-height: 36px;
-  min-width: 0;
-  border: 1px solid #c9d2c9;
-  border-radius: 7px;
-  padding: 4px 6px;
-  background: #fffefb;
-  font-size: 16px;
-}
-@media (max-width: 640px) {
-  .template-reminder {
-    top: calc(58px + env(safe-area-inset-top));
-    padding: 6px 10px;
-  }
-  .template-reminder > button {
-    padding: 8px 10px;
-    font-size: 12px;
-  }
-  .template-reminder span {
-    display: none;
-  }
+.template-suggestion-action svg {
+  width: 17px;
+  height: 17px;
 }
 .notes-grid {
   margin-top: 36px;
