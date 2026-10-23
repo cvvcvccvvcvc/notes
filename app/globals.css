@@ -795,9 +795,9 @@ h1 {
 .rule-card {
   min-height: 42px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: start;
-  padding: 9px 8px;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  padding: 5px 8px;
   border: 1px solid transparent;
   border-radius: 10px;
   background: transparent;
@@ -838,6 +838,34 @@ h1 {
   border: 0;
   outline: 0;
   background: transparent;
+}
+.rule-select {
+  min-width: 0;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: inherit;
+}
+.rule-delete {
+  width: 28px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #8b7777;
+  cursor: pointer;
+}
+.rule-delete:hover,
+.rule-delete:focus-visible {
+  background: #f3dfdf;
+  color: #a03d3d;
+}
+.rule-delete svg {
+  width: 15px;
+  height: 15px;
 }
 .rule-card .rule-text {
   white-space: pre-wrap;

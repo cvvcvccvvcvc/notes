@@ -763,6 +763,10 @@ export default function Home() {
     const index = rules.findIndex((rule) => rule.id === id);
     const rule: Rule | undefined = rules[index];
     if (!rule) return;
+    if (!rule.text.trim()) {
+      commit((current) => removeRuleFromData(current, id));
+      return;
+    }
     commitWithUndo(
       'Правило удалено',
       (current) => removeRuleFromData(current, id),

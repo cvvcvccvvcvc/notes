@@ -38,12 +38,17 @@ export function RulesPanel({
   useEffect(() => {
     function clearSelection(event: PointerEvent) {
       if ((event.target as HTMLElement).closest('.rules-panel')) return;
+      if (
+        editingId &&
+        !rules.find((rule) => rule.id === editingId)?.text.trim()
+      )
+        removeRule(editingId);
       setSelectedId(null);
       setEditingId(null);
     }
     document.addEventListener('pointerdown', clearSelection);
     return () => document.removeEventListener('pointerdown', clearSelection);
-  }, []);
+  }, [editingId, rules, removeRule]);
 
   function selectRelative(id: string, direction: -1 | 1) {
     const index = rules.findIndex((rule) => rule.id === id);
@@ -78,9 +83,12 @@ export function RulesPanel({
     focusRule(id, true);
   }
 
-  function stopEditing(id: string) {
+  function stopEditing(id: string, refocus = true) {
     setEditingId(null);
-    focusRule(id);
+    if (!rules.find((rule) => rule.id === id)?.text.trim()) {
+      removeRule(id);
+      setSelectedId(null);
+    } else if (refocus) focusRule(id);
   }
 
   function handleShortcut(event: React.KeyboardEvent<HTMLElement>, id: string) {
@@ -123,6 +131,7 @@ export function RulesPanel({
       aria-label="Правила"
       onPointerDownCapture={(event) => {
         if (!(event.target as HTMLElement).closest('[data-rule-card]')) {
+          if (editingId) stopEditing(editingId, false);
           setSelectedId(null);
           setEditingId(null);
         }
@@ -189,7 +198,8 @@ export function RulesPanel({
                   setEditingId(null);
                 }}
                 onEdit={() => edit(rule.id)}
-                onStopEditing={() => setEditingId(null)}
+                onStopEditing={() => stopEditing(rule.id, false)}
+                onRemove={() => removeSelected(rule.id)}
                 onChange={(text) => updateRule(rule.id, text)}
                 onKeyDown={(event) => handleShortcut(event, rule.id)}
               />
@@ -220,6 +230,7 @@ function SortableRule({
   onSelect,
   onEdit,
   onStopEditing,
+  onRemove,
   onChange,
   onKeyDown,
 }: {
@@ -229,6 +240,7 @@ function SortableRule({
   onSelect: () => void;
   onEdit: () => void;
   onStopEditing: () => void;
+  onRemove: () => void;
   onChange: (text: string) => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => void;
 }) {
@@ -243,15 +255,9 @@ function SortableRule({
   const className = `rule-card ${selected ? 'selected' : ''} ${editing ? 'editing' : ''} ${isDragging ? 'dragging' : ''}`;
   const style = { transform: CSS.Translate.toString(transform), transition };
 
-  if (editing)
-    return (
-      <div
-        ref={setNodeRef}
-        id={`rule-${rule.id}`}
-        data-rule-card
-        className={className}
-        style={style}
-      >
+  return (
+    <div ref={setNodeRef} data-rule-card className={className} style={style}>
+      {editing ? (
         <input
           id={`rule-editor-${rule.id}`}
           value={rule.text}
@@ -261,25 +267,30 @@ function SortableRule({
           onBlur={onStopEditing}
           onKeyDown={onKeyDown}
         />
-      </div>
-    );
-
-  return (
-    <button
-      type="button"
-      ref={setNodeRef}
-      id={`rule-${rule.id}`}
-      data-rule-card
-      className={className}
-      style={style}
-      {...attributes}
-      {...listeners}
-      onFocus={onSelect}
-      onClick={onSelect}
-      onDoubleClick={onEdit}
-      onKeyDown={onKeyDown}
-    >
-      <span className="rule-text">{rule.text || 'Новое правило'}</span>
-    </button>
+      ) : (
+        <button
+          type="button"
+          id={`rule-${rule.id}`}
+          className="rule-select"
+          {...attributes}
+          {...listeners}
+          onFocus={onSelect}
+          onClick={onEdit}
+          onKeyDown={onKeyDown}
+        >
+          <span className="rule-text">{rule.text || 'Новое правило'}</span>
+        </button>
+      )}
+      <button
+        type="button"
+        className="rule-delete"
+        aria-label="Удалить правило"
+        title="Удалить правило"
+        onPointerDown={(event) => event.preventDefault()}
+        onClick={onRemove}
+      >
+        <X aria-hidden="true" />
+      </button>
+    </div>
   );
 }
