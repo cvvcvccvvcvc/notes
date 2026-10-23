@@ -139,6 +139,8 @@ type ScheduleProps = {
   data: AppData;
   now: number;
   todayKey: string;
+  expanded: Record<string, boolean>;
+  onExpandedChange: (key: string, open: boolean) => void;
   addTask: (day: string, afterId?: string | null) => string;
   updateTask: (day: string, id: string, change: (task: Task) => Task) => void;
   runTimer: (day: string, id: string) => void;
@@ -261,12 +263,12 @@ export function ScheduleView(props: ScheduleProps) {
 
   function materializeNextMonth() {
     props.createMonth(nextMonth);
+    props.onExpandedChange(nextMonth, true);
     requestAnimationFrame(() => {
       const element = document.querySelector<HTMLDetailsElement>(
         `[data-month="${nextMonth}"]`,
       );
       if (!element) return;
-      element.open = true;
       element.scrollIntoView({ block: 'start' });
     });
   }
@@ -538,7 +540,15 @@ export function ScheduleView(props: ScheduleProps) {
           </SortableDropZone>
         </section>
 
-        <details className="future-section">
+        <details
+          className="future-section"
+          open={props.expanded.future}
+          onToggle={(event) => {
+            const open = event.currentTarget.open;
+            if (open !== props.expanded.future)
+              props.onExpandedChange('future', open);
+          }}
+        >
           <summary className="future-toggle">
             Следующие дни <ChevronDown aria-hidden="true" />
           </summary>
@@ -551,6 +561,12 @@ export function ScheduleView(props: ScheduleProps) {
                   className="schedule-month"
                   key={month}
                   data-month={month}
+                  open={props.expanded[month] ?? false}
+                  onToggle={(event) => {
+                    const open = event.currentTarget.open;
+                    if (open !== (props.expanded[month] ?? false))
+                      props.onExpandedChange(month, open);
+                  }}
                 >
                   <summary className="month-heading">
                     <span>{ruMonth.format(dates[0])}</span>

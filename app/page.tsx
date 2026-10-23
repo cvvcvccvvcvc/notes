@@ -161,6 +161,9 @@ export default function Home() {
   const [undo, setUndo] = useState<UndoState>(null);
   const noteEditSessionRef = useRef<{ initial: Note } | null>(null);
   const [syncPanelOpen, setSyncPanelOpen] = useState(false);
+  const [scheduleExpanded, setScheduleExpanded] = useState<
+    Record<string, boolean>
+  >({ future: true });
   const todayKey = dateKey(new Date(now));
   const {
     data,
@@ -1002,6 +1005,10 @@ export default function Home() {
             data={data}
             now={now}
             todayKey={todayKey}
+            expanded={scheduleExpanded}
+            onExpandedChange={(key, open) =>
+              setScheduleExpanded((current) => ({ ...current, [key]: open }))
+            }
             addTask={addTask}
             updateTask={updateTask}
             runTimer={runTimer}
