@@ -3,10 +3,12 @@ import type {
   MonthPlanning,
   MonthTemplateRule,
   MonthTemplateSchedule,
+  HistoryItem,
   Task,
 } from './data';
 import { ENTITY_ID_MAX_LENGTH } from './data';
 import { dateKey } from './date-time';
+import { leadingTaskTime } from './task-text';
 
 const MONTH_KEY = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DAY_KEY = /^\d{4}-(0[1-9]|1[0-2])-([0-2]\d|3[01])$/;
@@ -119,6 +121,7 @@ export function defaultMonthTemplateSchedule(
   kind: MonthTemplateSchedule['kind'],
   today = new Date(),
 ): MonthTemplateSchedule {
+  if (kind === 'daily') return { kind };
   if (kind === 'weekly') return { kind, weekday: today.getDay() };
   if (kind === 'monthly') return { kind, day: today.getDate() };
   if (kind === 'fortnightly') return { kind, anchorDay: dateKey(today) };
@@ -140,6 +143,7 @@ function matchingTemplateRules(rules: MonthTemplateRule[], date: Date) {
   const key = dateKey(date);
   return rules.filter((rule) => {
     if (!rule.text.trim()) return false;
+    if (rule.schedule.kind === 'daily') return true;
     if (rule.schedule.kind === 'weekly')
       return date.getDay() === rule.schedule.weekday;
     if (rule.schedule.kind === 'monthly')
@@ -165,33 +169,153 @@ export function monthTemplateTaskCount(data: AppData, month: string) {
   );
 }
 
-/** Materialize a month once. Existing tasks and their order are preserved. */
+/** Expose calendar dates; unaccepted template suggestions never become tasks. */
 export function createMonthFromTemplate(data: AppData, month: string) {
   const currentPlanning = planning(data);
   if (currentPlanning.createdMonths.includes(month)) return data;
-
   const schedule = { ...data.schedule };
-  for (const date of monthDates(month)) {
-    const day = dateKey(date);
-    const existing = schedule[day] ?? [];
-    const existingIds = new Set(existing.map((task) => task.id));
-    const generated: Task[] = matchingTemplateRules(currentPlanning.rules, date)
-      .map((rule) => ({
-        id: monthTemplateTaskId(rule.id, day),
-        text: rule.text.trim(),
-        intervals: [],
-        ...(rule.color ? { color: rule.color } : {}),
-      }))
-      .filter((task) => !existingIds.has(task.id));
-    schedule[day] = [...existing, ...generated];
-  }
-
+  for (const date of monthDates(month)) schedule[dateKey(date)] ??= [];
   return {
     ...data,
     schedule,
     monthPlanning: {
       ...currentPlanning,
       createdMonths: [...currentPlanning.createdMonths, month].sort(),
+    },
+  };
+}
+
+export type TemplateSuggestion = {
+  id: string;
+  day: string;
+  rule: MonthTemplateRule;
+};
+
+function normalizedTemplateText(text: string) {
+  return (leadingTaskTime(text)?.text ?? text)
+    .normalize('NFC')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('ru');
+}
+
+function matchesRule(rule: MonthTemplateRule, item: Task | HistoryItem) {
+  if (item.templateRuleId) return item.templateRuleId === rule.id;
+  const id = 'taskId' in item ? String(item.taskId) : item.id;
+  const originalDay = id.slice(-10);
+  return (
+    (DAY_KEY.test(originalDay) &&
+      id === monthTemplateTaskId(rule.id, originalDay)) ||
+    normalizedTemplateText(item.text) === normalizedTemplateText(rule.text)
+  );
+}
+
+/** Check actual plans and the completion day, never a task's original date. */
+export function templateSuggestions(
+  data: AppData,
+  days: string[],
+): TemplateSuggestion[] {
+  const currentPlanning = planning(data);
+  const skipped = new Set(currentPlanning.skippedOccurrences ?? []);
+  const requested = new Set(days);
+  const completed = new Map<string, HistoryItem[]>();
+  for (const item of data.history) {
+    const day = item.finishedDay ?? dateKey(new Date(item.finishedAt));
+    if (requested.has(day)) {
+      const items = completed.get(day) ?? [];
+      items.push(item);
+      completed.set(day, items);
+    }
+  }
+  return [...requested].flatMap((day) =>
+    matchingTemplateRules(
+      currentPlanning.rules,
+      new Date(`${day}T12:00:00`),
+    ).flatMap((rule) => {
+      const id = monthTemplateTaskId(rule.id, day);
+      if (
+        skipped.has(id) ||
+        (data.schedule[day] ?? []).some((task) => matchesRule(rule, task)) ||
+        (completed.get(day) ?? []).some((item) => matchesRule(rule, item))
+      )
+        return [];
+      return [{ id, day, rule }];
+    }),
+  );
+}
+
+export function skipTemplateSuggestion(
+  data: AppData,
+  ruleId: string,
+  day: string,
+) {
+  const suggestion = templateSuggestions(data, [day]).find(
+    (item) => item.rule.id === ruleId,
+  );
+  if (!suggestion) return data;
+  const currentPlanning = planning(data);
+  return {
+    ...data,
+    monthPlanning: {
+      ...currentPlanning,
+      skippedOccurrences: [
+        ...(currentPlanning.skippedOccurrences ?? []),
+        suggestion.id,
+      ],
+    },
+  };
+}
+
+export function acceptTemplateSuggestion(
+  data: AppData,
+  input: {
+    ruleId: string;
+    day: string;
+    targetDay: string;
+    taskId: string;
+  },
+) {
+  const suggestion = templateSuggestions(data, [input.day]).find(
+    (item) => item.rule.id === input.ruleId,
+  );
+  if (
+    !suggestion ||
+    !DAY_KEY.test(input.targetDay) ||
+    dateKey(new Date(`${input.targetDay}T12:00:00`)) !== input.targetDay
+  )
+    return data;
+  if (
+    Object.values(data.schedule).some((tasks) =>
+      tasks.some((task) => task.id === input.taskId),
+    ) ||
+    (data.backlog ?? []).some((group) =>
+      group.tasks.some((task) => task.id === input.taskId),
+    )
+  )
+    return data;
+  const parsed = leadingTaskTime(suggestion.rule.text.trim());
+  const usedIds = new Set([
+    ...Object.values(data.schedule)
+      .flat()
+      .map((task) => task.id),
+    ...(data.backlog ?? []).flatMap((group) =>
+      group.tasks.map((task) => task.id),
+    ),
+    ...data.history.map((item) => item.taskId),
+  ]);
+  const task: Task = {
+    id: usedIds.has(suggestion.id) ? input.taskId : suggestion.id,
+    templateRuleId: suggestion.rule.id,
+    text: parsed?.text ?? suggestion.rule.text.trim(),
+    intervals: [],
+    ...(parsed ? { plannedStart: parsed.plannedStart } : {}),
+    ...(suggestion.rule.color ? { color: suggestion.rule.color } : {}),
+  };
+  return {
+    ...data,
+    schedule: {
+      ...data.schedule,
+      [input.targetDay]: [...(data.schedule[input.targetDay] ?? []), task],
     },
   };
 }

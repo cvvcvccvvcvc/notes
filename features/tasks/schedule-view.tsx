@@ -38,7 +38,13 @@ import {
   ruShortDate,
   shiftedDay,
 } from '@/lib/date-time';
-import { monthTemplateTaskCount, nextMonthKey } from '@/lib/month-template';
+import {
+  monthTemplateTaskCount,
+  nextMonthKey,
+  templateSuggestions,
+  type TemplateSuggestion,
+} from '@/lib/month-template';
+import { TemplateSuggestions } from '@/features/templates/template-suggestions';
 import { SortableDropZone, SortableItems, SortableRoot } from '@/lib/sorting';
 import {
   hasTaskTitle,
@@ -158,6 +164,8 @@ type ScheduleProps = {
   sendTaskToBacklog: (day: string, id: string, targetGroupId: string) => void;
   takeFutureTask: (day: string, id: string) => void;
   createMonth: (month: string) => void;
+  acceptSuggestion: (ruleId: string, day: string, targetDay: string) => void;
+  skipSuggestion: (ruleId: string, day: string) => void;
   openTemplates: () => void;
   rules: Rule[];
   addRule: () => string;
@@ -255,6 +263,23 @@ export function ScheduleView(props: ScheduleProps) {
     }
     return months;
   })();
+  const suggestionsByDay = new Map<string, TemplateSuggestion[]>();
+  for (const suggestion of templateSuggestions(data, [
+    todayKey,
+    ...Object.values(futureMonths).flat().map(dateKey),
+  ])) {
+    const entries = suggestionsByDay.get(suggestion.day) ?? [];
+    entries.push(suggestion);
+    suggestionsByDay.set(suggestion.day, entries);
+  }
+  const suggestionsFor = (day: string) => (
+    <TemplateSuggestions
+      suggestions={suggestionsByDay.get(day) ?? []}
+      today={todayKey}
+      onAccept={props.acceptSuggestion}
+      onSkip={props.skipSuggestion}
+    />
+  );
   const nextMonth = nextMonthKey(data, todayKey);
   const nextMonthDate = new Date(`${nextMonth}-01T12:00:00`);
   const templateRules = data.monthPlanning?.rules ?? [];
@@ -309,6 +334,7 @@ export function ScheduleView(props: ScheduleProps) {
                 )}
               />
             </SortableItems>
+            {suggestionsFor(day)}
           </SortableDropZone>
         </div>
       );
@@ -538,6 +564,16 @@ export function ScheduleView(props: ScheduleProps) {
               />
             </SortableItems>
           </SortableDropZone>
+          {(suggestionsByDay.get(todayKey)?.length ?? 0) > 0 && (
+            <section
+              id="today-template-suggestions"
+              className="today-template-suggestions"
+              aria-label="Не запланировано из шаблона"
+            >
+              <h2>Сегодня из шаблона</h2>
+              {suggestionsFor(todayKey)}
+            </section>
+          )}
         </section>
 
         <details
@@ -583,7 +619,7 @@ export function ScheduleView(props: ScheduleProps) {
                 </strong>
                 <span>
                   {hasFilledTemplate
-                    ? `${generatedTaskCount} ${recordCountLabel(generatedTaskCount)} из шаблона`
+                    ? `${generatedTaskCount} ${recordCountLabel(generatedTaskCount)} в подсказках шаблона`
                     : 'Сначала добавь постоянные записи'}
                 </span>
               </div>

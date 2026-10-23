@@ -147,12 +147,12 @@ export function migrateAppData(data: AppData, today: string): AppData {
     !legacyGroup &&
     !staleTaskLocations &&
     !staleScheduledLocations &&
-    data.version >= 8
+    data.version >= 9
   )
     return data;
   return {
     ...data,
-    version: Math.max(data.version, 8),
+    version: Math.max(data.version, 9),
     schedule,
     backlog: groups,
     monthPlanning:

@@ -73,6 +73,7 @@ export function finishScheduledTask(
       {
         id: historyId,
         taskId: task.id,
+        ...(task.templateRuleId ? { templateRuleId: task.templateRuleId } : {}),
         text: task.text,
         finishedAt: stamp,
         finishedDay: input.finishedDay ?? day,

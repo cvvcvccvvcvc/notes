@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { appDataSchema } from '../src/shared/data-schema';
 import type { AppData, MonthTemplateRule } from './data';
-import { createMonthFromTemplate } from './month-template';
+import { acceptTemplateSuggestion } from './month-template';
 
 function data(overrides: Partial<AppData> = {}): AppData {
   return {
@@ -77,7 +77,7 @@ void test('history cannot contain a running interval', () => {
   assert.equal(appDataSchema.safeParse(current).success, false);
 });
 
-void test('month generation keeps deterministic task ids inside the schema limit', () => {
+void test('accepting a template keeps deterministic task ids inside the schema limit', () => {
   const rule: MonthTemplateRule = {
     id: 'r'.repeat(160),
     text: 'Дело',
@@ -87,8 +87,14 @@ void test('month generation keeps deterministic task ids inside the schema limit
     monthPlanning: { rules: [rule], createdMonths: [] },
   });
 
-  const first = createMonthFromTemplate(current, '2026-09');
-  const second = createMonthFromTemplate(current, '2026-09');
+  const input = {
+    ruleId: rule.id,
+    day: '2026-09-09',
+    targetDay: '2026-09-09',
+    taskId: 'accepted',
+  };
+  const first = acceptTemplateSuggestion(current, input);
+  const second = acceptTemplateSuggestion(current, input);
   const generated = first.schedule['2026-09-09'][0];
 
   assert.equal(generated.id.length <= 160, true);

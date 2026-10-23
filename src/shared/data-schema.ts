@@ -89,6 +89,7 @@ export const dayWindowSchema = z
 
 const taskSchema = z.looseObject({
   id: idSchema,
+  templateRuleId: idSchema.optional(),
   text: z.string().max(100_000),
   intervals: intervalsSchema,
   color: taskColorSchema.optional(),
@@ -104,6 +105,7 @@ const taskSchema = z.looseObject({
 
 const historyItemSchema = z.looseObject({
   id: idSchema,
+  templateRuleId: idSchema.optional(),
   taskId: idSchema,
   text: z.string().max(100_000),
   finishedAt: timestampSchema,
@@ -176,6 +178,7 @@ const taskGroupSchema = z.looseObject({
 });
 
 const monthTemplateScheduleSchema = z.discriminatedUnion('kind', [
+  z.looseObject({ kind: z.literal('daily') }),
   z.looseObject({
     kind: z.literal('weekly'),
     weekday: z.number().int().min(0).max(6),
@@ -204,6 +207,7 @@ const monthTemplateRuleSchema = z.looseObject({
 
 const monthPlanningSchema = z.looseObject({
   rules: z.array(monthTemplateRuleSchema).max(10_000),
+  skippedOccurrences: z.array(idSchema).max(100_000).optional(),
   createdMonths: z
     .array(z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/))
     .max(10_000),

@@ -31,6 +31,9 @@ import {
 } from '@/lib/data';
 import { dateKey, shiftedDay } from '@/lib/date-time';
 import {
+  acceptTemplateSuggestion,
+  skipTemplateSuggestion,
+  templateSuggestions,
   appendMonthTemplateRule,
   createMonthFromTemplate,
   defaultMonthTemplateSchedule,
@@ -805,6 +808,18 @@ export default function Home() {
     commit((current) => moveMonthTemplateRuleInData(current, id, direction));
   }
 
+  function acceptSuggestion(ruleId: string, day: string, targetDay: string) {
+    if (targetDay < todayKey) return;
+    const taskId = uid();
+    commit((current) =>
+      acceptTemplateSuggestion(current, { ruleId, day, targetDay, taskId }),
+    );
+  }
+
+  function skipSuggestion(ruleId: string, day: string) {
+    commit((current) => skipTemplateSuggestion(current, ruleId, day));
+  }
+
   function createMonth(month: string) {
     commit((current) => createMonthFromTemplate(current, month));
   }
@@ -903,6 +918,7 @@ export default function Home() {
 
   const openNote = data.notes.find((note) => note.id === openNoteId) ?? null;
   const reviewDebtCount = dueReviewPeriods(data, todayKey).length;
+  const templateReminderCount = templateSuggestions(data, [todayKey]).length;
 
   const navigation = (
     <>
@@ -1000,6 +1016,25 @@ export default function Home() {
       </header>
 
       <main className="main-content">
+        {templateReminderCount > 0 && (
+          <output className="template-reminder">
+            <button
+              type="button"
+              onClick={() => {
+                navigate('today');
+                requestAnimationFrame(() =>
+                  document
+                    .getElementById('today-template-suggestions')
+                    ?.scrollIntoView({ block: 'center' }),
+                );
+              }}
+            >
+              <CalendarDays aria-hidden="true" />
+              Сегодня не запланировано из шаблона: {templateReminderCount}
+              <span>Разобрать</span>
+            </button>
+          </output>
+        )}
         {view === 'today' && (
           <ScheduleView
             data={data}
@@ -1021,6 +1056,8 @@ export default function Home() {
             sendTaskToBacklog={sendTaskToBacklog}
             takeFutureTask={takeFutureTask}
             createMonth={createMonth}
+            acceptSuggestion={acceptSuggestion}
+            skipSuggestion={skipSuggestion}
             openTemplates={() => navigate('templates')}
             rules={data.rules ?? []}
             addRule={createRule}

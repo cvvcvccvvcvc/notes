@@ -364,3 +364,30 @@ void describe('project operations', () => {
     assert.equal(moveBacklogGroupTo(current, 'one', 'missing'), current);
   });
 });
+
+void it('completion preserves template identity even when the task text changes', () => {
+  const current: AppData = {
+    version: 9,
+    schedule: {
+      '2027-02-01': [
+        {
+          id: 'linked',
+          templateRuleId: 'daily',
+          text: 'Изменено',
+          intervals: [],
+        },
+      ],
+    },
+    notes: [],
+    history: [],
+  };
+  const completed = finishScheduledTask(current, {
+    day: '2027-02-01',
+    id: 'linked',
+    historyId: 'h',
+    stamp: 1,
+    finishedDay: '2027-02-02',
+  });
+  assert.equal(completed.history[0].templateRuleId, 'daily');
+  assert.equal(completed.history[0].finishedDay, '2027-02-02');
+});

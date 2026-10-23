@@ -592,3 +592,41 @@ void test('rejects duplicate task ids before merge', () => {
     if (conflict.kind === 'invariant') assert.equal(conflict.source, 'local');
   }
 });
+
+void test('concurrent template skips merge without losing either date', () => {
+  const base = data({ monthPlanning: { rules: [], createdMonths: [] } });
+  const local = {
+    ...base,
+    monthPlanning: {
+      ...base.monthPlanning!,
+      skippedOccurrences: ['occurrence-a'],
+    },
+  };
+  const remote = {
+    ...base,
+    monthPlanning: {
+      ...base.monthPlanning!,
+      skippedOccurrences: ['occurrence-b'],
+    },
+  };
+  assert.deepEqual(
+    merged(mergeAppData({ base, local, remote })).monthPlanning
+      ?.skippedOccurrences,
+    ['occurrence-a', 'occurrence-b'],
+  );
+});
+
+void test('template provenance merges independently and incompatible edits remain a CAS conflict', () => {
+  const base = data();
+  const local = data({
+    schedule: {
+      '2026-09-05': [{ ...task('a', 'Base'), templateRuleId: 'daily' }],
+    },
+  });
+  const remote = data({ schedule: { '2026-09-05': [task('a', 'Renamed')] } });
+  const result = merged(mergeAppData({ base, local, remote }));
+  assert.equal(result.schedule['2026-09-05'][0].templateRuleId, 'daily');
+  assert.equal(result.schedule['2026-09-05'][0].text, 'Renamed');
+  remote.schedule['2026-09-05'][0].templateRuleId = 'other';
+  assert.equal(mergeAppData({ base, local, remote }).ok, false);
+});

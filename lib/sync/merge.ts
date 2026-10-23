@@ -28,6 +28,7 @@ type TaskRecord = Entity & {
   backlogGroupId: Task['backlogGroupId'];
   source: Task['source'];
   plannedStart: Task['plannedStart'];
+  templateRuleId: Task['templateRuleId'];
   location: TaskLocation;
 };
 
@@ -64,6 +65,7 @@ const TASK_FIELDS = [
   'source',
   'location',
   'plannedStart',
+  'templateRuleId',
 ] as const;
 const GROUP_FIELDS = ['title', 'content', 'color'] as const;
 const RULE_FIELDS = ['text'] as const;
@@ -84,6 +86,7 @@ const NOTE_FIELDS = [
   'attachments',
 ] as const;
 const HISTORY_FIELDS = [
+  'templateRuleId',
   'taskId',
   'text',
   'finishedAt',
@@ -105,7 +108,11 @@ const APP_DATA_FIELDS = [
   'notes',
   'history',
 ] as const;
-const MONTH_PLANNING_FIELDS = ['rules', 'createdMonths'] as const;
+const MONTH_PLANNING_FIELDS = [
+  'rules',
+  'createdMonths',
+  'skippedOccurrences',
+] as const;
 
 export function mergeAppData(input: {
   base: AppData;
@@ -381,6 +388,17 @@ export function mergeAppData(input: {
     ) as PeriodReview[],
     monthPlanning: {
       ...monthPlanningExtras,
+      ...([input.base, input.local, input.remote].some(
+        (source) => source.monthPlanning?.skippedOccurrences !== undefined,
+      )
+        ? {
+            skippedOccurrences: unionStrings(
+              input.base.monthPlanning?.skippedOccurrences,
+              input.local.monthPlanning?.skippedOccurrences,
+              input.remote.monthPlanning?.skippedOccurrences,
+            ).sort(),
+          }
+        : {}),
       rules: monthTemplateRuleOrder.map((id) =>
         cloneValue(monthTemplateRules.get(id)!),
       ) as MonthTemplateRule[],
@@ -579,6 +597,7 @@ function taskRecord(task: Task, location: TaskLocation): TaskRecord {
     backlogGroupId: task.backlogGroupId,
     source: cloneValue(task.source),
     plannedStart: task.plannedStart,
+    templateRuleId: task.templateRuleId,
     location,
   };
 }

@@ -38,6 +38,7 @@ const scheduleKinds: Array<{
   value: MonthTemplateSchedule['kind'];
   label: string;
 }> = [
+  { value: 'daily', label: 'каждый день' },
   { value: 'weekly', label: 'каждую неделю' },
   { value: 'monthly', label: 'каждый месяц' },
   { value: 'annual', label: 'каждый год' },
@@ -68,6 +69,7 @@ type TemplatesViewProps = {
 };
 
 function scheduleLabel(schedule: MonthTemplateSchedule) {
+  if (schedule.kind === 'daily') return 'каждый день';
   if (schedule.kind === 'weekly')
     return `${weekdays[schedule.weekday]}, каждую неделю`;
   if (schedule.kind === 'monthly')
@@ -212,8 +214,9 @@ export function TemplatesView({
         </div>
       </div>
       <p className="templates-explanation">
-        Записи из шаблона появляются при создании нового месяца. Созданные
-        месяцы потом не переписываются.
+        Шаблон показывает подсказки в расписании. Добавь нужные дела или
+        пропусти их на конкретный день. Уже добавленные дела остаются
+        самостоятельными.
       </p>
 
       <div className="template-rules">
@@ -461,6 +464,9 @@ export function TemplatesView({
       )}
 
       <div className="template-add-actions">
+        <Button variant="outline" onClick={() => addRule('daily')}>
+          <Plus /> Каждый день
+        </Button>
         <Button variant="outline" onClick={() => addRule('weekly')}>
           <Plus /> Каждую неделю
         </Button>
