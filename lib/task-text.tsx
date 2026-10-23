@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
+import { mobileLayoutMatches } from '@/hooks/use-mobile-layout';
 
 export function splitTaskText(text: string) {
   const lineBreak = text.indexOf('\n');
@@ -154,6 +155,7 @@ export function TaskTextEditor({
         if (
           event.key === 'Escape' ||
           (event.key === 'Enter' &&
+            !mobileLayoutMatches() &&
             !event.metaKey &&
             !event.ctrlKey &&
             !event.altKey &&
