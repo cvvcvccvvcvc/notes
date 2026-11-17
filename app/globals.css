@@ -1838,6 +1838,9 @@ h1 {
   gap: 16px;
   align-items: start;
 }
+.notes-grid + .notes-grid {
+  margin-top: 40px;
+}
 .note-card-pin {
   position: absolute;
   z-index: 1;
@@ -1915,7 +1918,7 @@ h1 {
   -webkit-line-clamp: 2;
   font-weight: 700;
   margin: 0 0 14px;
-  font-size: 21px;
+  font-size: 23px;
   line-height: 1.2;
   letter-spacing: -0.02em;
 }
@@ -3213,6 +3216,9 @@ h1 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
+  .notes-grid + .notes-grid {
+    margin-top: 20px;
+  }
   .notes-page .add-primary {
     display: none;
   }
@@ -3249,7 +3255,7 @@ h1 {
   }
   .note-card-title {
     margin-bottom: 8px;
-    font-size: 19px;
+    font-size: 21px;
     line-height: 1.25;
   }
   .note-card-title:empty {

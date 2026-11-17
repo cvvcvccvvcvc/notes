@@ -136,18 +136,22 @@ export function NotesView({
         grid
         onMove={moveNote}
       >
-        <div className="notes-grid">
-          {[...pinnedNotes, ...otherNotes].map((note) => (
-            <SortableNote
-              key={note.id}
-              note={note}
-              onOpen={() => {
-                setAttachmentMessage(null);
-                openNoteById(note.id);
-              }}
-            />
-          ))}
-        </div>
+        {[pinnedNotes, otherNotes].map((section, index) =>
+          section.length ? (
+            <div className="notes-grid" key={index === 0 ? 'pinned' : 'other'}>
+              {section.map((note) => (
+                <SortableNote
+                  key={note.id}
+                  note={note}
+                  onOpen={() => {
+                    setAttachmentMessage(null);
+                    openNoteById(note.id);
+                  }}
+                />
+              ))}
+            </div>
+          ) : null,
+        )}
       </SortableList>
       {mobileLayout && (
         <button
