@@ -1,5 +1,6 @@
 import {
   ArrowUpToLine,
+  CalendarCheck2,
   CalendarDays,
   Check,
   ChevronDown,
@@ -196,6 +197,32 @@ type TaskInteractions = {
   onFinish: () => void;
   onDiscard: () => void;
 };
+
+function AutoCompleteButton({
+  task,
+  onToggle,
+}: {
+  task: Task;
+  onToggle: () => void;
+}) {
+  const label = task.autoComplete
+    ? 'Отключить автоматическое завершение'
+    : 'Автоматически завершить в конце дня';
+  return (
+    <button
+      type="button"
+      data-no-drag
+      className={`auto-complete-button ${task.autoComplete ? 'active' : ''}`}
+      title={label}
+      aria-label={label}
+      aria-pressed={Boolean(task.autoComplete)}
+      disabled={!hasTaskTitle(task.text)}
+      onClick={onToggle}
+    >
+      <CalendarCheck2 aria-hidden="true" />
+    </button>
+  );
+}
 
 function ProjectDestinationMenu({
   groups,
@@ -745,6 +772,15 @@ function FutureTaskRow({
       >
         <ArrowUpToLine />
       </Button>
+      <AutoCompleteButton
+        task={task}
+        onToggle={() =>
+          updateTask(day, task.id, (current) => ({
+            ...current,
+            autoComplete: !current.autoComplete,
+          }))
+        }
+      />
       <DropdownMenu>
         <DropdownMenuTrigger
           className="more-button"
@@ -932,6 +968,15 @@ function TaskRow({
         >
           <X aria-hidden="true" />
         </button>
+        <AutoCompleteButton
+          task={task}
+          onToggle={() =>
+            updateTask(day, task.id, (current) => ({
+              ...current,
+              autoComplete: !current.autoComplete,
+            }))
+          }
+        />
         <DropdownMenu>
           <DropdownMenuTrigger
             className="more-button"

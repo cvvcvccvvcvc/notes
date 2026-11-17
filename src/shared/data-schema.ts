@@ -95,6 +95,7 @@ const taskSchema = z.looseObject({
   color: taskColorSchema.optional(),
   backlogGroupId: idSchema.optional(),
   plannedStart: plannedTimeSchema.optional(),
+  autoComplete: z.boolean().optional(),
   source: z
     .looseObject({
       noteId: idSchema,

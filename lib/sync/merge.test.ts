@@ -5,6 +5,7 @@ import test from 'node:test';
 
 import type { AppData, Task } from '../data.ts';
 import { migrateAppData } from '../migrations.ts';
+import { rolloverPastTasks } from '../rollover.ts';
 import { mergeAppData, validateAppData } from './merge.ts';
 
 function task(id: string, text = id): Task {
@@ -47,6 +48,40 @@ void test('merges independent fields of the same task', () => {
       color: 'blue',
     },
   );
+});
+
+void test('merges automatic completion setting independently of task text', () => {
+  const base = data();
+  const local = data({
+    schedule: { '2026-09-05': [{ ...task('a', 'Local text') }] },
+  });
+  const remote = data({
+    schedule: { '2026-09-05': [{ ...task('a', 'Base'), autoComplete: true }] },
+  });
+
+  assert.deepEqual(
+    merged(mergeAppData({ base, local, remote })).schedule['2026-09-05'][0],
+    {
+      id: 'a',
+      text: 'Local text',
+      intervals: [],
+      autoComplete: true,
+    },
+  );
+});
+
+void test('concurrent rollover creates one automatic history item', () => {
+  const base = data({
+    schedule: {
+      '2026-09-04': [{ ...task('a'), autoComplete: true }],
+    },
+  });
+  const local = rolloverPastTasks(base, '2026-09-05');
+  const remote = rolloverPastTasks(structuredClone(base), '2026-09-05');
+  const result = merged(mergeAppData({ base, local, remote }));
+
+  assert.deepEqual(result.history, local.history);
+  assert.deepEqual(result.schedule['2026-09-04'], []);
 });
 
 void test('preserves fields introduced by a newer data version', () => {

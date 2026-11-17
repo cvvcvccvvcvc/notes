@@ -505,6 +505,33 @@ h1 {
 .task-actions > .quick-action:disabled {
   visibility: hidden;
 }
+.auto-complete-button {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #858d88;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.auto-complete-button svg {
+  width: 17px;
+  height: 17px;
+}
+.auto-complete-button.active,
+.auto-complete-button:hover,
+.auto-complete-button:focus-visible {
+  color: #236e5b;
+  background: #e8f1eb;
+}
+.auto-complete-button:disabled {
+  visibility: hidden;
+}
 .more-button {
   width: 38px;
   height: 38px;
@@ -931,7 +958,7 @@ h1 {
   position: relative;
   min-height: 40px;
   display: grid;
-  grid-template-columns: 54px minmax(0, 1fr) 32px 32px;
+  grid-template-columns: 54px minmax(0, 1fr) 32px 32px 32px;
   align-items: center;
   gap: 2px;
   padding: 3px 4px 3px 7px;
@@ -942,7 +969,7 @@ h1 {
   outline: 0;
 }
 .future-task:has(.planned-time-badge.unset-time) {
-  grid-template-columns: minmax(0, 1fr) 32px 32px;
+  grid-template-columns: minmax(0, 1fr) 32px 32px 32px;
 }
 .future-task:has(.planned-time-badge.unset-time) .future-task-body {
   grid-column: 1;

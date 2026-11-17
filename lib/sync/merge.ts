@@ -28,6 +28,7 @@ type TaskRecord = Entity & {
   backlogGroupId: Task['backlogGroupId'];
   source: Task['source'];
   plannedStart: Task['plannedStart'];
+  autoComplete: Task['autoComplete'];
   templateRuleId: Task['templateRuleId'];
   location: TaskLocation;
 };
@@ -65,6 +66,7 @@ const TASK_FIELDS = [
   'source',
   'location',
   'plannedStart',
+  'autoComplete',
   'templateRuleId',
 ] as const;
 const GROUP_FIELDS = ['title', 'content', 'color'] as const;
@@ -597,6 +599,7 @@ function taskRecord(task: Task, location: TaskLocation): TaskRecord {
     backlogGroupId: task.backlogGroupId,
     source: cloneValue(task.source),
     plannedStart: task.plannedStart,
+    autoComplete: task.autoComplete,
     templateRuleId: task.templateRuleId,
     location,
   };

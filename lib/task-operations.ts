@@ -1,4 +1,4 @@
-import type { AppData, Task, TaskGroup } from './data';
+import type { AppData, HistoryItem, Task, TaskGroup } from './data';
 
 export type TaskState = 'idle' | 'running' | 'paused';
 
@@ -62,7 +62,6 @@ export function finishScheduledTask(
   const tasks = data.schedule[day] ?? [];
   const task = tasks.find((candidate) => candidate.id === id);
   if (!task) return data;
-  const finished = pauseTaskAt(task, stamp);
   return {
     ...data,
     schedule: {
@@ -70,17 +69,26 @@ export function finishScheduledTask(
       [day]: tasks.filter((candidate) => candidate.id !== id),
     },
     history: [
-      {
-        id: historyId,
-        taskId: task.id,
-        ...(task.templateRuleId ? { templateRuleId: task.templateRuleId } : {}),
-        text: task.text,
-        finishedAt: stamp,
-        finishedDay: input.finishedDay ?? day,
-        intervals: finished.intervals,
-      },
+      taskHistoryItem(task, historyId, stamp, input.finishedDay ?? day),
       ...data.history,
     ],
+  };
+}
+
+export function taskHistoryItem(
+  task: Task,
+  id: string,
+  stamp: number,
+  finishedDay: string,
+): HistoryItem {
+  return {
+    id,
+    taskId: task.id,
+    ...(task.templateRuleId ? { templateRuleId: task.templateRuleId } : {}),
+    text: task.text,
+    finishedAt: stamp,
+    finishedDay,
+    intervals: pauseTaskAt(task, stamp).intervals,
   };
 }
 

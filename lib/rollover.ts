@@ -1,5 +1,5 @@
 import type { AppData, Task } from './data';
-import { pauseTaskAt } from './task-operations';
+import { pauseTaskAt, taskHistoryItem } from './task-operations';
 
 function endOfDay(day: string) {
   const date = new Date(`${day}T12:00:00`);
@@ -8,20 +8,31 @@ function endOfDay(day: string) {
   return date.getTime();
 }
 
-/** Carry unfinished tasks into today exactly once, closing active time at its old midnight. */
+/** Close each past day once: finish opted-in tasks, carry the rest into today. */
 export function rolloverPastTasks(data: AppData, today: string): AppData {
   const carried: Task[] = [];
+  const completed: AppData['history'] = [];
   const schedule = { ...data.schedule };
 
   for (const day of Object.keys(schedule).sort()) {
     if (day >= today || !schedule[day]?.length) continue;
-    carried.push(
-      ...schedule[day].map((task) => pauseTaskAt(task, endOfDay(day))),
-    );
+    const midnight = endOfDay(day);
+    for (const task of schedule[day]) {
+      if (task.autoComplete)
+        completed.push(taskHistoryItem(task, task.id, midnight - 1, day));
+      else carried.push(pauseTaskAt(task, midnight));
+    }
     schedule[day] = [];
   }
 
-  if (!carried.length) return data;
-  schedule[today] = [...carried, ...(schedule[today] ?? [])];
-  return { ...data, schedule };
+  if (!carried.length && !completed.length) return data;
+  if (carried.length)
+    schedule[today] = [...carried, ...(schedule[today] ?? [])];
+  return {
+    ...data,
+    schedule,
+    history: completed.length
+      ? [...completed.reverse(), ...data.history]
+      : data.history,
+  };
 }
