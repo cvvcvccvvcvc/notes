@@ -1688,6 +1688,14 @@ h1 {
   color: #818984;
   font-size: 12px;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.template-rule-summary svg {
+  width: 14px;
+  height: 14px;
+  color: #236e5b;
 }
 .template-rule-controls {
   margin: 0 12px 9px;
@@ -1703,6 +1711,36 @@ h1 {
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
+}
+.template-weekdays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.template-weekdays button {
+  width: 30px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid rgb(75 92 82 / 18%);
+  border-radius: 7px;
+  background: rgb(255 255 255 / 58%);
+  color: #59655b;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.template-weekdays button.active {
+  border-color: #73a697;
+  background: #e8f1eb;
+  color: #236e5b;
+  font-weight: 700;
+}
+.template-weekdays button:disabled {
+  cursor: default;
 }
 .template-rule select,
 .template-date-field input {

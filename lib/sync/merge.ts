@@ -95,7 +95,12 @@ const HISTORY_FIELDS = [
   'finishedDay',
   'intervals',
 ] as const;
-const MONTH_TEMPLATE_RULE_FIELDS = ['text', 'color', 'schedule'] as const;
+const MONTH_TEMPLATE_RULE_FIELDS = [
+  'text',
+  'color',
+  'autoComplete',
+  'schedule',
+] as const;
 const APP_DATA_FIELDS = [
   'version',
   'appliedImports',

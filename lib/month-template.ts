@@ -122,10 +122,19 @@ export function defaultMonthTemplateSchedule(
   today = new Date(),
 ): MonthTemplateSchedule {
   if (kind === 'daily') return { kind };
-  if (kind === 'weekly') return { kind, weekday: today.getDay() };
+  if (kind === 'weekly') return { kind, weekdays: [today.getDay()] };
   if (kind === 'monthly') return { kind, day: today.getDate() };
   if (kind === 'fortnightly') return { kind, anchorDay: dateKey(today) };
   return { kind, month: today.getMonth() + 1, day: today.getDate() };
+}
+
+export function weeklyTemplateDays(
+  schedule: Extract<MonthTemplateSchedule, { kind: 'weekly' }>,
+) {
+  return (
+    schedule.weekdays ??
+    (schedule.weekday === undefined ? [] : [schedule.weekday])
+  );
 }
 
 export function nextMonthKey(data: AppData, today: string) {
@@ -145,7 +154,7 @@ function matchingTemplateRules(rules: MonthTemplateRule[], date: Date) {
     if (!rule.text.trim()) return false;
     if (rule.schedule.kind === 'daily') return true;
     if (rule.schedule.kind === 'weekly')
-      return date.getDay() === rule.schedule.weekday;
+      return weeklyTemplateDays(rule.schedule).includes(date.getDay());
     if (rule.schedule.kind === 'monthly')
       return date.getDate() === rule.schedule.day;
     if (rule.schedule.kind === 'annual')
@@ -310,6 +319,7 @@ export function acceptTemplateSuggestion(
     intervals: [],
     ...(parsed ? { plannedStart: parsed.plannedStart } : {}),
     ...(suggestion.rule.color ? { color: suggestion.rule.color } : {}),
+    ...(suggestion.rule.autoComplete ? { autoComplete: true } : {}),
   };
   return {
     ...data,

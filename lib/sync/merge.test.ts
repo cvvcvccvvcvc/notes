@@ -481,13 +481,19 @@ void test('merges template fields and unions created months', () => {
   });
   const local = data({
     monthPlanning: {
-      rules: [{ ...rule, text: '17:30 — MO' }],
+      rules: [
+        {
+          ...rule,
+          text: '17:30 — MO',
+          schedule: { kind: 'weekly', weekdays: [1, 3, 5] },
+        },
+      ],
       createdMonths: ['2026-09', '2026-10'],
     },
   });
   const remote = data({
     monthPlanning: {
-      rules: [{ ...rule, color: 'blue' }],
+      rules: [{ ...rule, color: 'blue', autoComplete: true }],
       createdMonths: ['2026-09', '2026-11'],
     },
   });
@@ -500,6 +506,8 @@ void test('merges template fields and unions created months', () => {
           ...rule,
           text: '17:30 — MO',
           color: 'blue',
+          autoComplete: true,
+          schedule: { kind: 'weekly', weekdays: [1, 3, 5] },
         },
       ],
       createdMonths: ['2026-09', '2026-10', '2026-11'],

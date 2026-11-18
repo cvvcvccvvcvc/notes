@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { AppData } from './data';
+import { rolloverPastTasks } from './rollover';
 import {
   acceptTemplateSuggestion,
   skipTemplateSuggestion,
@@ -80,6 +81,30 @@ void test('opening a month exposes dates and suggestions without writing tasks',
   );
   assert.deepEqual(result.monthPlanning?.createdMonths, ['2026-12', '2027-01']);
   assert.equal(createMonthFromTemplate(result, '2027-01'), result);
+});
+
+void test('one weekly rule suggests each selected weekday', () => {
+  const current = appendMonthTemplateRule(
+    { ...data(), monthPlanning: { rules: [], createdMonths: [] } },
+    {
+      id: 'weekdays',
+      text: 'Тренировка',
+      schedule: { kind: 'weekly', weekdays: [1, 3, 5] },
+    },
+  );
+  assert.deepEqual(
+    templateSuggestions(current, [
+      '2027-02-01',
+      '2027-02-02',
+      '2027-02-03',
+      '2027-02-04',
+      '2027-02-05',
+      '2027-02-06',
+      '2027-02-07',
+    ]).map((item) => item.day),
+    ['2027-02-01', '2027-02-03', '2027-02-05'],
+  );
+  assert.equal(monthTemplateTaskCount(current, '2027-02'), 12);
 });
 
 void test('a monthly date that does not exist is skipped without shifting', () => {
@@ -234,6 +259,44 @@ void test('accepting preserves color and time, is idempotent and survives remova
   assert.equal(
     removeMonthTemplateRule(accepted, 'daily').schedule[input.day].length,
     1,
+  );
+});
+
+void test('accepted tasks inherit auto-completion without changing earlier tasks', () => {
+  const current = appendMonthTemplateRule(
+    { ...data(), monthPlanning: { rules: [], createdMonths: [] } },
+    {
+      id: 'daily',
+      text: 'Вода',
+      autoComplete: true,
+      schedule: { kind: 'daily' },
+    },
+  );
+  const first = acceptTemplateSuggestion(current, {
+    ruleId: 'daily',
+    day: '2027-02-01',
+    targetDay: '2027-02-01',
+    taskId: 'first',
+  });
+  const changed = updateMonthTemplateRule(first, 'daily', (rule) => ({
+    ...rule,
+    autoComplete: false,
+  }));
+  const second = acceptTemplateSuggestion(changed, {
+    ruleId: 'daily',
+    day: '2027-02-02',
+    targetDay: '2027-02-02',
+    taskId: 'second',
+  });
+
+  assert.equal(second.schedule['2027-02-01'][0].autoComplete, true);
+  assert.equal(second.schedule['2027-02-02'][0].autoComplete, undefined);
+  const rolled = rolloverPastTasks(second, '2027-02-03');
+  assert.equal(rolled.history[0].finishedDay, '2027-02-01');
+  assert.ok(
+    rolled.schedule['2027-02-03'].some(
+      (task) => task.id === second.schedule['2027-02-02'][0].id,
+    ),
   );
 });
 

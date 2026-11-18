@@ -1,4 +1,4 @@
-import { Plus, Trash2 } from 'lucide-react';
+import { CalendarCheck2, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,10 @@ import type {
   MonthTemplateSchedule,
   TaskColor,
 } from '@/lib/data';
-import { defaultMonthTemplateSchedule } from '@/lib/month-template';
+import {
+  defaultMonthTemplateSchedule,
+  weeklyTemplateDays,
+} from '@/lib/month-template';
 
 const weekdays = [
   'воскресенье',
@@ -18,6 +21,8 @@ const weekdays = [
   'пятница',
   'суббота',
 ];
+const weekdayOrder = [1, 2, 3, 4, 5, 6, 0];
+const shortWeekdays = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
 
 const months = [
   'января',
@@ -70,8 +75,14 @@ type TemplatesViewProps = {
 
 function scheduleLabel(schedule: MonthTemplateSchedule) {
   if (schedule.kind === 'daily') return 'каждый день';
-  if (schedule.kind === 'weekly')
-    return `${weekdays[schedule.weekday]}, каждую неделю`;
+  if (schedule.kind === 'weekly') {
+    const days = weeklyTemplateDays(schedule);
+    if (days.length === 1) return `${weekdays[days[0]]}, каждую неделю`;
+    return `${weekdayOrder
+      .filter((day) => days.includes(day))
+      .map((day) => shortWeekdays[day])
+      .join(', ')} · каждую неделю`;
+  }
   if (schedule.kind === 'monthly')
     return `${schedule.day}-е число каждого месяца`;
   if (schedule.kind === 'fortnightly')
@@ -223,6 +234,13 @@ export function TemplatesView({
         {rules.map((rule) => {
           const selected = selectedId === rule.id;
           const editing = editingId === rule.id;
+          const selectedDays =
+            rule.schedule.kind === 'weekly'
+              ? weeklyTemplateDays(rule.schedule)
+              : [];
+          const autoLabel = rule.autoComplete
+            ? 'Отключить автозавершение'
+            : 'Автоматически завершать в конце дня';
           return (
             <article
               id={`template-rule-card-${rule.id}`}
@@ -247,6 +265,7 @@ export function TemplatesView({
                     }
                   />
                   <span className="template-rule-summary">
+                    {rule.autoComplete && <CalendarCheck2 aria-hidden="true" />}
                     {scheduleLabel(rule.schedule)}
                   </span>
                 </div>
@@ -255,7 +274,7 @@ export function TemplatesView({
                   id={`template-rule-${rule.id}`}
                   className="template-rule-main"
                   type="button"
-                  aria-label={`${rule.text || 'Без названия'}. ${scheduleLabel(rule.schedule)}`}
+                  aria-label={`${rule.text || 'Без названия'}. ${scheduleLabel(rule.schedule)}${rule.autoComplete ? '. Автозавершение включено' : ''}`}
                   onFocus={() => selectRule(rule.id)}
                   onClick={() => selectRule(rule.id)}
                   onDoubleClick={() => editRule(rule.id)}
@@ -265,6 +284,7 @@ export function TemplatesView({
                     {rule.text || 'Без названия'}
                   </span>
                   <span className="template-rule-summary">
+                    {rule.autoComplete && <CalendarCheck2 aria-hidden="true" />}
                     {scheduleLabel(rule.schedule)}
                   </span>
                 </button>
@@ -300,26 +320,47 @@ export function TemplatesView({
                     </select>
 
                     {rule.schedule.kind === 'weekly' && (
-                      <select
-                        value={rule.schedule.weekday}
-                        aria-label="День недели"
-                        onKeyDown={(event) => handleShortcut(event, rule)}
-                        onChange={(event) =>
-                          updateRule(rule.id, (current) => ({
-                            ...current,
-                            schedule: {
-                              kind: 'weekly',
-                              weekday: Number(event.target.value),
-                            },
-                          }))
-                        }
+                      <fieldset
+                        className="template-weekdays"
+                        aria-label="Дни недели"
                       >
-                        {weekdays.map((weekday, value) => (
-                          <option value={value} key={weekday}>
-                            {weekday}
-                          </option>
-                        ))}
-                      </select>
+                        {weekdayOrder.map((day) => {
+                          const active = selectedDays.includes(day);
+                          return (
+                            <button
+                              key={day}
+                              type="button"
+                              className={active ? 'active' : ''}
+                              title={weekdays[day]}
+                              aria-label={weekdays[day]}
+                              aria-pressed={active}
+                              disabled={active && selectedDays.length === 1}
+                              onClick={() =>
+                                updateRule(rule.id, (current) => {
+                                  if (current.schedule.kind !== 'weekly')
+                                    return current;
+                                  const days = weeklyTemplateDays(
+                                    current.schedule,
+                                  );
+                                  const nextDays = days.includes(day)
+                                    ? days.filter((item) => item !== day)
+                                    : [...days, day].sort((a, b) => a - b);
+                                  if (!nextDays.length) return current;
+                                  return {
+                                    ...current,
+                                    schedule: {
+                                      kind: 'weekly',
+                                      weekdays: nextDays,
+                                    },
+                                  };
+                                })
+                              }
+                            >
+                              {shortWeekdays[day]}
+                            </button>
+                          );
+                        })}
+                      </fieldset>
                     )}
 
                     {rule.schedule.kind === 'monthly' && (
@@ -420,6 +461,21 @@ export function TemplatesView({
                         </select>
                       </div>
                     )}
+                    <button
+                      type="button"
+                      className={`auto-complete-button ${rule.autoComplete ? 'active' : ''}`}
+                      title={autoLabel}
+                      aria-label={autoLabel}
+                      aria-pressed={Boolean(rule.autoComplete)}
+                      onClick={() =>
+                        updateRule(rule.id, (current) => ({
+                          ...current,
+                          autoComplete: !current.autoComplete,
+                        }))
+                      }
+                    >
+                      <CalendarCheck2 aria-hidden="true" />
+                    </button>
                   </div>
 
                   <div className="template-rule-tools">

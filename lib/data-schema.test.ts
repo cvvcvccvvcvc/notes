@@ -31,6 +31,46 @@ void test('persisted data accepts only real calendar days', () => {
   );
 });
 
+void test('weekly templates accept legacy weekdays and distinct selected days', () => {
+  const withSchedule = (schedule: {
+    kind: 'weekly';
+    weekday?: number;
+    weekdays?: number[];
+  }) =>
+    data({
+      monthPlanning: {
+        rules: [{ id: 'weekly', text: 'Дело', schedule }],
+        createdMonths: [],
+      },
+    });
+
+  assert.equal(
+    appDataSchema.safeParse(withSchedule({ kind: 'weekly', weekday: 1 }))
+      .success,
+    true,
+  );
+  assert.equal(
+    appDataSchema.safeParse(
+      withSchedule({ kind: 'weekly', weekdays: [1, 3, 5] }),
+    ).success,
+    true,
+  );
+  assert.equal(
+    appDataSchema.safeParse(withSchedule({ kind: 'weekly', weekdays: [] }))
+      .success,
+    false,
+  );
+  assert.equal(
+    appDataSchema.safeParse(withSchedule({ kind: 'weekly', weekdays: [1, 1] }))
+      .success,
+    false,
+  );
+  assert.equal(
+    appDataSchema.safeParse(withSchedule({ kind: 'weekly' })).success,
+    false,
+  );
+});
+
 void test('persisted task intervals are chronological with at most one open tail', () => {
   const task = (intervals: Array<{ start: number; end?: number }>) =>
     data({

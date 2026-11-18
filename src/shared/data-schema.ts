@@ -180,10 +180,22 @@ const taskGroupSchema = z.looseObject({
 
 const monthTemplateScheduleSchema = z.discriminatedUnion('kind', [
   z.looseObject({ kind: z.literal('daily') }),
-  z.looseObject({
-    kind: z.literal('weekly'),
-    weekday: z.number().int().min(0).max(6),
-  }),
+  z
+    .looseObject({
+      kind: z.literal('weekly'),
+      weekday: z.number().int().min(0).max(6).optional(),
+      weekdays: z
+        .array(z.number().int().min(0).max(6))
+        .min(1)
+        .max(7)
+        .refine((days) => new Set(days).size === days.length)
+        .optional(),
+    })
+    .refine(
+      ({ weekday, weekdays }) =>
+        (weekday === undefined) !== (weekdays === undefined),
+      'Укажите дни недели',
+    ),
   z.looseObject({
     kind: z.literal('monthly'),
     day: z.number().int().min(1).max(31),
@@ -203,6 +215,7 @@ const monthTemplateRuleSchema = z.looseObject({
   id: idSchema,
   text: z.string().max(100_000),
   color: taskColorSchema.optional(),
+  autoComplete: z.boolean().optional(),
   schedule: monthTemplateScheduleSchema,
 });
 
