@@ -3,8 +3,20 @@ import { useEffect, useRef, useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-import type { Rule } from '@/lib/data';
+import type { Rule, TaskColor } from '@/lib/data';
 import { SortableItems } from '@/lib/sorting';
+
+const colors: Array<{
+  value?: TaskColor;
+  label: string;
+  className: string;
+}> = [
+  { label: 'Без цвета', className: 'none' },
+  { value: 'blue', label: 'Голубой', className: 'blue' },
+  { value: 'yellow', label: 'Жёлтый', className: 'yellow' },
+  { value: 'purple', label: 'Фиолетовый', className: 'purple' },
+  { value: 'rose', label: 'Розовый', className: 'rose' },
+];
 
 const sortableId = (id: string) => `rule:${id}`;
 
@@ -25,7 +37,7 @@ export function RulesPanel({
 }: {
   rules: Rule[];
   addRule: () => string;
-  updateRule: (id: string, text: string) => void;
+  updateRule: (id: string, change: (rule: Rule) => Rule) => void;
   removeRule: (id: string) => void;
   moveRule: (id: string, direction: -1 | 1) => void;
 }) {
@@ -128,7 +140,7 @@ export function RulesPanel({
   return (
     <aside
       className={`rules-panel ${mobileExpanded ? 'mobile-expanded' : ''}`}
-      aria-label="Правила"
+      aria-label="Планы"
       onPointerDownCapture={(event) => {
         if (!(event.target as HTMLElement).closest('[data-rule-card]')) {
           if (editingId) stopEditing(editingId, false);
@@ -167,20 +179,20 @@ export function RulesPanel({
           setEditingId(null);
         }}
       >
-        <span>Правила</span>
+        <span>Планы</span>
         <ChevronDown />
       </button>
       {mobileExpanded && (
         <button
           type="button"
           className="rules-mobile-close"
-          aria-label="Скрыть правила"
+          aria-label="Скрыть планы"
           onClick={() => setMobileExpanded(false)}
         >
           <X />
         </button>
       )}
-      <h2>Правила</h2>
+      <h2>Планы</h2>
       <div
         id="rules-mobile-content"
         className={`rules-content ${mobileExpanded ? 'mobile-expanded' : ''}`}
@@ -200,7 +212,12 @@ export function RulesPanel({
                 onEdit={() => edit(rule.id)}
                 onStopEditing={() => stopEditing(rule.id, false)}
                 onRemove={() => removeSelected(rule.id)}
-                onChange={(text) => updateRule(rule.id, text)}
+                onChange={(text) =>
+                  updateRule(rule.id, (current) => ({ ...current, text }))
+                }
+                onSetColor={(color) =>
+                  updateRule(rule.id, (current) => ({ ...current, color }))
+                }
                 onKeyDown={(event) => handleShortcut(event, rule.id)}
               />
             ))}
@@ -216,7 +233,7 @@ export function RulesPanel({
             focusRule(id, true);
           }}
         >
-          <Plus /> Добавить правило
+          <Plus /> Добавить план
         </button>
       </div>
     </aside>
@@ -232,6 +249,7 @@ function SortableRule({
   onStopEditing,
   onRemove,
   onChange,
+  onSetColor,
   onKeyDown,
 }: {
   rule: Rule;
@@ -242,6 +260,7 @@ function SortableRule({
   onStopEditing: () => void;
   onRemove: () => void;
   onChange: (text: string) => void;
+  onSetColor: (color?: TaskColor) => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => void;
 }) {
   const {
@@ -252,7 +271,7 @@ function SortableRule({
     transition,
     isDragging,
   } = useSortable({ id: sortableId(rule.id) });
-  const className = `rule-card ${selected ? 'selected' : ''} ${editing ? 'editing' : ''} ${isDragging ? 'dragging' : ''}`;
+  const className = `rule-card ${rule.color ? `rule-color-${rule.color}` : ''} ${selected ? 'selected' : ''} ${editing ? 'editing' : ''} ${isDragging ? 'dragging' : ''}`;
   const style = { transform: CSS.Translate.toString(transform), transition };
 
   return (
@@ -261,8 +280,8 @@ function SortableRule({
         <input
           id={`rule-editor-${rule.id}`}
           value={rule.text}
-          placeholder="Новое правило"
-          aria-label="Текст правила"
+          placeholder="Новый план"
+          aria-label="Текст плана"
           onChange={(event) => onChange(event.target.value)}
           onBlur={onStopEditing}
           onKeyDown={onKeyDown}
@@ -278,19 +297,34 @@ function SortableRule({
           onClick={onEdit}
           onKeyDown={onKeyDown}
         >
-          <span className="rule-text">{rule.text || 'Новое правило'}</span>
+          <span className="rule-text">{rule.text || 'Новый план'}</span>
         </button>
       )}
       <button
         type="button"
         className="rule-delete"
-        aria-label="Удалить правило"
-        title="Удалить правило"
+        aria-label="Удалить план"
+        title="Удалить план"
         onPointerDown={(event) => event.preventDefault()}
         onClick={onRemove}
       >
         <X aria-hidden="true" />
       </button>
+      {selected && (
+        <fieldset className="rule-color-picker" aria-label="Цвет плана">
+          {colors.map((color) => (
+            <button
+              key={color.className}
+              type="button"
+              className={`rule-color-dot ${color.className} ${rule.color === color.value ? 'selected' : ''}`}
+              title={color.label}
+              aria-label={color.label}
+              aria-pressed={rule.color === color.value}
+              onClick={() => onSetColor(color.value)}
+            />
+          ))}
+        </fieldset>
+      )}
     </div>
   );
 }

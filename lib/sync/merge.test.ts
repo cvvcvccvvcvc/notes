@@ -525,7 +525,7 @@ void test('merges independent rule edits and additions', () => {
   });
   const remote = data({
     rules: [
-      { id: 'focus', text: 'Focus' },
+      { id: 'focus', text: 'Focus', color: 'purple' },
       { id: 'remote-rule', text: 'Remote' },
     ],
   });
@@ -534,6 +534,10 @@ void test('merges independent rule edits and additions', () => {
   assert.equal(
     result.rules?.find((rule) => rule.id === 'focus')?.text,
     'Work first',
+  );
+  assert.equal(
+    result.rules?.find((rule) => rule.id === 'focus')?.color,
+    'purple',
   );
   assert.deepEqual(
     new Set(result.rules?.map((rule) => rule.id)),

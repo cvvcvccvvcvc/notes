@@ -70,7 +70,7 @@ const TASK_FIELDS = [
   'templateRuleId',
 ] as const;
 const GROUP_FIELDS = ['title', 'content', 'color'] as const;
-const RULE_FIELDS = ['text'] as const;
+const RULE_FIELDS = ['text', 'color'] as const;
 const GOAL_FIELDS = ['period', 'text'] as const;
 const REVIEW_FIELDS = [
   'period',

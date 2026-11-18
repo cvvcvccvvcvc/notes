@@ -136,6 +136,7 @@ const noteSchema = z.looseObject({
 const ruleSchema = z.looseObject({
   id: idSchema,
   text: z.string().max(10_000),
+  color: taskColorSchema.optional(),
 });
 
 const reviewPeriodSchema = z.discriminatedUnion('kind', [

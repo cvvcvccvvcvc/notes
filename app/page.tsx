@@ -749,10 +749,8 @@ export default function Home() {
     return id;
   }
 
-  function updateRule(id: string, text: string) {
-    commit((current) =>
-      updateRuleInData(current, id, (rule) => ({ ...rule, text })),
-    );
+  function updateRule(id: string, change: (rule: Rule) => Rule) {
+    commit((current) => updateRuleInData(current, id, change));
   }
 
   function moveRule(id: string, direction: -1 | 1) {
@@ -773,7 +771,7 @@ export default function Home() {
       return;
     }
     commitWithUndo(
-      'Правило удалено',
+      'План удалён',
       (current) => removeRuleFromData(current, id),
       (current) => restoreRule(current, rule, index),
     );

@@ -170,7 +170,7 @@ type ScheduleProps = {
   openTemplates: () => void;
   rules: Rule[];
   addRule: () => string;
-  updateRule: (id: string, text: string) => void;
+  updateRule: (id: string, change: (rule: Rule) => Rule) => void;
   removeRule: (id: string) => void;
   moveRule: (id: string, direction: -1 | 1) => void;
   dropRule: (sourceId: string, targetId: string) => void;

@@ -19,12 +19,16 @@ void test('rule operations preserve ids and explicit order', () => {
   data = appendRule(data, { id: 'one', text: 'One' });
   data = appendRule(data, { id: 'two', text: 'Two' });
   data = appendRule(data, { id: 'three', text: 'Three' });
-  data = updateRule(data, 'two', (rule) => ({ ...rule, text: 'Updated' }));
+  data = updateRule(data, 'two', (rule) => ({
+    ...rule,
+    text: 'Updated',
+    color: 'purple',
+  }));
   data = moveRule(data, 'two', -1);
   data = moveRuleTo(data, 'three', 'one');
 
   assert.deepEqual(data.rules, [
-    { id: 'two', text: 'Updated' },
+    { id: 'two', text: 'Updated', color: 'purple' },
     { id: 'three', text: 'Three' },
     { id: 'one', text: 'One' },
   ]);

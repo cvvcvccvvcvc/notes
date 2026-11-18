@@ -833,6 +833,18 @@ h1 {
   background: #f7f8f5;
   box-shadow: 0 0 0 2px rgb(70 80 72 / 8%);
 }
+.rule-card.rule-color-blue {
+  background: #edf6fc;
+}
+.rule-card.rule-color-yellow {
+  background: #fff7dc;
+}
+.rule-card.rule-color-purple {
+  background: #f4eef9;
+}
+.rule-card.rule-color-rose {
+  background: #faedef;
+}
 .rule-card.dragging {
   cursor: grabbing;
   opacity: 0.48;
@@ -883,6 +895,16 @@ h1 {
 .rule-delete svg {
   width: 15px;
   height: 15px;
+}
+.rule-color-picker {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 3px 0 0;
+  padding: 5px 0 1px;
+  border: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
 }
 .rule-card .rule-text {
   white-space: pre-wrap;
@@ -1776,7 +1798,8 @@ h1 {
 .template-color-picker {
   gap: 5px;
 }
-.template-color-dot {
+.template-color-dot,
+.rule-color-dot {
   width: 20px;
   height: 20px;
   padding: 0;
@@ -1784,22 +1807,28 @@ h1 {
   border-radius: 50%;
   cursor: pointer;
 }
-.template-color-dot.none {
+.template-color-dot.none,
+.rule-color-dot.none {
   background: #fffefb;
 }
-.template-color-dot.blue {
+.template-color-dot.blue,
+.rule-color-dot.blue {
   background: #cae7f7;
 }
-.template-color-dot.yellow {
+.template-color-dot.yellow,
+.rule-color-dot.yellow {
   background: #f8df82;
 }
-.template-color-dot.purple {
+.template-color-dot.purple,
+.rule-color-dot.purple {
   background: #ddc7ec;
 }
-.template-color-dot.rose {
+.template-color-dot.rose,
+.rule-color-dot.rose {
   background: #efc5cc;
 }
-.template-color-dot.selected {
+.template-color-dot.selected,
+.rule-color-dot.selected {
   box-shadow:
     0 0 0 2px #fffefb,
     0 0 0 4px #3a7f69;
